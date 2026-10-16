@@ -108,6 +108,21 @@ insert rejected `42501`, cross-user update/delete affected 0 rows.
 
 Project ref `jerbhsasccvjelkkphgu`. The anon and service_role JWTs authenticate data
 calls only — service_role gets **401 from `api.supabase.com`** and cannot run migrations
-or deploy functions. Only the `sbp_…` personal access token can. Edge functions must live
-under the **root** `supabase/functions/` to deploy; `svelte-recomp/supabase/functions/` is
-the source copy.
+or deploy functions. Only the `sbp_…` personal access token can. Edge functions live
+under the **root** `supabase/functions/` — the only copy (a second copy under
+`svelte-recomp/` drifted and was deleted 2026-10-16). Deploy one with:
+
+```sh
+cd /home/nik/schedule && set -a; . ~/.config/recompos/supabase.env; set +a
+supabase functions deploy <name> --project-ref "$SUPABASE_PROJECT_REF"
+```
+
+Every AI call goes through `supabase/functions/_shared/llm.ts`: Gemini, then the keyless
+Kilo gateway and Pollinations, hedged. Never call one Gemini model directly again — model
+names get retired (2.5-flash: 404) and `-latest` aliases can take 25 s+. Each function
+accepts `"only": ["kilo"]` in the body to test one fallback on its own.
+
+Migrations: the CLI here can't list remote history without the DB password, so apply a
+new file in `supabase/migrations/` through the Management API
+(`POST /v1/projects/$SUPABASE_PROJECT_REF/database/query`) and insert its version into
+`supabase_migrations.schema_migrations`.

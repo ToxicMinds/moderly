@@ -9,16 +9,9 @@
 // ACTUAL macro gap and constraints, in the EXACT same shape as the static
 // recipes, so it renders through the existing recipe modal with no UI rework.
 //
-// Same Gemini + CORS pattern as estimate-food (see that file for why the CORS
-// headers are mandatory for browser-invoked edge functions).
-const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
-const MODEL = 'gemini-flash-latest';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-};
+// Providers come from ../_shared/llm.ts: it called gemini-flash-latest alone,
+// with no timeout, and that model was taking 25 s+ to say "ok" (2026-10-16).
+import { ask, corsHeaders, extractJson, json } from '../_shared/llm.ts';
 
 // Asking for structured output natively is far more reliable than begging for
 // JSON in the prompt and then stripping code fences off the answer.
@@ -89,7 +82,7 @@ Deno.serve(async (req: Request) => {
         `The user still needs about ${gap}g of protein today (target ${proteinTarget}g, ${Math.round(proteinSoFar)}g eaten). Design the portion so ONE serving makes a serious dent in that gap.`
       );
     }
-    if (kcalTarget) {
+    if (kcalTarget && body.direction !== 'gain') {
       const gap = Math.round(kcalTarget - kcalSoFar);
       gapLines.push(
         gap > 0
@@ -98,11 +91,23 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const prompt = `You are a body-recomposition chef. Create ONE recipe for someone in a calorie deficit who lifts weights — high protein, high satiety, real food, genuinely delicious. Not diet food.
+    // Not everyone is cutting (see the 5bd4f55 safety fix): someone recovering
+    // from illness or building up must not be handed "diet food".
+    const direction = ['cut', 'maintain', 'gain'].includes(body.direction) ? body.direction : 'cut';
+    const who = direction === 'gain'
+      ? 'someone who lifts weights and needs to GAIN weight — energy-dense, high protein, easy to eat a full portion of'
+      : direction === 'maintain'
+        ? 'someone who lifts weights and is holding their weight — balanced, high protein, satisfying'
+        : 'someone in a calorie deficit who lifts weights — high protein, high satiety, real food, genuinely delicious. Not diet food';
+
+    const prompt = `You are a body-recomposition chef. Create ONE recipe for ${who}.
 
 WHAT THEY ASKED FOR: "${request}"
 
 ${gapLines.join('\n')}
+
+Reply with JSON only, in this shape:
+{"name":"","e":"<one emoji>","t":<total minutes>,"k":<kcal per portion>,"p":<protein g per portion>,"c":<carb g per portion>,"f":<fat g per portion>,"batch":<portions>,"desc":"<one appetising sentence>","ing":[{"n":"<ingredient>","a":"<amount for the whole batch>","cat":"protein|veg|dairy|dry"}],"prep":["..."],"steps":["..."],"instantPot":["..."],"kid":<true|false>,"coachNote":"<one sentence>"}
 
 HARD RULES:
 - Macros (k, p, c, f) are PER PORTION, not for the whole batch. They must be arithmetically consistent with the ingredients divided by "batch". Protein should be a high share of calories.
@@ -115,46 +120,20 @@ ${avoid.length ? `- They have recently eaten these, so make it clearly different
 - Set "kid": true only if a small child would happily eat it.
 - "coachNote": one sentence on how this serves their goal.`;
 
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${GEMINI_API_KEY}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            responseMimeType: 'application/json',
-            responseSchema: RECIPE_SCHEMA,
-            temperature: 1.0, // variety is the entire point — don't return the same dish every time
-          },
-        }),
-      }
-    );
-
-    const result = await response.json();
-
-    // Surface real upstream failures honestly (quota, model retired, overload)
-    // rather than blaming the user's request — see estimate-food for the
-    // production outage this style of masking previously hid.
-    if (!response.ok) {
-      const upstreamMsg = result?.error?.message || `Gemini API error (HTTP ${response.status})`;
-      return new Response(
-        JSON.stringify({ error: `Recipe generation is temporarily unavailable: ${upstreamMsg}` }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const text = (result?.candidates?.[0]?.content?.parts?.[0]?.text || '').trim();
-    const cleaned = text.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '').trim();
-
     let parsed: any;
     try {
-      parsed = JSON.parse(cleaned);
-    } catch {
-      return new Response(
-        JSON.stringify({ error: 'The recipe came back malformed. Try again, or reword your request.' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      ({ value: parsed } = await ask(
+        { prompt, schema: RECIPE_SCHEMA, temperature: 1.0, timeoutMs: 45_000 },
+        (text) => {
+          const o = extractJson(text) as Record<string, any> | null;
+          if (!o || !o.name || !Array.isArray(o.ing) || !Array.isArray(o.steps) || !o.steps.length) throw new Error('incomplete recipe');
+          return o;
+        },
+        { only: body?.only, staggerMs: 15_000, deadlineMs: 100_000 },
+      ));
+    } catch (e) {
+      console.error('generate-recipe failed', JSON.stringify((e as any)?.errors ?? String(e)));
+      return json({ error: 'Every recipe service is busy or down right now — try again in a minute.' });
     }
 
     const num = (v: unknown, fallback = 0) => {
