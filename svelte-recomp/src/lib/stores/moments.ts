@@ -5,7 +5,7 @@
 // window; the Alarms card shows them, so what arrives is never a surprise.
 import { derived, get, writable, type Readable } from 'svelte/store';
 import { body } from './body';
-import { liveFoodLogs, liveOwnSessions, liveProfile, liveSchedule } from './live';
+import { liveDailyLogs, liveFoodLogs, liveOwnSessions, liveProfile, liveSchedule, liveWeights } from './live';
 import { upsertRecord } from './sync';
 import { userId } from './user';
 import { composeBriefing, type Briefing, type DayForecast } from '$lib/briefing';
@@ -15,6 +15,7 @@ import { WEEKS } from '$lib/data/backRebuild';
 import { cleanPlans } from '$lib/plans';
 import { usualBreakfast, type QuickFood } from '$lib/quickAdd';
 import { shiftYmd } from '$lib/date';
+import { lastMonth, monthLetter } from '$lib/week';
 import { forecastHere } from '$lib/weather';
 
 /** user_settings.briefing: the morning switch and time, and the evening's. */
@@ -41,8 +42,8 @@ export interface MomentActions { weigh: boolean; back: boolean; meal: { label: s
 
 /** The morning briefing written for today and tomorrow, with its buttons. */
 export const briefings: Readable<Array<Briefing & { actions: MomentActions }>> = derived(
-  [body, liveSchedule(), liveOwnSessions(), liveProfile(), forecast, liveFoodLogs()],
-  ([$body, $schedule, $sessions, $profile, $forecast, $food]) => {
+  [body, liveSchedule(), liveOwnSessions(), liveProfile(), forecast, liveFoodLogs(), liveDailyLogs(), liveWeights()],
+  ([$body, $schedule, $sessions, $profile, $forecast, $food, $daily, $weights]) => {
     const sched = ($schedule as any[]) ?? [];
     const program = ($profile as any)?.program;
     const plans = cleanPlans(($profile as any)?.plans);
@@ -53,12 +54,17 @@ export const briefings: Readable<Array<Briefing & { actions: MomentActions }>> =
       const week = programWeek(program, date);
       const rateBack = week >= 1 && week <= WEEKS;
       const usual = usualBreakfast($food as any[], date);
+      // The 1st: point at the letter from the month just gone, if it has one.
+      const letter = date.endsWith('-01')
+        ? monthLetter(lastMonth(date), $daily as any[], ($weights as any[]).map((w) => ({ date: w.date, weight: +w.weight })))?.label ?? null
+        : null;
       return {
         ...composeBriefing({
           date, forecast: $forecast?.find((f) => f.date === date) ?? null,
           day, session, rateBack, plans,
           week: i === 0 ? $body.week : $body.tomorrow,
           usual: usual ? { names: usual.items.map((x) => x.name), kcal: usual.kcal } : null,
+          letter,
         }),
         actions: { weigh: true, back: rateBack, meal: usual ? { label: 'Usual breakfast', kcal: usual.kcal, items: usual.items } : null },
       };

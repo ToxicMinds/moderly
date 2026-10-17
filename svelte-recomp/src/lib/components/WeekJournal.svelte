@@ -4,18 +4,32 @@
   // that writes itself a week at a time — private, and only ever in the
   // user's own words.
   import { liveDailyLogs, liveWeights } from '$lib/stores/live';
-  import { journalWeeks } from '$lib/week';
+  import { journalWeeks, monthLetter } from '$lib/week';
+  import { todayDate } from '$lib/stores/refresh';
 
   const _daily = liveDailyLogs();
   const _weights = liveWeights();
-  const weeks = $derived(journalWeeks($_daily as any[], ($_weights as any[]).map((w) => ({ date: w.date, weight: +w.weight }))));
+  const points = $derived(($_weights as any[]).map((w) => ({ date: w.date, weight: +w.weight })));
+  const weeks = $derived(journalWeeks($_daily as any[], points));
+  // Each month opens with its letter in one line (see MonthLetter.svelte).
+  const months = $derived(new Map([...new Set(weeks.map((w) => w.weekStart.slice(0, 7)))].map((m) => [m, monthLetter(m, $_daily as any[], points)])));
+  const firstOfMonth = (i: number) => i === 0 || weeks[i - 1].weekStart.slice(0, 7) !== weeks[i].weekStart.slice(0, 7);
   const fmt = (ymd: string) => new Date(`${ymd}T12:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
 </script>
 
 {#if weeks.length}
   <div class="card wj">
     <div class="card-lbl">Week by week</div>
-    {#each weeks as w (w.weekStart)}
+    {#each weeks as w, i (w.weekStart)}
+      {#if firstOfMonth(i)}
+        {@const m = months.get(w.weekStart.slice(0, 7))}
+        {#if m}
+          <div class="wj-month">
+            <b>{m.label}{m.month === $todayDate.slice(0, 7) ? ' so far' : ''}</b>
+            {#if m.fromKg != null && m.toKg != null}{' '}{m.fromKg.toFixed(1)} → {m.toKg.toFixed(1)} kg{/if}{' · '}{m.mornings}/{m.days} mornings{#if m.reviewed}{' · '}plan held {m.kept} of {m.reviewed}{/if}
+          </div>
+        {/if}
+      {/if}
       <div class="wj-row">
         <div class="wj-top">
           <span class="wj-date">Week of {fmt(w.weekStart)}</span>
@@ -31,6 +45,8 @@
 {/if}
 
 <style>
+  .wj-month{font-size:0.8125rem;color:var(--muted);padding:12px 0 2px;border-bottom:1px solid var(--border)}
+  .wj-month b{font-family:var(--font-display);font-size:0.9375rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--text)}
   .wj-row{padding:10px 0;border-bottom:1px solid var(--border)}
   .wj-row:last-child{border-bottom:none}
   .wj-top{display:flex;justify-content:space-between;align-items:baseline;gap:10px}

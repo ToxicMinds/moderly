@@ -18,6 +18,7 @@
   import { cleanPlans } from '$lib/plans';
   import CommitmentAlerts from '$lib/components/CommitmentAlerts.svelte';
   import MilestoneMoment from '$lib/components/MilestoneMoment.svelte';
+  import MonthLetter from '$lib/components/MonthLetter.svelte';
   import Commitments from '$lib/components/Commitments.svelte';
   import { strengthTrend } from '$lib/strength';
   import { primaryActivity } from '$lib/health/exercise';
@@ -299,6 +300,9 @@
 
 <!-- A next stop held for three days: shown once, then the next one is chosen. -->
 <MilestoneMoment />
+
+<!-- The 1st to the 3rd: last month, told back. -->
+<MonthLetter />
 
 <!-- The line, when the trend is over it, and the plan whose moment it is.
      Nothing on an ordinary day. -->

@@ -3717,6 +3717,38 @@ check('choosing the next stop keeps the one reached, for the journal', async () 
   assert.equal(nextMilestone(null, null, '2026-12-05'), null);
 });
 
+check('the letter from last month tells the month back, in the user’s words', async () => {
+  const { monthLetter, lastMonth } = await import('../src/lib/week.ts');
+  assert.equal(lastMonth('2026-11-01'), '2026-10');
+  assert.equal(lastMonth('2027-01-02'), '2026-12', 'January looks back at December');
+  const w = [];
+  for (let d = 1; d <= 20; d++) if (d % 4) w.push({ date: `2026-10-${String(d).padStart(2, '0')}`, weight: +(113 - d * 0.06).toFixed(2) });
+  for (let d = 20; d <= 30; d++) w.push({ date: `2026-09-${String(d).padStart(2, '0')}`, weight: 113.2 });
+  const logs = [
+    { date: '2026-10-05', week_check: { effort: 'right', adherence: 'nailed', planText: 'Box the leftovers', note: 'Planetarium. Didn’t touch his fries.' } },
+    { date: '2026-10-12', week_check: { effort: 'easy', adherence: 'struggled', planText: 'Box the leftovers', note: ' ' } },
+    { date: '2026-09-28', week_check: { effort: 'easy', adherence: 'nailed', planText: 'x', note: 'September’s' } },
+  ];
+  const l = monthLetter('2026-10', logs, w, [{ kg: 105, reached: '2026-10-28' }, { kg: 110, reached: '2026-09-02' }]);
+  assert.equal(l.label, 'October');
+  assert.equal(l.mornings, 15);
+  assert.equal(l.days, 31);
+  assert.deepEqual([l.kept, l.reviewed], [1, 2], 'struggled is not kept');
+  assert.deepEqual(l.notes.map((n) => n.note), ['Planetarium. Didn’t touch his fries.'], 'his words only, blank ones dropped, the month’s only');
+  assert.deepEqual(l.stops, [{ kg: 105, reached: '2026-10-28' }]);
+  assert.ok(l.toKg < l.fromKg && l.deltaKg < 0, 'the trend came down');
+  const { weightVerdict } = await import('../src/lib/insights.ts');
+  const at = (ymd) => Math.round(weightVerdict(w, Date.parse(`${ymd}T12:00:00`)).trendKg * 10) / 10;
+  assert.equal(l.toKg, at('2026-10-19'), 'read at the last weigh-in (the 19th), not extrapolated to the 31st');
+  assert.notEqual(at('2026-10-31'), at('2026-10-19'), '(the two differ, so the line above means something)');
+  assert.equal(monthLetter('2026-08', logs, w), null, 'a month that left nothing has no letter');
+});
+
+check('the briefing on the 1st points at the letter', () => {
+  assert.match(composeBriefing({ ...SAT_IN, date: '2026-11-01', letter: 'October' }).body, /^October, looking back, is on Today\.$/m);
+  assert.ok(!composeBriefing(SAT_IN).body.includes('looking back'));
+});
+
 // Nothing may be reported until the async checks have actually settled.
 await Promise.all(pending);
 

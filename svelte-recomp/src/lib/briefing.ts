@@ -85,6 +85,8 @@ export interface BriefingInput {
   /** The breakfast eaten most mornings (quickAdd.usualBreakfast): what the
    *  notification's "Log usual breakfast" button logs. */
   usual?: { names: string[]; kcal: number } | null;
+  /** On the 1st: the month whose letter is waiting on Today. */
+  letter?: string | null;
 }
 
 export interface Briefing { date: string; title: string; body: string }
@@ -121,6 +123,8 @@ export function composeBriefing(i: BriefingInput): Briefing {
     const names = i.usual.names.length > 3 ? [...i.usual.names.slice(0, 3), '…'] : i.usual.names;
     lines.push(`Usual breakfast: ${names.join(', ')} · ${kcal(i.usual.kcal)} kcal`);
   }
+
+  if (i.letter) lines.push(`${i.letter}, looking back, is on Today.`);
 
   // The day's own plan: Friday's is the one that decides the weekend, so it
   // wins on a badminton Friday.
