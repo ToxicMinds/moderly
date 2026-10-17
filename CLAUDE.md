@@ -100,7 +100,14 @@ existed, in a branch no test reached.
 
 - Weight trend, pace against the plan, learned burn, calorie and protein targets and
   intake-by-date come from `src/lib/stores/body.ts`. Never fit a weight slope, call
-  `adaptiveTdee`/`resolveCalorieTarget` or write `goalKg * 1.8` anywhere else.
+  `adaptiveTdee`/`weeklyMaintenance`/`resolveCalorieTarget`/`diagnoseStall`/`weekShape`
+  or write `goalKg * 1.8` anywhere else.
+- The calorie target is the WEEK's, in the log's own units: learned from the mean
+  logged day, smoothed across Sundays, at most one 300-kcal step under the usual day.
+  Never "fix" a stall by asking the user to log more completely — see
+  `src/lib/adaptiveTdee.ts` (`weeklyMaintenance`) for why a consistent log is enough.
+- A weigh-in is saved only through `saveWeighIn` (`src/lib/weighIn.ts`); the line and
+  the plans only through `src/lib/commitments.ts`.
 - Rows that belong together (a meal, a seeded plan) go through `upsertRecords` — one
   request, all or nothing. No `for … await upsertRecord` loops.
 - A table's conflict key lives in `CONFLICT` in `stores/sync.ts`; "today" comes from
