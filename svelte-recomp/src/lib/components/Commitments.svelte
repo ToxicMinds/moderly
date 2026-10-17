@@ -4,7 +4,7 @@
   // the plan strip (all through `editing`).
   import { untrack } from 'svelte';
   import Modal from './Modal.svelte';
-  import { editing, saveLine, savePlans } from '$lib/commitments';
+  import { editing, saveLine, savePlans, saveWhy } from '$lib/commitments';
   import { CUES, cleanPlans, type Plans } from '$lib/plans';
   import { suggestLine } from '$lib/line';
   import { line, body } from '$lib/stores/body';
@@ -19,6 +19,7 @@
   let lineKg = $state('');
   let linePlan = $state('');
   let draft = $state<Plans>({});
+  let whyDraft = $state('');
   let saving = $state(false);
   let error = $state('');
 
@@ -34,6 +35,7 @@
         linePlan = plans.line ?? '';
       } else if (open === 'plans') {
         draft = { ...plans };
+        whyDraft = (($_profile as any)?.why ?? '').trim();
       }
     });
   });
@@ -62,7 +64,10 @@
     await savePlans({ ...plans, line: linePlan });
   });
   const removeLine = () => run(() => saveLine(null, $todayDate));
-  const keepPlans = () => run(() => savePlans(draft));
+  const keepPlans = () => run(async () => {
+    await savePlans(draft);
+    if (whyDraft.trim() !== ((($_profile as any)?.why ?? '').trim())) await saveWhy(whyDraft);
+  });
 </script>
 
 <Modal open={$editing === 'line'} onclose={close}>
@@ -93,6 +98,9 @@
     shows on Today when that moment comes round. Plans made like this, ahead of time and this specific,
     make people clearly more likely to follow through: a medium-to-large effect across 94 studies.
   </p>
+  <label class="cm-lbl" for="pl-why">Why you're doing this</label>
+  <textarea id="pl-why" rows="2" bind:value={whyDraft} placeholder="In your own words. Nobody else sees it."></textarea>
+  <div class="cm-hint">It comes back when a plan is tested: over your line, and in the Sunday check-in.</div>
   {#each CUES as c (c.cue)}
     <div class="pl-row">
       <label class="cm-lbl" for="pl-{c.cue}">{c.when}</label>

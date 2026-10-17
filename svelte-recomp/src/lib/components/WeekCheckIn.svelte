@@ -9,15 +9,13 @@
   import { userId } from '$lib/stores/user';
   import { upsertRecord } from '$lib/stores/sync';
   import { liveFoodLogs, liveDailyLogs, liveBiometrics, liveWorkoutLogs, liveProfile } from '$lib/stores/live';
-  import { reviewInputs } from '$lib/stores/review';
   import { editing } from '$lib/commitments';
-  import { cleanPlans } from '$lib/plans';
-  import { weeklyReview } from '$lib/weeklyReview';
+  import { cleanPlans, planToReview } from '$lib/plans';
   import { body } from '$lib/stores/body';
   import { todayDate } from '$lib/stores/refresh';
   import { haptic } from '$lib/haptics';
   import {
-    CHECK_IN_QUESTIONS, checkInAdjustment, reviewWeekStart, shouldAskCheckIn,
+    checkInQuestions, checkInAdjustment, reviewWeekStart, shouldAskCheckIn,
     type CheckInAnswers, type Effort, type Hunger, type Adherence,
   } from '$lib/weekCheckIn';
 
@@ -83,7 +81,7 @@
     // The engine's number without any earlier nudge, so a nudge never stacks.
     const targetKcal = $body.target.target != null ? $body.target.target - $body.target.adjustKcal : null;
 
-    return { weightChangeKg, currentWeightKg, targetKcal, avgProteinG, proteinTargetG, avgSleepH, sessions, goalKg };
+    return { weightChangeKg, currentWeightKg, targetKcal, avgProteinG, proteinTargetG, avgSleepH, sessions, goalKg, planLabel: reviewed?.label ?? null };
   });
 
   // ── Answering ─────────────────────────────────────────────────────────────
@@ -120,7 +118,7 @@
         date: weekStart,
         // kcalDelta is what the answers change: stores/body applies it to the
         // following week's target, for that week only. A promise the app keeps.
-        week_check: { effort, hunger, adherence, kcalDelta: result?.kcalDelta ?? 0, answeredAt: new Date().toISOString() },
+        week_check: { effort, hunger, adherence, plan: reviewed?.cue ?? null, kcalDelta: result?.kcalDelta ?? 0, answeredAt: new Date().toISOString() },
       });
       justSaved = true;
     } catch (e: any) {
@@ -130,26 +128,12 @@
     }
   }
 
-  // The week under review, as the share sheet sends it, with the plan most
-  // likely to matter next week.
-  const review = $derived(weeklyReview({ ...$reviewInputs, today: weekEnd }));
+  // The user's own plan and their own reason, so the week is reviewed in
+  // their words — the part of a buddy that doesn't need one.
   const plans = $derived(cleanPlans(($_profile as any)?.plans));
-  const sharedPlan = $derived(plans.weekend ?? plans.friday ?? plans.badminton ?? plans.evening ?? null);
-  let sharing = $state(false);
-  let shareMsg = $state('');
-  async function share() {
-    if (sharing) return;
-    sharing = true;
-    shareMsg = '';
-    try {
-      const { shareWeek } = await import('$lib/weeklyShare');
-      shareMsg = await shareWeek(review, { name: ($_profile as any)?.display_name ?? null, plan: sharedPlan });
-    } catch (e: any) {
-      shareMsg = 'Share failed: ' + (e?.message || String(e)).slice(0, 100);
-    } finally {
-      sharing = false;
-    }
-  }
+  const reviewed = $derived(planToReview(plans));
+  const questions = $derived(checkInQuestions(reviewed));
+  const why = $derived((($_profile as any)?.why ?? '').trim());
 
   const fmtDay = (s: string) => {
     const [, m, d] = s.split('-').map(Number);
@@ -177,18 +161,16 @@
         {#each result.reasons as r}<li>{r}</li>{/each}
         {#if result.trainingNote}<li class="wc-train">🏋 {result.trainingNote}</li>{/if}
       </ul>
-      <!-- Someone else knowing how the week went is one of the few things with
-           real evidence for keeping weight off. One tap, the OS share sheet,
-           the user picks who — the app never learns. -->
-      {#if !sharedPlan}
-        <button class="btn bg_ bfl wc-share" onclick={() => editing.set('plans')}>Plan next week's weekend</button>
+      {#if !reviewed}
+        <button class="btn bg_ bfl wc-next" onclick={() => editing.set('plans')}>Write your weekend plan</button>
+      {:else if (storedAnswers?.adherence ?? adherence) === 'struggled'}
+        <button class="btn bg_ bfl wc-next" onclick={() => editing.set('plans')}>Make the {reviewed.label.toLowerCase()} plan smaller</button>
       {/if}
-      <button class="btn bg_ bfl wc-share" onclick={share} disabled={sharing}>{sharing ? '…' : 'Send my week to someone'}</button>
-      {#if shareMsg}<div class="wc-share-msg">{shareMsg}</div>{/if}
     {:else}
+      {#if why}<p class="wc-why">You said: “{why}”</p>{/if}
       <p class="wc-lede">Three taps. The scale and your watch can't tell me how it felt — and that's what decides whether this plan lasts.</p>
 
-      {#each CHECK_IN_QUESTIONS as q}
+      {#each questions as q}
         <div class="wc-q">
           <div class="wc-prompt">{q.prompt}</div>
           <div class="wc-opts">
@@ -238,7 +220,7 @@
     padding-left:12px;border-left:2px solid var(--glass-brd)}
   .wc-reasons li.wc-train{border-left-color:var(--amber)}
   .wc-err{font-size:0.75rem;color:var(--red);text-align:center;margin-top:6px}
-  .wc-share{margin-top:12px}
-  .wc-share + .wc-share{margin-top:8px}
-  .wc-share-msg{font-size:0.75rem;font-weight:700;color:var(--led-good);text-align:center;margin-top:6px}
+  .wc-next{margin-top:12px}
+  .wc-why{font-size:0.875rem;font-weight:700;line-height:1.45;color:var(--text);margin:0 0 8px;
+    padding-left:10px;border-left:2px solid var(--border2)}
 </style>

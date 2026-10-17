@@ -80,6 +80,8 @@ export interface CheckInContext {
   avgSleepH: number | null;
   sessions: number;
   goalKg: number | null;
+  /** The plan the adherence question asked about ("weekend"), when there was one. */
+  planLabel?: string | null;
 }
 
 export interface CheckInAdjustment {
@@ -173,7 +175,9 @@ export function checkInAdjustment(answers: CheckInAnswers, ctx: CheckInContext):
       kcalDelta = 0;
       reasons.push('Holding the target rather than trimming it — a week that already got away from you does not need a harder number.');
     }
-    reasons.push('Pick ONE thing for next week: log every day, or hit protein every day. Not both. One kept promise rebuilds the habit faster than a perfect plan you abandon on Wednesday.');
+    reasons.push(ctx.planLabel
+      ? `The ${ctx.planLabel.toLowerCase()} plan didn't survive the moment. Make it smaller — one thing you'd bet on doing — rather than trying harder at the same one.`
+      : 'Pick ONE thing for next week: log every day, or hit protein every day. Not both. One kept promise rebuilds the habit faster than a perfect plan you abandon on Wednesday.');
   }
 
   kcalDelta = clampStep(kcalDelta);
@@ -189,6 +193,25 @@ export function checkInAdjustment(answers: CheckInAnswers, ctx: CheckInContext):
     : 'Same targets next week.';
 
   return { kcalDelta, nextTargetKcal, trainingNote, headline, reasons };
+}
+
+/**
+ * The questions, with "did you stick to the plan?" made concrete when the user
+ * has written one: it asks about THEIR words. Reviewing your own goal is one of
+ * the few things that works without anyone else in the room — a buddy's main
+ * job is asking "so, did you?", and this asks it.
+ */
+export function checkInQuestions(plan: { label: string; then: string } | null): CheckInQuestion[] {
+  if (!plan) return CHECK_IN_QUESTIONS;
+  return CHECK_IN_QUESTIONS.map((q) => q.key !== 'adherence' ? q : {
+    key: 'adherence',
+    prompt: `Your ${plan.label.toLowerCase()} plan: “${plan.then}” — did it hold?`,
+    options: [
+      { value: 'nailed', label: 'Kept it', hint: 'Every time it came up' },
+      { value: 'mostly', label: 'Mostly', hint: 'Once or twice it slipped' },
+      { value: 'struggled', label: 'Not this time', hint: 'It didn’t survive the moment' },
+    ],
+  });
 }
 
 /**

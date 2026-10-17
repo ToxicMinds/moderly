@@ -20,9 +20,6 @@ export interface ShareOptions {
   includeWeight?: boolean;
   /** What to call the sender; omitted entirely when blank. */
   name?: string | null;
-  /** One of the sender's own plans for next week — saying it to someone is
-   *  half of keeping it. */
-  plan?: string | null;
 }
 
 const fmtDay = (ymd: string): string => {
@@ -71,7 +68,6 @@ export function weeklySummaryText(review: WeeklyReview, opts: ShareOptions = {})
   if (review.adjustments.length > 0) {
     lines.push(`🎯 Next week: ${review.adjustments[0]}`);
   }
-  if (opts.plan?.trim()) lines.push(`📌 My plan: ${opts.plan.trim()}`);
 
   lines.push('');
   lines.push('via RecompOS');

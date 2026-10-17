@@ -3133,6 +3133,28 @@ check('a plan shows at its moment, the most specific moment first', () => {
   assert.ok(CUES.every((c) => c.suggestion && c.when && c.label));
 });
 
+check('the Sunday review asks about the user’s own plan, in their words', async () => {
+  const { checkInQuestions } = await import('../src/lib/weekCheckIn.ts');
+  const { planToReview } = await import('../src/lib/plans.ts');
+  const plan = planToReview({ evening: 'Kitchen closed.', weekend: 'Leftovers go in a box.' });
+  assert.equal(plan.cue, 'weekend', 'the weekend decides most weeks, so it is asked about first');
+  const q = checkInQuestions(plan).find((x) => x.key === 'adherence');
+  assert.match(q.prompt, /weekend plan: “Leftovers go in a box\.”/);
+  assert.deepEqual(q.options.map((o) => o.value), ['nailed', 'mostly', 'struggled'], 'same answers, so the same rules apply');
+  assert.equal(checkInQuestions(null).find((x) => x.key === 'adherence').prompt, 'Did you stick to the plan?');
+  assert.equal(planToReview({}), null);
+  const r = checkInAdjustment({ effort: 'right', hunger: 'manageable', adherence: 'struggled' },
+    { weightChangeKg: 0, currentWeightKg: 113, targetKcal: 1900, avgProteinG: 150, proteinTargetG: 170, avgSleepH: 7, sessions: 1, goalKg: 96, planLabel: 'Weekend' });
+  assert.ok(r.reasons.some((x) => /weekend plan didn't survive the moment\. Make it smaller/.test(x)), 'a plan that broke gets smaller, not harder');
+});
+
+check('nothing in the weekly ritual assumes someone to send it to', async () => {
+  const { readFileSync } = await import('node:fs');
+  const c = readFileSync('src/lib/components/WeekCheckIn.svelte', 'utf8');
+  assert.doesNotMatch(c, /Send my week|shareWeek/, 'a solo user is reminded of nobody; sharing stays optional on Progress');
+  assert.match(c, /You said: “\{why\}”/, 'the user’s own reason comes back at the review');
+});
+
 check('mornings count up through the week and never reset mid-week', () => {
   const w = [{ date: '2026-10-12' }, { date: '2026-10-14' }, { date: '2026-10-15' }, { date: '2026-10-11' }];
   assert.deepEqual(morningsThisWeek(w, '2026-10-17'), { weighed: 3, days: 6 });
@@ -3181,7 +3203,7 @@ check('one weigh-in path, one place the commitments are saved', async () => {
   const files = await srcFiles();
   const weighs = files.filter((f) => /upsertRecords?\('weights'/.test(readFileSync(f, 'utf8')));
   assert.deepEqual(weighs.sort(), ['src/lib/components/Onboarding.svelte', 'src/lib/weighIn.ts'], 'onboarding seeds the first one; everything else goes through saveWeighIn');
-  const commits = files.filter((f) => /\b(line|plans): /.test(readFileSync(f, 'utf8')) && /upsertRecord\('user_settings'/.test(readFileSync(f, 'utf8')));
+  const commits = files.filter((f) => /\b(line|plans|why): /.test(readFileSync(f, 'utf8')) && /upsertRecord\('user_settings'/.test(readFileSync(f, 'utf8')));
   assert.deepEqual(commits, ['src/lib/commitments.ts']);
   assert.ok(!files.includes('src/lib/streaks.ts'), 'no streak to lose');
 });

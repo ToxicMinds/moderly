@@ -80,3 +80,13 @@ export function cleanPlans(input: unknown): Plans {
   }
   return out;
 }
+
+/** The plan a weekly review asks about: the one for the moments that decide
+ *  most weeks, first. */
+export function planToReview(plans: Plans): (CueInfo & { then: string }) | null {
+  for (const cue of ['weekend', 'friday', 'badminton', 'evening', 'back'] as PlanCue[]) {
+    const then = plans[cue]?.trim();
+    if (then) return { ...CUES.find((c) => c.cue === cue)!, then };
+  }
+  return null;
+}

@@ -13,6 +13,7 @@
   const _profile = liveProfile();
   const plans = $derived(cleanPlans(($_profile as any)?.plans));
   const over = $derived($line != null && $line.zone !== 'under');
+  const why = $derived((($_profile as any)?.why ?? '').trim());
   // The line has its own card; the strip shows the moment's other plan.
   const plan = $derived(activePlan({ ...plans, line: undefined }, { ...moment, overLine: over }));
 </script>
@@ -21,6 +22,7 @@
   <button class="ca ca-line tone-{$line.zone === 'well-over' ? 'bad' : 'warn'}" onclick={() => editing.set('line')}>
     <span class="ca-k">{$line.zone === 'well-over' ? 'Well over your line' : 'Over your line'} <b>+{$line.overKg.toFixed(1)}</b> kg</span>
     <span class="ca-t">{plans.line ?? 'You haven’t decided what happens now. Decide it once, here.'}</span>
+    {#if why}<span class="ca-why">You said: “{why}”</span>{/if}
     <span class="ca-f">Trend {$line.trendKg.toFixed(1)} · line {$line.kg.toFixed(1)}. One week over is a signal, not a verdict.</span>
   </button>
 {/if}
@@ -44,4 +46,5 @@
   .ca-k b{font-family:var(--font-led);font-style:italic;letter-spacing:0;margin-left:6px}
   .ca-t{font-size:0.9375rem;font-weight:700;line-height:1.4;color:var(--text)}
   .ca-f{font-size:0.75rem;line-height:1.45;color:var(--muted)}
+  .ca-why{font-size:0.8125rem;font-weight:700;line-height:1.4;color:var(--text);padding-left:9px;border-left:2px solid var(--border2)}
 </style>
