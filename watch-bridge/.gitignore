@@ -1,6 +1,0 @@
-node_modules/
-# Lockfile is regenerated in CI from the default npm registry
-# (local install used a mirror, so its resolved URLs are not portable).
-package-lock.json
-dist/
-.DS_Store

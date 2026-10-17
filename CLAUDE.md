@@ -42,9 +42,9 @@ set -a; . ~/.config/recompos/supabase.env; set +a; \
 
 ## Layout
 
-`svelte-recomp/` is the live app. The repo root also carries an older vanilla JS version
-(`index.html`, `js/`, `css/`) and `watch-bridge/` — **neither is what ships.** Don't edit
-them thinking you're fixing the app.
+`svelte-recomp/` is the live app; `supabase/` holds migrations and edge functions. The old
+vanilla JS version and `watch-bridge/` were deleted on 2026-10-17 (both in git history).
+GitHub Pages still serves an old build from the `gh-pages` branch; it is not the app.
 
 ## Ship model
 

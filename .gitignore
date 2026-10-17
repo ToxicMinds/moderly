@@ -8,3 +8,5 @@
 # ANDROID_KEYSTORE_B64 repository secret. See svelte-recomp/android/app/build.gradle.
 *.keystore
 *.jks
+.DS_Store
+.idea/

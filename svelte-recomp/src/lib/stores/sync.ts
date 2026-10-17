@@ -11,7 +11,7 @@ export const syncError = writable<string | null>(null);
 
 const channels: RealtimeChannel[] = [];
 
-const TABLES = ['alarms', 'daily_logs', 'checks', 'tracks', 'weights', 'steps', 'sessions', 'meal_plans', 'user_settings', 'workout_schedule', 'workout_sessions_custom', 'workout_logs', 'food_logs', 'biometrics', 'recipes_custom', 'activity_sessions'] as const;
+const TABLES = ['alarms', 'daily_logs', 'checks', 'tracks', 'weights', 'steps', 'sessions', 'user_settings', 'workout_schedule', 'workout_sessions_custom', 'workout_logs', 'food_logs', 'biometrics', 'recipes_custom', 'activity_sessions'] as const;
 
 function dexieTable(table: string) {
   return db.table(table);
@@ -44,7 +44,6 @@ function primaryKeyFor(table: string, record: Record<string, any>): any {
     case 'daily_logs': return [record.user_id, record.date];
     case 'checks':
     case 'tracks': return [record.id, record.user_id];
-    case 'meal_plans': return [record.user_id, record.week_start];
     case 'user_settings': return record.user_id;
     case 'workout_schedule': return [record.user_id, record.day_of_week];
     case 'workout_sessions_custom': return [record.user_id, record.key];
@@ -190,7 +189,6 @@ export const CONFLICT: Record<(typeof TABLES)[number], string> = {
   weights: 'user_id,date',
   steps: 'user_id,date',
   sessions: 'id',
-  meal_plans: 'user_id,week_start',
   user_settings: 'user_id',
   workout_schedule: 'user_id,day_of_week',
   workout_sessions_custom: 'user_id,key',

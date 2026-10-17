@@ -17,7 +17,7 @@
  *  a table added there but forgotten here shows up as a failing check. */
 export const EXPORT_TABLES = [
   'alarms', 'daily_logs', 'checks', 'tracks', 'weights', 'steps', 'sessions',
-  'meal_plans', 'user_settings', 'workout_schedule', 'workout_sessions_custom',
+  'user_settings', 'workout_schedule', 'workout_sessions_custom',
   'workout_logs', 'food_logs', 'biometrics', 'recipes_custom', 'activity_sessions',
 ] as const;
 
