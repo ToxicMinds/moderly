@@ -1045,7 +1045,7 @@
             <span class="hist-emoji">{a.emoji}</span>
             <span class="f1">{a.label}</span>
             <span class="hist-meta">
-              {a.duration_min} min{#if a.distance_m && a.distance_m >= 300} &middot; {(a.distance_m / 1000).toFixed(1)} km{/if}{#if a.avg_hr} &middot; HR {a.avg_hr}{/if}{#if a.active_kcal} &middot; ~{a.active_kcal} kcal{/if}
+              {a.duration_min} min{#if a.distance_m && a.distance_m >= 300}{' · '}{(a.distance_m / 1000).toFixed(1)} km{/if}{#if a.avg_hr}{' · '}HR {a.avg_hr}{/if}{#if a.active_kcal}{' · '}~{a.active_kcal} kcal{/if}
             </span>
           </div>
         {/each}

@@ -316,12 +316,12 @@
      month of 13 weigh-ins left it a kilo wide either way — so the scale gets the
      top of the screen until today's reading is in, then shrinks to one line. -->
 {#if todayWeighIn}
-  <div class="mw-done">Weighed <b>{todayWeighIn.weight}</b> today{#if currentKg != null} · trend <b>{currentKg.toFixed(1)}</b> kg{/if}{#if $line} · line <b class="mw-line z-{$line.zone}">{$line.kg.toFixed(1)}</b>{/if}</div>
+  <div class="mw-done">Weighed <b>{todayWeighIn.weight}</b> today{#if currentKg != null}{' · '}trend <b>{currentKg.toFixed(1)}</b> kg{/if}{#if $line}{' · '}line <b class="mw-line z-{$line.zone}">{$line.kg.toFixed(1)}</b>{/if}</div>
 {:else}
   <div class="card mw">
     <div class="mw-top">
       <label class="card-lbl" for="ql-weight">Morning weigh-in</label>
-      {#if currentKg != null}<span class="mw-trend">trend <b>{currentKg.toFixed(1)}</b> kg{#if $line} · line <b class="mw-line z-{$line.zone}">{$line.kg.toFixed(1)}</b>{/if}</span>{/if}
+      {#if currentKg != null}<span class="mw-trend">trend <b>{currentKg.toFixed(1)}</b> kg{#if $line}{' · '}line <b class="mw-line z-{$line.zone}">{$line.kg.toFixed(1)}</b>{/if}</span>{/if}
     </div>
     <div class="mw-row">
       <input id="ql-weight" type="number" inputmode="decimal" step="0.1" bind:value={weight}

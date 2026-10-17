@@ -408,7 +408,7 @@
     {#if useLearned}
       <div class="note-box" style="margin-bottom:10px">
         🧠 <strong>Learned from your data:</strong> you hold weight at ~{learnedKcal} kcal a day, as you log it
-        (from {learnedBurn.loggedDays} logged days{#if learnedBurn.weightRateKgPerWeek !== 0} · {learnedBurn.weightRateKgPerWeek > 0 ? 'losing' : 'gaining'} ~{Math.abs(learnedBurn.weightRateKgPerWeek).toFixed(2)} kg/wk{/if}).
+        (from {learnedBurn.loggedDays} logged days{#if learnedBurn.weightRateKgPerWeek !== 0}{' · '}{learnedBurn.weightRateKgPerWeek > 0 ? 'losing' : 'gaining'} ~{Math.abs(learnedBurn.weightRateKgPerWeek).toFixed(2)} kg/wk{/if}).
         The targets below use this number, not a textbook formula — in the same units as your log, so they self-correct to what your body's actually doing.
       </div>
     {/if}

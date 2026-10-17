@@ -19,7 +19,7 @@
 
 {#if over && $line}
   <button class="ca ca-line tone-{$line.zone === 'well-over' ? 'bad' : 'warn'}" onclick={() => editing.set('line')}>
-    <span class="ca-k">{$line.zone === 'well-over' ? 'Well over your line' : 'Over your line'} <b>+{$line.overKg.toFixed(1)} kg</b></span>
+    <span class="ca-k">{$line.zone === 'well-over' ? 'Well over your line' : 'Over your line'} <b>+{$line.overKg.toFixed(1)}</b> kg</span>
     <span class="ca-t">{plans.line ?? 'You haven’t decided what happens now. Decide it once, here.'}</span>
     <span class="ca-f">Trend {$line.trendKg.toFixed(1)} · line {$line.kg.toFixed(1)}. One week over is a signal, not a verdict.</span>
   </button>

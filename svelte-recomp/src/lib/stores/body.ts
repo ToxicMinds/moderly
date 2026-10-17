@@ -20,7 +20,7 @@ import { resolveCalorieTarget, burnFloor, calcTdee, type LiveTargetResult, type 
 import { proteinTargetG, ageFrom } from '$lib/profile';
 import { parseCalorieTarget } from '$lib/coach';
 import { mondayOf, shiftYmd } from '$lib/date';
-import { weekBudget, type WeekBudget } from '$lib/week';
+import { weekBudget, weekShape, type WeekBudget, type WeekShape } from '$lib/week';
 import { lineState, type LineState } from '$lib/line';
 
 export interface DayIntake { kcal: number; protein: number; carbs: number; fat: number; items: number }
@@ -143,12 +143,18 @@ export function trainingDays(workoutLogs: any[], activity: any[]): Set<string> {
   return days;
 }
 
+/** The week's shape: twelve weeks of logged days and mornings, by weekday. */
+export const shape: Readable<WeekShape | null> = derived(
+  [body, liveWeights()],
+  ([$body, $weights]) => weekShape($body.intake, (($weights as any[]) ?? []).map((w) => ({ date: w.date, weight: +w.weight })), $body.today),
+);
+
 /** Why the scale isn't moving — once, for Today and Progress alike. */
 export const stall: Readable<StallDiagnosis | null> = derived(
-  [body, liveWorkoutLogs(), liveActivitySessions()],
-  ([$body, $logs, $activity]) => diagnoseStall({
+  [body, liveWorkoutLogs(), liveActivitySessions(), shape],
+  ([$body, $logs, $activity, $shape]) => diagnoseStall({
     pace: $body.pace, intake: $body.intake, floorKcal: $body.floorKcal, today: $body.today,
-    trainingDays: trainingDays($logs as any[], $activity as any[]),
+    trainingDays: trainingDays($logs as any[], $activity as any[]), shape: $shape,
   }),
 );
 

@@ -170,8 +170,8 @@
   {#if $hc.native || $hc.lastSync}
     <div class="watch-src">
       <span class="f1">
-        ⌚ From your OnePlus watch{#if $hc.lastSync} · synced {agoLabel($hc.lastSync)}{/if}
-        <br><span class="watch-detail">Steps &amp; sleep → today's coaching · sleep + heart rate → this readiness score · workouts → activity feed{#if $hc.lastResult} · {$hc.lastResult.sleep}d sleep · {$hc.lastResult.hr}d HR{#if $hc.lastResult.workouts} · {$hc.lastResult.workouts} workout{$hc.lastResult.workouts === 1 ? '' : 's'}{/if}{/if}</span>
+        ⌚ From your OnePlus watch{#if $hc.lastSync}{' · '}synced {agoLabel($hc.lastSync)}{/if}
+        <br><span class="watch-detail">Steps &amp; sleep → today's coaching · sleep + heart rate → this readiness score · workouts → activity feed{#if $hc.lastResult}{' · '}{$hc.lastResult.sleep}d sleep · {$hc.lastResult.hr}d HR{#if $hc.lastResult.workouts}{' · '}{$hc.lastResult.workouts} workout{$hc.lastResult.workouts === 1 ? '' : 's'}{/if}{/if}</span>
         {#if $hc.lastError}<br><span class="watch-detail" style="color:var(--red)">{$hc.lastError}</span>{/if}
       </span>
       <button class="watch-sync" onclick={resync} disabled={$hc.syncing}>{$hc.syncing ? 'Syncing…' : 'Sync'}</button>

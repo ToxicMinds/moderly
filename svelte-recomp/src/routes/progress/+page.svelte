@@ -210,7 +210,7 @@
       </div>
       <div class="trust-body">
         Your weigh-ins scatter about <b>&plusmn;{wv.scatterKg.toFixed(1)} kg</b> around that line,
-        so the true rate is between <b>{kg(wv.loKgPerWeek)}</b> and <b>{kg(wv.hiKgPerWeek)}</b> a week.
+        so the true rate is between <b>{kg(Math.min(Math.abs(wv.loKgPerWeek), Math.abs(wv.hiKgPerWeek)))}</b> and <b>{kg(Math.max(Math.abs(wv.loKgPerWeek), Math.abs(wv.hiKgPerWeek)))}</b> a week.
         That range doesn't include zero — so this is a real trend, not scale noise.
       </div>
     {:else if wv.state === 'not-enough'}

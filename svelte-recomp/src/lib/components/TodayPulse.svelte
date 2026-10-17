@@ -10,6 +10,7 @@
   // this readout and the app-wide verdict light can never disagree.
   import { type RecompBand } from '$lib/recompScore';
   import { todayVerdict } from '$lib/stores/verdict';
+  import { body } from '$lib/stores/body';
   import { dayOne } from '$lib/stores/dayOne';
   import { goalDateLabel } from '$lib/dayOne';
   import { base } from '$app/paths';
@@ -54,7 +55,7 @@
   caption={showPlan ? 'First-week steps' : bandLabel(result.band)}
   story={showPlan ? plan!.headline : result.headline}
   stats={showPlan
-    ? [{ v: plan!.targetKcal, l: 'kcal / day' }, { v: `${plan!.proteinG} g`, l: 'protein' }, { v: goalDateLabel(plan!.goalDate), l: `goal ${plan!.goalKg} kg` }]
+    ? [{ v: $body.target.target ?? plan!.targetKcal, l: 'kcal / day' }, { v: `${$body.proteinTargetG} g`, l: 'protein' }, { v: goalDateLabel(plan!.goalDate), l: `goal ${plan!.goalKg} kg` }]
     : [{ v: kgLost, l: 'kg lost' }, { v: kgNow, l: 'kg trend' }, { v: weeks, l: 'wks to goal' }]}>
   {#snippet aside()}
     {#if mornings}

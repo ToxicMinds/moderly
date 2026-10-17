@@ -77,7 +77,7 @@
   </p>
   <label class="cm-lbl" for="cm-line-kg">Line, kg</label>
   <input id="cm-line-kg" type="number" inputmode="decimal" step="0.1" bind:value={lineKg}>
-  {#if $body.currentKg != null}<div class="cm-hint">Your trend today: {$body.currentKg.toFixed(1)} kg{#if $line?.heldLowKg != null} · lowest held trend {$line.heldLowKg.toFixed(1)} kg{/if}</div>{/if}
+  {#if $body.currentKg != null}<div class="cm-hint">Your trend today: {$body.currentKg.toFixed(1)} kg{#if $line?.heldLowKg != null}{' · '}lowest held trend {$line.heldLowKg.toFixed(1)} kg{/if}</div>{/if}
   <label class="cm-lbl" for="cm-line-plan">If my trend crosses it, I'll…</label>
   <textarea id="cm-line-plan" rows="2" bind:value={linePlan} placeholder={CUES[0].suggestion}></textarea>
   {#if !linePlan}<button type="button" class="cm-use" onclick={() => (linePlan = CUES[0].suggestion)}>Use this one</button>{/if}

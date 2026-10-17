@@ -463,6 +463,8 @@ export function diagnoseStall(input: {
   today: string;
   /** Days with a lifting log or ≥ 30 minutes of watch-recorded sport. */
   trainingDays?: Iterable<string>;
+  /** The week's shape (week.ts) — the same numbers the "Your week" card shows. */
+  shape?: { weekdayKcal: number; weekendKcal: number; weekendGap: number } | null;
   windowDays?: number;
 }): StallDiagnosis | null {
   if (input.pace !== 'stalled' && input.pace !== 'gaining') return null;
@@ -481,17 +483,13 @@ export function diagnoseStall(input: {
   const clues: StallClue[] = [];
 
   // 1. The weekend. Friday evening onwards is where most weeks are won or lost.
-  const dow = (d: string) => new Date(`${d}T12:00:00`).getDay();
-  const weekend = days.filter(([d]) => [0, 5, 6].includes(dow(d))).map(([, v]) => v.kcal);
-  const weekdays = days.filter(([d]) => ![0, 5, 6].includes(dow(d))).map(([, v]) => v.kcal);
-  if (weekend.length >= 3 && weekdays.length >= 5) {
-    const we = Math.round(med(weekend) / 10) * 10, wd = Math.round(med(weekdays) / 10) * 10;
-    if (we - wd >= 300) {
-      clues.push({
-        id: 'weekend', title: 'The weekend is where the room is',
-        detail: `Friday to Sunday you log a median ${we.toLocaleString()} a day, Monday to Thursday ${wd.toLocaleString()} — ${(we - wd).toLocaleString()} more, three days a week, before anything the weekend doesn't log. Meeting halfway saves ~${(Math.round(((we - wd) * 3) / 2 / 50) * 50).toLocaleString()} a week without touching a weekday.`,
-      });
-    }
+  //    Read off the week's shape, so this and the "Your week" card agree.
+  const sh = input.shape;
+  if (sh && sh.weekendGap >= 300) {
+    clues.push({
+      id: 'weekend', title: 'The weekend is where the room is',
+      detail: `Friday to Sunday you log a median ${sh.weekendKcal.toLocaleString()} a day, Monday to Thursday ${sh.weekdayKcal.toLocaleString()} — ${sh.weekendGap.toLocaleString()} more, three days a week, before anything the weekend doesn't log. Meeting halfway saves ~${(Math.round((sh.weekendGap * 3) / 2 / 50) * 50).toLocaleString()} a week without touching a weekday.`,
+    });
   }
 
   // 2. Training that dropped away: the burn falls with it, so the same food

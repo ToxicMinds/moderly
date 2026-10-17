@@ -4,12 +4,9 @@
   // panel, one segmented column per day, because it is the same kind of thing
   // as the hero readout — a number about you, lit up. The weekend's columns
   // light amber only when they really run over the weekdays.
-  import { body } from '$lib/stores/body';
-  import { liveWeights } from '$lib/stores/live';
-  import { weekShape } from '$lib/week';
+  import { shape as weekShape } from '$lib/stores/body';
 
-  const _weights = liveWeights();
-  const shape = $derived(weekShape($body.intake, ($_weights as any[]).map((w) => ({ date: w.date, weight: +w.weight })), $body.today));
+  const shape = $derived($weekShape);
   const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
   const LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
@@ -21,7 +18,7 @@
     return (s[1] + s[2]) / 2;
   });
   const pct = (k: number) => (range ? Math.max(8, Math.round(((k - range.lo) / (range.hi - range.lo || 1)) * 100)) : 0);
-  const fmtK = (k: number) => (k / 1000).toFixed(1);
+
   const fmtKg = (v: number) => `${v > 0 ? '+' : v < 0 ? '−' : '±'}${Math.abs(v).toFixed(1)}`;
   const amplitude = $derived(shape ? Math.max(...shape.scale.filter((v) => v != null) as number[], 0) - Math.min(...shape.scale.filter((v) => v != null) as number[], 0) : 0);
   const worth = $derived(shape != null && (shape.weekendGap >= 200 || amplitude >= 0.6));
@@ -39,14 +36,14 @@
     <div class="ws-panel" role="img" aria-label={`Median logged kcal by weekday: ${shape.kcal.map((k, i) => `${DAYS[i]} ${k}`).join(', ')}`}>
       {#each shape.kcal as k, i}
         <div class="ws-col" class:hot={k > weekdayMid + 200}>
-          <span class="ws-n">{fmtK(k)}</span>
+          <span class="ws-n">{k.toLocaleString()}</span>
           <span class="ws-bar"><i style="height:{pct(k)}%"></i></span>
           <span class="ws-d">{LETTERS[i]}</span>
           <span class="ws-kg" class:hi={i === shape.heaviest} class:lo={i === shape.lightest}>{shape.scale[i] != null ? fmtKg(shape.scale[i] as number) : ''}</span>
         </div>
       {/each}
     </div>
-    <div class="ws-key"><span>Logged kcal (thousands), median day</span><span>Scale vs trend, kg</span></div>
+    <div class="ws-key"><span>Logged kcal, median day</span><span>Scale vs trend, kg</span></div>
 
     {#if shape.heaviest != null && shape.lightest != null}
       <p class="ws-foot">
@@ -67,8 +64,8 @@
     box-shadow:inset 0 2px 14px rgba(0,0,0,.75);padding:12px 10px 8px;color:#d9d6ce}
   .ws-col{display:flex;flex-direction:column;align-items:center;gap:5px;min-width:0;--c:#9aa3ad}
   .ws-col.hot{--c:var(--led-warn)}
-  .ws-n{font-family:var(--font-led);font-style:italic;font-size:0.875rem;color:var(--c);
-    text-shadow:0 0 8px color-mix(in srgb,var(--c) 45%,transparent)}
+  .ws-n{font-family:var(--font-display);font-size:0.9375rem;font-weight:800;letter-spacing:.01em;color:var(--c);
+    font-variant-numeric:tabular-nums;white-space:nowrap;text-shadow:0 0 8px color-mix(in srgb,var(--c) 45%,transparent)}
   .ws-bar{position:relative;width:70%;height:84px;background:color-mix(in srgb,var(--c) 12%,#000);
     -webkit-mask:repeating-linear-gradient(0deg,#000 0 5px,transparent 5px 7px);mask:repeating-linear-gradient(0deg,#000 0 5px,transparent 5px 7px)}
   .ws-bar i{position:absolute;left:0;right:0;bottom:0;background:var(--c);box-shadow:0 0 8px color-mix(in srgb,var(--c) 55%,transparent)}

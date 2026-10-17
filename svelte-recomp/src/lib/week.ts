@@ -48,7 +48,10 @@ export interface WeekShape {
   /** That weekday's mornings against the local trend, kg, Monday first; null
    *  where there are too few mornings to say. */
   scale: (number | null)[];
-  /** Friday–Sunday median minus Monday–Thursday median, kcal a day. */
+  /** Median logged day Monday–Thursday, and Friday–Sunday. */
+  weekdayKcal: number;
+  weekendKcal: number;
+  /** weekendKcal − weekdayKcal, kcal a day. */
   weekendGap: number;
   /** Weekday index (0 = Monday) the scale reads heaviest / lightest; null without scale data. */
   heaviest: number | null;
@@ -97,7 +100,7 @@ export function weekShape(intake: Map<string, { kcal: number }>, weights: WeighI
   const heaviest = known.length >= 5 ? known.reduce((a, b) => (b[0] > a[0] ? b : a))[1] : null;
   const lightest = known.length >= 5 ? known.reduce((a, b) => (b[0] < a[0] ? b : a))[1] : null;
 
-  const weekend = [4, 5, 6].flatMap((i) => byDay[i]);
-  const weekdays = [0, 1, 2, 3].flatMap((i) => byDay[i]);
-  return { kcal, scale, weekendGap: Math.round((median(weekend) - median(weekdays)) / 10) * 10, heaviest, lightest };
+  const weekendKcal = Math.round(median([4, 5, 6].flatMap((i) => byDay[i])) / 10) * 10;
+  const weekdayKcal = Math.round(median([0, 1, 2, 3].flatMap((i) => byDay[i])) / 10) * 10;
+  return { kcal, scale, weekdayKcal, weekendKcal, weekendGap: weekendKcal - weekdayKcal, heaviest, lightest };
 }

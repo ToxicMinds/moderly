@@ -270,7 +270,7 @@
             {#if pending.c.key.startsWith('l:')}From the label
             {:else if pending.c.source === 'history'}Yours · logged {pending.c.count}×
             {:else if pending.c.source === 'builtin'}Basic food · per 100 {unit(pending.c)}: {macroLine(pending.c.per100!)}
-            {:else}Open Food Facts{pending.c.local ? ' · sold in SK/CZ' : ''}{#if pending.c.per100} · per 100 {unit(pending.c)}: {macroLine(pending.c.per100)}{/if}{/if}
+            {:else}Open Food Facts{pending.c.local ? ' · sold in SK/CZ' : ''}{#if pending.c.per100}{' · '}per 100 {unit(pending.c)}: {macroLine(pending.c.per100)}{/if}{/if}
           </div>
           {#if pending.c.per100 && pending.grams != null}
             <div class="lg-portions">

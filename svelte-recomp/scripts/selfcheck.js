@@ -3033,7 +3033,8 @@ check('the stall diagnosis points at the week, never at logging more', () => {
   const trainingDays = [];
   for (let i = 35; i < 70; i += 2) trainingDays.push(shiftYmd(-i, new Date('2026-10-17T12:00:00'))); // 3.5 a week, then
   trainingDays.push(shiftYmd(-3, new Date('2026-10-17T12:00:00')));                                 // ~0.2 a week now
-  const d = diagnoseStall({ pace: 'stalled', intake, floorKcal: 2520, today: '2026-10-17', trainingDays });
+  const shape = { weekdayKcal: 1900, weekendKcal: 2600, weekendGap: 700 };
+  const d = diagnoseStall({ pace: 'stalled', intake, floorKcal: 2520, today: '2026-10-17', trainingDays, shape });
   assert.equal(d.avgKcal, 2200, 'the average, weekends included: energy adds up');
   assert.equal(d.missingAtLeastKcal, 320, 'floor − average: what the log does not carry, at least');
   assert.deepEqual(d.clues.map((c) => c.id), ['weekend', 'training']);
@@ -3041,7 +3042,7 @@ check('the stall diagnosis points at the week, never at logging more', () => {
   for (const c of d.clues) {
     assert.doesNotMatch(`${c.title} ${c.detail}`, /log (the|every|more)|weigh (it|the)|\boil\b/i, 'a consistent log is a good ruler — never ask for more of it');
   }
-  assert.equal(diagnoseStall({ pace: 'on-pace', intake, floorKcal: 2520, today: '2026-10-17', trainingDays }), null);
+  assert.equal(diagnoseStall({ pace: 'on-pace', intake, floorKcal: 2520, today: '2026-10-17', trainingDays, shape }), null);
   const flat = new Map([...intake].map(([k]) => [k, { kcal: 2000, items: 5 }]));
   assert.deepEqual(diagnoseStall({ pace: 'stalled', intake: flat, floorKcal: 2520, today: '2026-10-17' }).clues, [], 'an even week and no training data: nothing to point at');
 });
@@ -3074,6 +3075,7 @@ check('weight rate, learned burn and targets are computed in one place', async (
   assert.deepEqual(offenders(/adaptiveTdee\(\{/, ['src/lib/adaptiveTdee.ts']), [], 'one learned burn');
   assert.deepEqual(offenders(/weeklyMaintenance\(\{/, ['src/lib/stores/body.ts']), [], 'one week’s maintenance');
   assert.deepEqual(offenders(/diagnoseStall\(\{/, ['src/lib/stores/body.ts']), [], 'one stall diagnosis');
+  assert.deepEqual(offenders(/weekShape\(/, ['src/lib/stores/body.ts', 'src/lib/week.ts']), [], 'one week shape, so the card and the stall clue agree');
   assert.deepEqual(offenders(/resolveCalorieTarget\(\{/, ['src/lib/stores/body.ts']), [], 'one calorie target');
   assert.deepEqual(offenders(/goalKg \* 1\.8|GOAL_KG \* 1\.8/, []), [], 'one protein target (profile.proteinTargetG)');
 });
@@ -3251,6 +3253,18 @@ check('a page is called what its tab is called', async () => {
     assert.ok(tab, `nav has ${route}`);
     assert.match(readFileSync(`src/routes/${file}/+page.svelte`, 'utf8'), new RegExp(`<PageHero title="${tab}"`), `${route} is titled “${tab}”`);
   }
+});
+
+check('no separator opens an {#if}: Svelte drops the space before it', async () => {
+  const { readFileSync, readdirSync } = await import('node:fs');
+  const files = [
+    ...readdirSync('src/lib/components').map((f) => `src/lib/components/${f}`),
+    ...readdirSync('src/routes', { recursive: true }).filter((f) => f.endsWith('.svelte')).map((f) => `src/routes/${f}`),
+  ].filter((f) => f.endsWith('.svelte'));
+  // "today{#if x} · trend" renders "today· trend". Write {' · '} instead.
+  const offenders = files.flatMap((f) => readFileSync(f, 'utf8').split('\n')
+    .filter((l) => /\{#if [^}]*\} (·|&middot;) /.test(l)).map((l) => `${f}: ${l.trim().slice(0, 80)}`));
+  assert.deepEqual(offenders, []);
 });
 
 check('no hard-coded white text: it vanishes in the light theme', async () => {
