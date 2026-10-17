@@ -87,6 +87,8 @@ export interface BriefingInput {
   usual?: { names: string[]; kcal: number } | null;
   /** On the 1st: the month whose letter is waiting on Today. */
   letter?: string | null;
+  /** A program's rule for badminton days (program.badmintonRule). */
+  badmintonRule?: { text: string; play: boolean } | null;
 }
 
 export interface Briefing { date: string; title: string; body: string }
@@ -100,6 +102,9 @@ export function composeBriefing(i: BriefingInput): Briefing {
   const hay = `${i.day?.label ?? ''} ${i.day?.note ?? ''}`;
   const time = i.day?.time ? i.day.time.slice(0, 5) : '';
   const badminton = /badminton/i.test(hay);
+  // A badminton night the program says isn't one yet: no time, no plan for after.
+  const rule = badminton ? i.badmintonRule ?? null : null;
+  const playing = badminton && rule?.play !== false;
 
   const what = i.session ? i.session.name
     : badminton ? 'Badminton'
@@ -110,7 +115,9 @@ export function composeBriefing(i: BriefingInput): Briefing {
   const lines = [i.rateBack ? 'Scale first, then rate your back.' : 'Scale first, before food or drink.'];
   lines.push(rest
     ? (i.rateBack ? 'Rest day: a walk and the daily back basics.' : 'Rest day.')
-    : `${time ? `${time} ` : ''}${what}.`);
+    : rule
+      ? `${playing && time ? `${time} ` : ''}Badminton: ${rule.text}`
+      : `${time ? `${time} ` : ''}${what}.`);
 
   const w = i.week;
   if (w && w.share > 0) {
@@ -128,7 +135,7 @@ export function composeBriefing(i: BriefingInput): Briefing {
 
   // The day's own plan: Friday's is the one that decides the weekend, so it
   // wins on a badminton Friday.
-  const cue = ([dow === 5 ? 'friday' : null, badminton ? 'badminton' : null, dow === 6 || dow === 0 ? 'weekend' : null] as Array<PlanCue | null>)
+  const cue = ([dow === 5 ? 'friday' : null, playing ? 'badminton' : null, dow === 6 || dow === 0 ? 'weekend' : null] as Array<PlanCue | null>)
     .find((c): c is PlanCue => c != null && !!i.plans?.[c]?.trim());
   if (cue) lines.push(`${CUES.find((c) => c.cue === cue)!.label}: ${i.plans![cue]!.trim()}`);
 

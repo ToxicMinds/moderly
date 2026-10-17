@@ -33,6 +33,10 @@ export interface ProgramPhase {
   goal: string;
   effort: string;
   badminton: string;
+  /** The badminton rule in one line, for the briefing and Today. */
+  badmintonShort: string;
+  /** Whether games are on this phase: false means drills or a walk only. */
+  play: boolean;
   /** Gym sessions in week order: first gym day of the week gets A, then B, then C. */
   sessions: [PlanSession, PlanSession, PlanSession];
 }
@@ -74,6 +78,8 @@ export const PHASES: ProgramPhase[] = [
     goal: 'Move every day, groove the hip hinge with no load, and keep training everything that doesn’t hurt.',
     effort: 'Easy — finish every set with 4+ reps in the tank (RPE 5–6).',
     badminton: 'No matches yet. Footwork or shadow drills only, 30 min at most — lunges, twists and smashes are exactly what a healing back dislikes.',
+    badmintonShort: 'no games yet. Footwork drills or a walk, 30 min.',
+    play: false,
     sessions: [
       {
         key: 'rebuild-a', name: 'Rebuild A — Hinge & legs', duration: '~40 min',
@@ -142,6 +148,8 @@ export const PHASES: ProgramPhase[] = [
     goal: 'Put real load through the hinge and squat again, and bring back single-leg strength.',
     effort: 'Moderate — 2–3 reps in the tank (RPE 6–7). Add load only after a green week.',
     badminton: 'Light rallying, 45 min at most. No smashes, no jump smashes, no diving. Ten minutes of warm-up first.',
+    badmintonShort: 'light rallies, 45 min at most, no smashes. Warm up 10 min.',
+    play: true,
     sessions: [
       {
         key: 'rebuild-a', name: 'Rebuild A — Hinge & legs', duration: '~45 min',
@@ -201,6 +209,8 @@ export const PHASES: ProgramPhase[] = [
     goal: 'Back to your normal lifts at about 70–80% of your pre-injury loads, with the habits that got you here.',
     effort: 'Working — 1–2 reps in the tank (RPE 7–8) on the main lifts only.',
     badminton: 'Normal play after two green weeks. Keep the first matches at about 70% effort and warm up properly.',
+    badmintonShort: 'normal play at about 70% after two green weeks. Warm up first.',
+    play: true,
     sessions: [
       {
         key: 'rebuild-a', name: 'Rebuild A — Strength (lower)', duration: '~55 min',

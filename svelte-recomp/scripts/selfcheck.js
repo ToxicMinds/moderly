@@ -3756,6 +3756,25 @@ check('the briefing on the 1st points at the letter', () => {
   assert.ok(!composeBriefing(SAT_IN).body.includes('looking back'));
 });
 
+check('the app never says "Badminton 18:15" in a fortnight the plan says no games', async () => {
+  const { badmintonRule } = await import('../src/lib/program.ts');
+  const p = { id: 'back-rebuild', start: '2026-10-19' };
+  assert.equal(badmintonRule(p, '2026-10-21').play, false, 'weeks 1–2: no games');
+  assert.match(badmintonRule(p, '2026-10-21').text, /no games/);
+  assert.equal(badmintonRule(p, '2026-11-04').play, true, 'week 3: light rallies');
+  assert.match(badmintonRule(p, '2026-11-04').text, /no smashes/);
+  assert.equal(badmintonRule(p, '2026-12-02'), null, 'after the program: the user’s own week');
+  assert.equal(badmintonRule(null, '2026-10-21'), null);
+  const wed = { ...SAT_IN, date: '2026-10-21', rateBack: true, day: { label: 'Cardio & Agility', note: 'Badminton club', time: '18:15' },
+    plans: { badminton: 'A shake first.', evening: 'Kitchen closed.' } };
+  const off = composeBriefing({ ...wed, badmintonRule: badmintonRule(p, '2026-10-21') });
+  assert.match(off.body, /^Badminton: no games yet\. Footwork drills or a walk, 30 min\.$/m, 'no time: there is no session to be at');
+  assert.ok(!/A shake first/.test(off.body), 'no "after badminton" plan on a night without badminton');
+  const on = composeBriefing({ ...wed, date: '2026-11-04', badmintonRule: badmintonRule(p, '2026-11-04') });
+  assert.match(on.body, /^18:15 Badminton: light rallies, 45 min at most, no smashes\. Warm up 10 min\.$/m);
+  assert.match(composeBriefing(wed).body, /^18:15 Badminton\.$/m, 'no program: as before');
+});
+
 // Nothing may be reported until the async checks have actually settled.
 await Promise.all(pending);
 

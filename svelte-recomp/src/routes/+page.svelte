@@ -27,7 +27,7 @@
   import WeekCheckIn from '$lib/components/WeekCheckIn.svelte';
   import BackRebuild from '$lib/components/BackRebuild.svelte';
   import { shiftYmd } from '$lib/date';
-  import { programActive } from '$lib/program';
+  import { programActive, badmintonRule } from '$lib/program';
   import { nowTick, todayDate } from '$lib/stores/refresh';
 
   const dayIdx = $derived(new Date($nowTick).getDay());
@@ -236,7 +236,10 @@
   const GLASS_L = 0.25; // each logged "glass" = 250 ml
 
   // The moment the plans are matched against (see $lib/plans).
-  const badmintonDay = $derived(dayInfo.label === 'Badminton' || watchToday?.label === 'Badminton');
+  // While a program says no games, a badminton night isn't one: no "after
+  // badminton" plan, and the Today card says what the plan says instead.
+  const bRule = $derived(badmintonRule(($_profile as any)?.program, today));
+  const badmintonDay = $derived((dayInfo.label === 'Badminton' && bRule?.play !== false) || watchToday?.label === 'Badminton');
   const planCount = $derived(Object.keys(cleanPlans(($_profile as any)?.plans)).length);
 
   const focusItems = $derived(
@@ -337,7 +340,7 @@
   <div class="td-row" use:cardNav={`${base}/workouts`}>
     <span class="td-k">{dayInfo.kind === 'gym' ? 'Gym' : dayInfo.kind === 'active' ? dayInfo.label : 'Rest'}</span>
     <span class="td-v">
-      {#if todaySession}{todaySession.name}{:else if dayInfo.kind === 'active'}{todaySchedule?.time ? `at ${todaySchedule.time}` : 'today'}{:else}A walk counts{/if}{#if trainedToday}{' '}<span class="td-done">✓ done</span>{/if}
+      {#if todaySession}{todaySession.name}{:else if dayInfo.label === 'Badminton' && bRule}{bRule.text[0].toUpperCase() + bRule.text.slice(1)}{:else if dayInfo.kind === 'active'}{todaySchedule?.time ? `at ${todaySchedule.time}` : 'today'}{:else}A walk counts{/if}{#if trainedToday}{' '}<span class="td-done">✓ done</span>{/if}
     </span>
     <span class="td-go" aria-hidden="true">›</span>
   </div>

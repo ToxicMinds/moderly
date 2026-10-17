@@ -35,6 +35,15 @@ export function programActive(p: ProgramState, today: string): boolean {
   return (week >= 1 && week <= WEEKS) || (week === 0 && dayNum(p.start) - dayNum(today) <= 7);
 }
 
+/** The program's rule for a badminton day while it's in charge, so the
+ *  briefing, the evening hold and Today never say "Badminton 18:15" in a
+ *  fortnight the plan says no games. Null when no program is active. */
+export function badmintonRule(p: ProgramState, date: string): { text: string; play: boolean } | null {
+  if (!programActive(p, date)) return null;
+  const phase = phaseFor(Math.max(1, programWeek(p, date)));
+  return phase ? { text: phase.badmintonShort, play: phase.play } : null;
+}
+
 /** The last day of the program, YYYY-MM-DD. */
 export const programEnd = (p: NonNullable<ProgramState>) => shiftStart(p.start, WEEKS * 7 - 1);
 

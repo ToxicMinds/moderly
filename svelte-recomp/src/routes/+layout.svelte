@@ -27,6 +27,7 @@
   import { saveMomentInputs, confirmWeight, answerWeight, type MomentContext } from '$lib/momentActions';
   import { onMomentsInput } from '$lib/nativeAlarms';
   import { offTrend } from '$lib/scale';
+  import { badmintonRule } from '$lib/program';
   import { untrack } from 'svelte';
   import { situationalNudges, minutesOfDay } from '$lib/situational';
   import { todayYmd } from '$lib/date';
@@ -288,7 +289,8 @@
       workoutLoggedToday: ($_nudgeWorkouts as any[]).some((w) => w.date === today),
       plans: ($_profile as any)?.plans ?? null,
       dow,
-      badmintonDay: /badminton/i.test(`${scheduledToday?.label ?? ''} ${scheduledToday?.note ?? ''}`),
+      badmintonDay: /badminton/i.test(`${scheduledToday?.label ?? ''} ${scheduledToday?.note ?? ''}`)
+        && badmintonRule(($_profile as any)?.program, today)?.play !== false,
       daysSinceWeighIn,
       briefing: briefingOn,
       hold: holdOn,

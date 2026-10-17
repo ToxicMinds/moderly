@@ -10,7 +10,7 @@ import { upsertRecord } from './sync';
 import { userId } from './user';
 import { composeBriefing, type Briefing, type DayForecast } from '$lib/briefing';
 import { composeHold, holdAfter, HOLD_UNTIL } from '$lib/hold';
-import { overlaySessions, programWeek } from '$lib/program';
+import { badmintonRule, overlaySessions, programWeek } from '$lib/program';
 import { WEEKS } from '$lib/data/backRebuild';
 import { cleanPlans } from '$lib/plans';
 import { usualBreakfast, type QuickFood } from '$lib/quickAdd';
@@ -65,6 +65,7 @@ export const briefings: Readable<Array<Briefing & { actions: MomentActions }>> =
           week: i === 0 ? $body.week : $body.tomorrow,
           usual: usual ? { names: usual.items.map((x) => x.name), kcal: usual.kcal } : null,
           letter,
+          badmintonRule: badmintonRule(program, date),
         }),
         actions: { weigh: true, back: rateBack, meal: usual ? { label: 'Usual breakfast', kcal: usual.kcal, items: usual.items } : null },
       };
@@ -83,7 +84,8 @@ export const holds: Readable<Briefing[]> = derived(
       const day = sched.find((s) => s.day_of_week === new Date(`${date}T12:00:00`).getDay());
       return composeHold({
         date, plans, why: ($profile as any)?.why ?? null,
-        badmintonDay: /badminton/i.test(`${day?.label ?? ''} ${day?.note ?? ''}`),
+        // A night the program says no games isn't a badminton night.
+        badmintonDay: /badminton/i.test(`${day?.label ?? ''} ${day?.note ?? ''}`) && badmintonRule(($profile as any)?.program, date)?.play !== false,
         food: i === 0 ? {
           kcal: $body.intake.get(date)?.kcal ?? 0, share: $body.week?.share ?? null,
           proteinG: $body.intake.get(date)?.protein ?? 0, proteinTargetG: $body.proteinTargetG,
