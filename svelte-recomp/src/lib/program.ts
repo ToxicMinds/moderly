@@ -97,7 +97,7 @@ export function painAdvice(entries: PainEntry[], today: string): Advice {
     .sort((a, b) => a.date.localeCompare(b.date));
   const last = rated[rated.length - 1];
   const ratedToday = last?.date === today;
-  if (!last) return { tone: 'na', title: 'How’s the back this morning?', body: 'Rate it each morning, 0–10. The plan paces itself on it.', ratedToday, physio: false };
+  if (!last) return { tone: 'na', title: 'How are the back and neck this morning?', body: 'Rate it each morning, 0–10. The plan paces itself on it.', ratedToday, physio: false };
   const now = last.back_pain as number;
   const prev = rated.length > 1 ? (rated[rated.length - 2].back_pain as number) : null;
   // "Not settling within a week" as a rule, not a sentence: 6+ on five of the

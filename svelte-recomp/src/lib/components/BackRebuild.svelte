@@ -89,7 +89,7 @@
       <div class="br-head">
         <span class="br-eyebrow">Back Rebuild · {week === 0 ? `starts ${startLabel}` : `week ${week} of ${WEEKS}`}</span>
       </div>
-      <div class="br-q">How’s the back this morning?</div>
+      <div class="br-q">How are the back and neck this morning?</div>
       {@render rating()}
       {#if offerLater}<button class="btn bg_ bsm br-later" disabled={busy} onclick={later}>Start a week later</button>{/if}
     </section>
@@ -108,7 +108,7 @@
       <p class="br-goal">{phase?.goal}</p>
       <p class="br-effort">{phase?.effort}</p>
 
-      <div class="br-q">How’s the back this morning?</div>
+      <div class="br-q">How are the back and neck this morning?</div>
       {@render rating()}
 
       {#if todaySession?.program && todayKey}

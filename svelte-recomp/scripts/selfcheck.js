@@ -3669,6 +3669,18 @@ check('during Back Rebuild nothing judges the light loads', async () => {
     'in rehab, "keep the load heavy" is the wrong advice for a hurt back');
 });
 
+check('Back Rebuild looks after the neck as well as the lower back', async () => {
+  const rb = await import('../src/lib/data/backRebuild.ts');
+  const all = [...rb.DAILY, ...rb.PHASES.flatMap((p) => p.sessions.flatMap((s) => s.exercises))];
+  assert.ok(rb.DAILY.some((e) => e.name === 'Chin Tuck'), 'deep neck flexors every day');
+  assert.ok(rb.PHASES.every((p) => p.sessions.some((s) => s.exercises.some((e) => /Prone Y Raise|Face Pull/.test(e.name)))), 'upper back in every phase');
+  assert.ok(!all.some((e) => /\(heavy\)/i.test(e.name)), 'nothing loaded "heavy" through the shoulders and neck by name');
+  for (const e of all.filter((x) => /Carry/.test(x.name))) assert.match(e.tip, /shoulders|shrug/i, `${e.name}: carried with the shoulders down`);
+  for (const e of all.filter((x) => /Deadlift/.test(x.name) && /Trap-Bar/.test(x.name))) assert.match(e.tip, /eyes|look up/i, `${e.name}: eyes level or down`);
+  for (const e of all.filter((x) => /Pulldown/.test(x.name))) assert.match(e.tip, /never behind the neck/);
+  assert.ok(rb.RED_FLAGS.some((f) => /arm or hand/.test(f)) && rb.RED_FLAGS.some((f) => /Clumsy hands/.test(f)), 'the neck’s red flags, not only the low back’s');
+});
+
 // Nothing may be reported until the async checks have actually settled.
 await Promise.all(pending);
 
