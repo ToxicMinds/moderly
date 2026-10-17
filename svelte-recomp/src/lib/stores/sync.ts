@@ -210,7 +210,17 @@ export async function upsertRecord(table: string, data: Record<string, any>) {
     // caller accidentally passes a reactive value straight through. A
     // JSON round-trip guarantees a plain, clonable value at negligible cost
     // for these small records.
-    await dexieTable(table).put(JSON.parse(JSON.stringify(data)));
+    //
+    // MERGE into the local row, the way Postgres just did. Callers send only
+    // the columns they change — water glasses, a back-pain rating, a program
+    // — and a bare put() replaced the whole local row with that fragment:
+    // the goal, the profile or the day's other fields vanished on this device
+    // until a realtime echo happened to restore them.
+    const plain = JSON.parse(JSON.stringify(data));
+    const key = primaryKeyFor(table, plain);
+    const hasKey = Array.isArray(key) ? key.every((k) => k != null) : key != null;
+    const existing = hasKey ? await dexieTable(table).get(key).catch(() => undefined) : undefined;
+    await dexieTable(table).put(existing ? { ...existing, ...plain } : plain);
     syncStatus.set('synced');
   } catch (e: any) {
     syncStatus.set('error');

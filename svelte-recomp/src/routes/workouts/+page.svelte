@@ -14,6 +14,7 @@
   import PageHero from '$lib/components/PageHero.svelte';
   import WorkoutInsights from '$lib/components/WorkoutInsights.svelte';
   import PlateWarmupCalc from '$lib/components/PlateWarmupCalc.svelte';
+  import BackRebuild from '$lib/components/BackRebuild.svelte';
   import { inferEquipment, nextGymWeight, roundToGymWeight } from '$lib/nextWeight';
   import { speak } from '$lib/stores/toast';
   import { haptic } from '$lib/haptics';
@@ -226,54 +227,28 @@
   // — Editing: session name/duration/focus + exercises —
   let editingSession = $state(false);
 
-  async function saveSessionField(key: string | null, field: keyof PlanSession, value: string) {
-    if (!key) return;
-    const sess = sessions.get(key);
-    if (!sess || !uid) return;
+  /** Persist a change to one of the user's OWN sessions. A program session is
+   *  an overlay (see $lib/program): saving it would write the program over
+   *  their plan, so it is never saved. One function instead of four copies. */
+  async function saveSession(key: string | null, change: (s: PlanSession) => Partial<PlanSession>, what: string) {
+    const sess = key ? sessions.get(key) : undefined;
+    if (!sess || !uid || sess.program) return;
     try {
       await upsertRecord('workout_sessions_custom', {
-        user_id: uid, ...sess, [field]: value, updated_at: new Date().toISOString(),
+        user_id: uid, ...sess, ...change(sess), updated_at: new Date().toISOString(),
       });
-    } catch (e) { console.error('Session save failed:', e); }
+    } catch (e) { console.error(`${what} failed:`, e); }
   }
-
-  async function saveExerciseField(key: string | null, idx: number, field: keyof PlanExercise, value: string) {
-    if (!key) return;
-    const sess = sessions.get(key);
-    if (!sess || !uid) return;
-    const exercises = sess.exercises.map((e, i) => i === idx ? { ...e, [field]: value } : e);
-    try {
-      await upsertRecord('workout_sessions_custom', {
-        user_id: uid, ...sess, exercises, updated_at: new Date().toISOString(),
-      });
-    } catch (e) { console.error('Exercise save failed:', e); }
-  }
-
-  async function removeExercise(key: string | null, idx: number) {
-    if (!key) return;
-    const sess = sessions.get(key);
-    if (!sess || !uid) return;
-    const exercises = sess.exercises.filter((_, i) => i !== idx);
-    try {
-      await upsertRecord('workout_sessions_custom', {
-        user_id: uid, ...sess, exercises, updated_at: new Date().toISOString(),
-      });
-    } catch (e) { console.error('Exercise remove failed:', e); }
-  }
-
-  async function addExercise(key: string | null) {
-    if (!key) return;
-    const sess = sessions.get(key);
-    if (!sess || !uid) return;
-    const exercises = [...sess.exercises, {
-      phase: 'New Phase', name: 'New Exercise', muscle: '', w1: '3 × 10', w2: '3 × 10', rest: '60s', tip: ''
-    }];
-    try {
-      await upsertRecord('workout_sessions_custom', {
-        user_id: uid, ...sess, exercises, updated_at: new Date().toISOString(),
-      });
-    } catch (e) { console.error('Exercise add failed:', e); }
-  }
+  const saveSessionField = (key: string | null, field: keyof PlanSession, value: string) =>
+    saveSession(key, () => ({ [field]: value }), 'Session save');
+  const saveExerciseField = (key: string | null, idx: number, field: keyof PlanExercise, value: string) =>
+    saveSession(key, (s) => ({ exercises: s.exercises.map((e, i) => (i === idx ? { ...e, [field]: value } : e)) }), 'Exercise save');
+  const removeExercise = (key: string | null, idx: number) =>
+    saveSession(key, (s) => ({ exercises: s.exercises.filter((_, i) => i !== idx) }), 'Exercise remove');
+  const addExercise = (key: string | null) =>
+    saveSession(key, (s) => ({
+      exercises: [...s.exercises, { phase: 'New Phase', name: 'New Exercise', muscle: '', w1: '3 × 10', w2: '3 × 10', rest: '60s', tip: '' }],
+    }), 'Exercise add');
 
   // — Workout logging: actual weight × reps performed per set, per
   // exercise, per day. Powers "last time" progressive-overload prompts
@@ -924,6 +899,8 @@
     { v: nextTraining ? nextTraining.dayName.slice(0, 3) : '—', l: 'next up' }
   ]} />
 
+<BackRebuild onOpenSession={(k) => (sessionKey = k)} />
+
 <div class="week-tabs">
   <button class="wtab" class:on={tab === 'upcoming'} onclick={() => tab = 'upcoming'}>Upcoming</button>
   <button class="wtab" class:on={tab === 'history'} onclick={() => tab = 'history'}>History</button>
@@ -944,7 +921,7 @@
     </div>
   </div>
 
-  {#snippet dayCard(day, isToday)}
+  {#snippet dayCard(day: ReturnType<typeof getWeekDates>[number], isToday: boolean)}
     <div class="card" style="padding:10px 12px">
       <div class="flex jb ac" style="margin-bottom:4px">
         <div style="font-size:0.75rem;color:var(--muted);font-weight:600">{isToday ? 'Today' : day.date.toLocaleDateString('en-US', { month:'short', day:'numeric' })}</div>
@@ -1187,9 +1164,13 @@
         {:else}
           <div style="font-size:1.125rem;font-weight:700;color:#fff">{sess.name}</div>
         {/if}
-        <span style="cursor:pointer;color:var(--amber);font-size:0.8125rem;margin-left:8px" onclick={() => editingSession = !editingSession} role="button" tabindex="0" onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); editingSession = !editingSession; } }}>
-          {editingSession ? 'Done ✓' : 'Edit ✎'}
-        </span>
+        {#if sess.program}
+          <span class="prog-tag">{sess.program.name} · wk {sess.program.week}</span>
+        {:else}
+          <span style="cursor:pointer;color:var(--amber);font-size:0.8125rem;margin-left:8px" onclick={() => editingSession = !editingSession} role="button" tabindex="0" onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); editingSession = !editingSession; } }}>
+            {editingSession ? 'Done ✓' : 'Edit ✎'}
+          </span>
+        {/if}
       </div>
       <div style="font-size:0.75rem;color:var(--muted);margin-bottom:12px">{sess.duration}</div>
       {#if todayVolume > 0}
@@ -1215,14 +1196,14 @@
                 <div style="font-size:0.6875rem;color:var(--muted);margin-bottom:6px">{ex.muscle}</div>
               {/if}
               <div class="ex-sets-row">
-                <div class="ex-set-box">
-                  <div class="label">W1</div>
+                <div class="ex-set-box" class:now={sess.program?.weekInPhase === 1}>
+                  <div class="label">{sess.program ? `Wk ${sess.program.week - sess.program.weekInPhase + 1}` : 'W1'}</div>
                   {#if editingSession}
                     <input value={ex.w1} onchange={(e) => saveExerciseField(sessionKey, i, 'w1', (e.target as HTMLInputElement).value)} class="value-input">
                   {:else}<div class="value">{ex.w1}</div>{/if}
                 </div>
-                <div class="ex-set-box">
-                  <div class="label">W2</div>
+                <div class="ex-set-box" class:now={sess.program?.weekInPhase === 2}>
+                  <div class="label">{sess.program ? `Wk ${sess.program.week - sess.program.weekInPhase + 2}` : 'W2'}</div>
                   {#if editingSession}
                     <input value={ex.w2} onchange={(e) => saveExerciseField(sessionKey, i, 'w2', (e.target as HTMLInputElement).value)} class="value-input">
                   {:else}<div class="value">{ex.w2}</div>{/if}
@@ -1572,4 +1553,7 @@
   .ins-item{font-size:0.7188rem;color:var(--text);line-height:1.45;background:var(--bg3);border:1px solid var(--border);border-radius:9px;padding:8px 10px}
   .ins-item.good{border-color:rgba(46,204,113,.3);background:rgba(46,204,113,.08)}
   .ins-item.warn{border-color:rgba(255,209,102,.3);background:rgba(255,209,102,.08)}
+  .prog-tag{flex-shrink:0;margin-left:8px;font-size:0.6875rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);border:1px solid var(--border2);border-radius:4px;padding:2px 6px}
+  .ex-set-box.now{border-color:var(--text)}
+  .ex-set-box.now .label{color:var(--text)}
 </style>

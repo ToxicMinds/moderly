@@ -21,6 +21,7 @@
   import DailyFocus from '$lib/components/DailyFocus.svelte';
   import TodayPulse from '$lib/components/TodayPulse.svelte';
   import WeekCheckIn from '$lib/components/WeekCheckIn.svelte';
+  import BackRebuild from '$lib/components/BackRebuild.svelte';
   import { todayYmd, shiftYmd, mondayOf } from '$lib/date';
   import { nowTick } from '$lib/stores/refresh';
 
@@ -413,6 +414,9 @@
 <!-- Sits directly under the Pulse and only on Sun/Mon/Tue, once per week — the
      one moment the app asks instead of reports. Renders nothing otherwise. -->
 <WeekCheckIn />
+
+<!-- Only while a program runs: the one-tap morning rating that paces it. -->
+<BackRebuild compact />
 
 <DailyFocus items={focusItems} />
 

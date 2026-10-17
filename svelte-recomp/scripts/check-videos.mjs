@@ -70,6 +70,22 @@ async function probe(id) {
 }
 
 const ids = await collectIds(ROOT);
+
+// Data modules that build exercises with a helper (positional args, no `vid:`
+// literal for the regex to see) are walked structurally instead.
+const DATA_MODULES = ['lib/data/backRebuild.ts'];
+for (const rel of DATA_MODULES) {
+  const mod = await import(new URL('../src/' + rel, import.meta.url).href);
+  (function walk(o) {
+    if (Array.isArray(o)) return o.forEach(walk);
+    if (!o || typeof o !== 'object') return;
+    if (typeof o.vid === 'string' && /^[A-Za-z0-9_-]{11}$/.test(o.vid)) {
+      if (!ids.has(o.vid)) ids.set(o.vid, new Set());
+      ids.get(o.vid).add(rel);
+    }
+    Object.values(o).forEach(walk);
+  })(mod);
+}
 if (!ids.size) {
   console.error('No video ids found — the extraction regex is probably broken.');
   process.exit(1);

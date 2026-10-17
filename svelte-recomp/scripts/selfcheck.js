@@ -2855,6 +2855,74 @@ check('food has exactly one way in', async () => {
   assert.doesNotMatch(today, /daily_logs',\s*\{[^}]*kcal/, 'Today must not write a bare kcal number');
 });
 
+// --- Back Rebuild: a program that paces itself and gives the plan back -----
+
+console.log('\nback rebuild — overlay, pacing, and handing the plan back');
+
+const prog = await import('../src/lib/program.ts');
+const rebuild = await import('../src/lib/data/backRebuild.ts');
+const SCHED = [
+  { day_of_week: 0, label: 'Rest', session_key: null, note: '' },
+  { day_of_week: 1, label: 'Lower', session_key: 'lower', note: '' },
+  { day_of_week: 3, label: 'Badminton', session_key: null, note: '' },
+  { day_of_week: 4, label: 'Upper', session_key: 'upper', note: '' },
+  { day_of_week: 6, label: 'Full', session_key: 'fullbody', note: '' },
+];
+const OWN = new Map([['lower', { key: 'lower', name: 'Heavy Lower Body', exercises: [] }]]);
+const START = { id: 'back-rebuild', start: '2026-10-19' };
+
+check('a program starts on the coming Monday and counts weeks from it', () => {
+  assert.equal(prog.nextMonday('2026-10-17'), '2026-10-19', 'Saturday -> Monday');
+  assert.equal(prog.nextMonday('2026-10-19'), '2026-10-19', 'Monday stays Monday');
+  assert.equal(prog.programWeek(START, '2026-10-18'), 0);
+  assert.equal(prog.programWeek(START, '2026-10-19'), 1);
+  assert.equal(prog.programWeek(START, '2026-11-02'), 3);
+  assert.equal(prog.programWeek(START, '2026-12-30'), rebuild.WEEKS + 1);
+});
+
+check('gym days get A, B, C in week order; sport days are left alone', () => {
+  const m = prog.overlaySessions(OWN, SCHED, START, '2026-10-20');
+  assert.match(m.get('lower').name, /^Rebuild A/);
+  assert.match(m.get('upper').name, /^Rebuild B/);
+  assert.match(m.get('fullbody').name, /^Rebuild C/);
+  assert.equal(m.get('lower').key, 'lower', 'keys stay, so the schedule and completions keep working');
+  assert.equal(m.get('lower').program.week, 1);
+});
+
+check('the old heavy session is not shown in the days before the start', () => {
+  assert.match(prog.overlaySessions(OWN, SCHED, START, '2026-10-17').get('lower').name, /^Rebuild A/);
+});
+
+check('the user’s own plan comes back, untouched, after week 6', () => {
+  const m = prog.overlaySessions(OWN, SCHED, START, '2026-11-30');
+  assert.equal(m.get('lower').name, 'Heavy Lower Body');
+  assert.equal(OWN.get('lower').name, 'Heavy Lower Body', 'the overlay never mutates the base map');
+  assert.equal(prog.overlaySessions(OWN, SCHED, null, '2026-10-20'), OWN, 'no program, no overlay');
+});
+
+check('the morning rating decides progress, hold, or back off', () => {
+  assert.equal(prog.painAdvice([], '2026-10-20').tone, 'na');
+  assert.equal(prog.painAdvice([{ date: '2026-10-20', back_pain: 2 }], '2026-10-20').tone, 'good');
+  assert.equal(prog.painAdvice([{ date: '2026-10-19', back_pain: 1 }, { date: '2026-10-20', back_pain: 3 }], '2026-10-20').tone, 'warn', 'rising to 3 = too much, too soon');
+  assert.equal(prog.painAdvice([{ date: '2026-10-20', back_pain: 5 }], '2026-10-20').tone, 'warn');
+  assert.equal(prog.painAdvice([{ date: '2026-10-20', back_pain: 7 }], '2026-10-20').tone, 'bad');
+  assert.equal(prog.painAdvice([{ date: '2026-10-19', back_pain: 2 }], '2026-10-20').ratedToday, false);
+});
+
+check('every program exercise but the walks comes with a video', () => {
+  const all = [...rebuild.DAILY, ...rebuild.PHASES.flatMap((p) => p.sessions.flatMap((s) => s.exercises))];
+  const missing = all.filter((e) => !/walk/i.test(e.name) && !/^[A-Za-z0-9_-]{11}$/.test(e.vid ?? ''));
+  assert.deepEqual(missing.map((e) => e.name), []);
+  assert.ok(rebuild.PHASES.every((p) => p.sessions.length === 3));
+});
+
+check('a program session can never be saved over the user’s own plan', async () => {
+  const { readFileSync } = await import('node:fs');
+  const page = readFileSync('src/routes/workouts/+page.svelte', 'utf8');
+  assert.match(page, /if \(!sess \|\| !uid \|\| sess\.program\) return;/);
+  assert.equal((page.match(/upsertRecord\('workout_sessions_custom'/g) ?? []).length, 2, 'seed + the one guarded save');
+});
+
 // Nothing may be reported until the async checks have actually settled.
 await Promise.all(pending);
 

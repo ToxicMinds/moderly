@@ -60,7 +60,7 @@ export const READ_PERMISSION: Record<RecordType, string> = {
  * and earns exactly one fresh prompt, while still never nagging for a set the
  * user has already answered.
  */
-export function readTypesKey(types: RecordType[] = READ_TYPES, writes: RecordType[] = WRITE_TYPES): string {
+export function readTypesKey(types: RecordType[] = READ_TYPES, writes: WriteType[] = WRITE_TYPES): string {
   // Writes are folded into the same fingerprint for exactly the reason the read
   // set is: adding WRITE_EXERCISE to an app whose "already asked" flag was set
   // years ago would otherwise never earn a prompt, and write-back would silently
@@ -86,9 +86,11 @@ export function readTypesKey(types: RecordType[] = READ_TYPES, writes: RecordTyp
  * typed. Nothing derived, nothing estimated — writing a computed number into the
  * platform record would pollute every other app that reads it.
  */
-export const WRITE_TYPES: RecordType[] = ['ExerciseSession', 'Weight'];
+/** Written but never read: Weight lives outside RecordType (the READ set). */
+export type WriteType = 'ExerciseSession' | 'Weight';
+export const WRITE_TYPES: WriteType[] = ['ExerciseSession', 'Weight'];
 
-export const WRITE_PERMISSION: Record<string, string> = {
+export const WRITE_PERMISSION: Record<WriteType, string> = {
   ExerciseSession: 'android.permission.health.WRITE_EXERCISE',
   Weight: 'android.permission.health.WRITE_WEIGHT',
 };
@@ -102,14 +104,14 @@ export const WRITE_PERMISSION: Record<string, string> = {
  * escapes the coroutine and takes the app down instead of rejecting the promise.
  * Never write a type this returns false for.
  */
-export function canWrite(type: string, granted: Set<string> | string[]): boolean {
+export function canWrite(type: WriteType, granted: Set<string> | string[]): boolean {
   const set = granted instanceof Set ? granted : new Set(granted);
   const perm = WRITE_PERMISSION[type];
   return !!perm && set.has(perm);
 }
 
 /** The subset of WRITE_TYPES that are safe to write (permission granted). */
-export function grantedWriteTypes(granted: Set<string> | string[]): RecordType[] {
+export function grantedWriteTypes(granted: Set<string> | string[]): WriteType[] {
   const set = granted instanceof Set ? granted : new Set(granted);
   return WRITE_TYPES.filter((t) => set.has(WRITE_PERMISSION[t]));
 }

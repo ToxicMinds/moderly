@@ -1,7 +1,10 @@
-import { writable, get, type Writable } from 'svelte/store';
+import { writable, get, derived, type Writable } from 'svelte/store';
 import { liveQuery } from 'dexie';
 import db from '$lib/db/dexie';
 import { userId } from './user';
+import { nowTick } from './refresh';
+import { overlaySessions } from '$lib/program';
+import { todayYmd } from '$lib/date';
 
 let currentUid = '';
 
@@ -184,8 +187,17 @@ export function liveSchedule() {
   return { subscribe: scheduleResults.subscribe };
 }
 
+// The sessions every screen trains from: the user's own, with an active
+// program's sessions laid over their gym days (see $lib/program). One place, so
+// Today, Train, the nudges and recovery can never disagree about what today's
+// session is — and the user's own plan returns untouched when the program ends.
+const overlaidSessions = derived(
+  [sessionResults, scheduleResults, profileResult, nowTick],
+  ([sessions, schedule, profile]) => overlaySessions(sessions, schedule, profile?.program, todayYmd()),
+);
+
 export function liveWorkoutSessions() {
-  return { subscribe: sessionResults.subscribe };
+  return { subscribe: overlaidSessions.subscribe };
 }
 
 // All workout_logs rows for the current user (every date/exercise). Kept as
