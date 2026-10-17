@@ -254,8 +254,6 @@ strong{color:var(--text);font-weight:800}
 .swipe-content{position:relative;transition:transform .2s var(--ease);margin-bottom:0;touch-action:pan-y;cursor:pointer}
 .swipe-content.dragging{transition:none}
 
-.streak-badge{font-size:0.75rem;font-weight:800;color:var(--text);background:var(--bg3);border-radius:var(--r-sm);padding:5px 10px;white-space:nowrap}
-.streak-badge.risk{color:var(--led-bad);background:var(--rb)}
 
 .music-link{display:block;text-align:center;text-decoration:none;margin-bottom:14px;background:var(--led-ok);color:#04121f}
 

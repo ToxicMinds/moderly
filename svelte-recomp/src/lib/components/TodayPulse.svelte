@@ -20,9 +20,11 @@
   let breakdownOpen = $state(false);
   let recoveryOpen = $state(false);
 
-  let { greeting = 'Today', sub = '', streak = 0, atRisk = false,
+  let { greeting = 'Today', sub = '', mornings = null,
         kgLost = '--', kgNow = '--', weeks = '--' } = $props<{
-    greeting?: string; sub?: string; streak?: number; atRisk?: boolean;
+    greeting?: string; sub?: string;
+    /** Weigh-ins this week against the mornings so far — never a streak to lose. */
+    mornings?: { weighed: number; days: number } | null;
     kgLost?: string | number; kgNow?: string | number; weeks?: string | number;
   }>();
 
@@ -55,8 +57,8 @@
     ? [{ v: plan!.targetKcal, l: 'kcal / day' }, { v: `${plan!.proteinG} g`, l: 'protein' }, { v: goalDateLabel(plan!.goalDate), l: `goal ${plan!.goalKg} kg` }]
     : [{ v: kgLost, l: 'kg lost' }, { v: kgNow, l: 'kg trend' }, { v: weeks, l: 'wks to goal' }]}>
   {#snippet aside()}
-    {#if streak > 0}
-      <div class="ph-streak" class:risk={atRisk}>Streak <b>{streak}</b>{#if atRisk} · log today{/if}</div>
+    {#if mornings}
+      <div class="ph-streak" class:full={mornings.weighed === mornings.days} title="Mornings weighed this week">Mornings <b>{mornings.weighed}/{mornings.days}</b></div>
     {/if}
   {/snippet}
 
@@ -142,8 +144,7 @@
     text-transform:uppercase;letter-spacing:.08em;color:var(--muted);
     border:1px solid var(--border2);border-radius:var(--r-sm);padding:4px 9px;white-space:nowrap}
   .ph-streak b{font-family:var(--font-led);font-style:italic;font-weight:700;font-size:1rem;color:var(--text);margin-left:4px}
-  .ph-streak.risk{color:var(--led-bad);border-color:color-mix(in srgb,var(--led-bad) 50%,transparent)}
-  .ph-streak.risk b{color:var(--led-bad)}
+  .ph-streak.full b{color:var(--led-good)}
 
   /* Day-one checklist. Four taps, each one a real first action — this is what
      occupies the space the empty readout would otherwise leave blank. */

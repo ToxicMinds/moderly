@@ -21,6 +21,7 @@ import { proteinTargetG, ageFrom } from '$lib/profile';
 import { parseCalorieTarget } from '$lib/coach';
 import { mondayOf, shiftYmd } from '$lib/date';
 import { weekBudget, type WeekBudget } from '$lib/week';
+import { lineState, type LineState } from '$lib/line';
 
 export interface DayIntake { kcal: number; protein: number; carbs: number; fat: number; items: number }
 
@@ -149,4 +150,15 @@ export const stall: Readable<StallDiagnosis | null> = derived(
     pace: $body.pace, intake: $body.intake, floorKcal: $body.floorKcal, today: $body.today,
     trainingDays: trainingDays($logs as any[], $activity as any[]),
   }),
+);
+
+/** Your line, judged on the same trend every other screen shows. Its own store
+ *  so a food entry doesn't recompute a year of daily trends. */
+export const line: Readable<LineState | null> = derived(
+  [liveWeights(), liveProfile(), todayDate],
+  ([$weights, $profile, $today]) => lineState(
+    ($profile as any)?.line ?? null,
+    (($weights as any[]) ?? []).map((w) => ({ date: w.date, weight: +w.weight })),
+    $today as string,
+  ),
 );

@@ -24,7 +24,6 @@
   import { liveProfile, liveProfileLoaded, liveAlarms, liveFoodLogs, liveWeights, liveWorkoutLogs, liveGoal, liveSchedule } from '$lib/stores/live';
   import { scheduleNativeAlarms, scheduleNudges, isNativeApp, type AlarmRow } from '$lib/nativeAlarms';
   import { situationalNudges, minutesOfDay } from '$lib/situational';
-  import { computeStreak } from '$lib/streaks';
   import { todayYmd } from '$lib/date';
   import { isComplete } from '$lib/profile';
   import { setWatchBrand } from '$lib/health/healthConnect';
@@ -226,9 +225,6 @@
       ? Math.round((Date.parse(today) - Date.parse(lastWeigh)) / 86400000)
       : null;
 
-    const loggedDates = new Set(($_nudgeFood as any[]).map((f) => f.date));
-    const streak = computeStreak([...loggedDates], today, 1).current;
-
     const dow = now.getDay();
     const scheduledToday = ($_nudgeSchedule as any[]).find((s) => s.day_of_week === dow);
 
@@ -241,8 +237,9 @@
       foodEntriesToday: todayFood.length,
       isTrainingDay: !!scheduledToday?.time,
       workoutLoggedToday: ($_nudgeWorkouts as any[]).some((w) => w.date === today),
-      streakDays: streak,
-      loggedToday: loggedDates.has(today),
+      plans: ($_profile as any)?.plans ?? null,
+      dow,
+      badmintonDay: /badminton/i.test(`${scheduledToday?.label ?? ''} ${scheduledToday?.note ?? ''}`),
       daysSinceWeighIn,
     }), now);
   });

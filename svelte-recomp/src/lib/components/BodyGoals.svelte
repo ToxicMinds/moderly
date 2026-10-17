@@ -6,11 +6,8 @@
   import { ageFrom } from '$lib/profile';
   import { projectGoal, projectGoalWithTdee, ACTIVITY_LABELS, type ActivityLevel } from '$lib/tdee';
   import { waterTargetLitres } from '$lib/coach';
-  import { speak } from '$lib/stores/toast';
-  import { haptic } from '$lib/haptics';
   import { body } from '$lib/stores/body';
-  import { writeBackToHealth } from '$lib/health/writeBack';
-  import db from '$lib/db/dexie';
+  import { saveWeighIn, NeedsConfirm } from '$lib/weighIn';
   import MiniChart from '$lib/components/MiniChart.svelte';
 
   let uid = $state('');
@@ -33,56 +30,25 @@
   let weightInput = $state('');
   let savingWeight = $state(false);
 
+  let weightMsg = $state('');
+  let confirmKg: number | null = null;
   async function saveWeight() {
     if (!uid || !weightInput) return;
-    haptic('tap');
     savingWeight = true;
+    weightMsg = '';
+    const kg = parseFloat(weightInput);
     try {
-      const today = todayYmd();
-      const w = parseFloat(weightInput);
-      const existing = await db.table('weights').where('[user_id+date]').equals([uid, today]).first();
-      // The lowest weight logged BEFORE today's entry — so we can tell if this
-      // reading is a genuine new low and say so out loud.
-      const priorLow = ($_weights as any[])
-        .filter((r) => r.date !== today)
-        .reduce((lo: number | null, r) => (lo == null || r.weight < lo ? r.weight : lo), null as number | null);
-      const startKg = $_profile?.start_kg ?? null;
-      await upsertRecord('weights', {
-        id: existing?.id || undefined,
-        user_id: uid, date: today,
-        weight: w,
-        created_at: new Date().toISOString(),
+      await saveWeighIn(uid, kg, {
+        today: todayYmd(), weights: $_weights as any[], goalKg: GOAL_KG || null,
+        trendKg: $body.currentKg, confirmed: confirmKg === kg,
+        startKg: $_profile?.start_kg != null ? +$_profile.start_kg : null,
       });
-      announceWeight(w, priorLow, startKg);
-      // Same reason as hand-logged sessions: a weight typed here used to exist
-      // only here. Fire-and-forget — a Health Connect write must never be able
-      // to fail the weigh-in itself.
-      writeBackToHealth([], [{ time: new Date(), kg: w }]).catch(() => {});
       weightInput = '';
-    } catch (e) { console.error('Weight save failed:', e);
+      confirmKg = null;
+    } catch (e: any) {
+      if (e instanceof NeedsConfirm) { confirmKg = kg; weightMsg = e.message; }
+      else { console.error('Weight save failed:', e); weightMsg = 'Save failed: ' + (e?.message || String(e)).slice(0, 120); }
     } finally { savingWeight = false; }
-  }
-
-  // The app talks back on a weigh-in: hitting goal is the headline; a new low
-  // (only meaningful when cutting) is celebrated with how far you've come.
-  function announceWeight(w: number, priorLow: number | null, startKg: number | null) {
-    const goal = GOAL_KG;
-    if (goal > 0 && w <= goal + 0.05 && (priorLow == null || priorLow > goal + 0.05)) {
-      speak(`goal-reached-${w}`, 'Goal weight reached 🎯', {
-        tone: 'good', icon: '🎯', ttl: 10000,
-        body: `${w.toFixed(1)} kg — you did the thing. Time to talk maintenance so it stays off.`,
-      });
-      return;
-    }
-    // New low, and clearly moving the right way (a cut). Needs prior history so
-    // the very first weigh-in isn't announced as a "low".
-    if (priorLow != null && w < priorLow - 0.05 && (goal === 0 || w > goal)) {
-      const fromStart = startKg != null && startKg > w ? ` — down ${(startKg - w).toFixed(1)} kg from ${startKg.toFixed(1)}` : '';
-      speak(`low-${w}`, `New low: ${w.toFixed(1)} kg 📉`, {
-        tone: 'good', icon: '📉',
-        body: `Lowest you've logged${fromStart}. The trend is your friend — keep the protein high.`,
-      });
-    }
   }
 
   // — Weight chart —
@@ -325,6 +291,7 @@
     </div>
   </div>
   <button class="btn bp bfl" onclick={saveWeight} disabled={!weightInput || savingWeight}>Log Weight</button>
+  {#if weightMsg}<div class="bg-weight-msg">{weightMsg}</div>{/if}
 
   {#if weights.length >= 2}
     <div class="chart-box">
@@ -476,4 +443,5 @@
 {/if}
 
 <style>
+  .bg-weight-msg{font-size:0.8125rem;line-height:1.45;color:var(--led-warn);text-align:center;margin-top:8px}
 </style>

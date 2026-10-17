@@ -12,8 +12,16 @@
 // user opening the app again, which re-evaluates and cancels it.
 //
 // Pure and unit-tested. The OS half lives in nativeAlarms.ts.
+//
+// No streak alarms. "Your 9-day streak is at risk" is loss aversion aimed
+// at the user, and a broken streak is exactly the "the diet's ruined anyway"
+// moment that turns one missed day into a lost week. What fires instead, when
+// the user has written one, is their OWN plan at its moment: Friday evening,
+// the weekend, a badminton night.
 
-export type NudgeKey = 'no-food' | 'protein-short' | 'train-day' | 'streak-risk' | 'weigh-in';
+import { CUES, type Plans, type PlanCue } from './plans.ts';
+
+export type NudgeKey = 'no-food' | 'protein-short' | 'train-day' | 'plan' | 'weigh-in';
 
 export interface Nudge {
   key: NudgeKey;
@@ -36,9 +44,11 @@ export interface SituationInput {
   /** Is today a scheduled training day, and has a set been logged today? */
   isTrainingDay: boolean;
   workoutLoggedToday: boolean;
-  /** Current daily-logging streak, and whether today has been logged yet. */
-  streakDays: number;
-  loggedToday: boolean;
+  /** The user's plans, today's weekday (0 = Sunday) and whether it's a
+   *  badminton day — what decides which plan's moment is coming. */
+  plans?: Plans | null;
+  dow?: number;
+  badmintonDay?: boolean;
   /** Days since the last weigh-in; null when there has never been one. */
   daysSinceWeighIn: number | null;
 }
@@ -54,7 +64,6 @@ const T = {
   noFood: 14 * 60,        // 14:00 — half the day gone with nothing logged
   trainDay: 17 * 60 + 30, // 17:30 — before the evening is spoken for
   proteinShort: 19 * 60,  // 19:00 — one meal left to fix it, not a post-mortem
-  streakRisk: 20 * 60 + 30,
   weighIn: 7 * 60 + 30,   // tomorrow morning, when a weigh-in is actually possible
 };
 
@@ -70,7 +79,7 @@ export function situationalNudges(input: SituationInput): Nudge[] {
   const out: Nudge[] = [];
   const {
     nowMinutes, proteinG, proteinTargetG, foodEntriesToday, isTrainingDay,
-    workoutLoggedToday, streakDays, loggedToday, daysSinceWeighIn,
+    workoutLoggedToday, daysSinceWeighIn,
   } = input;
 
   // Nothing logged at all — the single most consequential gap, because every
@@ -105,14 +114,10 @@ export function situationalNudges(input: SituationInput): Nudge[] {
     });
   }
 
-  // A streak worth protecting, at risk.
-  if (streakDays >= 3 && !loggedToday) {
-    out.push({
-      key: 'streak-risk', atMinutes: T.streakRisk, priority: 60,
-      title: `${streakDays}-day streak on the line`,
-      body: 'Log anything today to keep it going. The streak is not the point — the habit it is standing in for is.',
-    });
-  }
+  // The user's own plan, just before its moment: decided days ago, so all it
+  // needs now is recognising the moment.
+  const plan = planMoment(input);
+  if (plan) out.push(plan);
 
   // No weigh-in for days: fires tomorrow morning, when one is actually possible.
   if (daysSinceWeighIn != null && daysSinceWeighIn >= 3) {
@@ -128,6 +133,24 @@ export function situationalNudges(input: SituationInput): Nudge[] {
     .filter((n) => n.key === 'weigh-in' || n.atMinutes > nowMinutes)
     .sort((a, b) => b.priority - a.priority || a.atMinutes - b.atMinutes)
     .slice(0, MAX_NUDGES_PER_DAY);
+}
+
+/** When each plan is worth a ping: before the moment, not in the middle of it. */
+const PLAN_AT: Partial<Record<PlanCue, number>> = {
+  badminton: 17 * 60,     // before leaving for the hall
+  friday: 16 * 60 + 30,   // before leaving work
+  weekend: 10 * 60 + 30,  // late morning, before the day fills
+};
+
+function planMoment(i: SituationInput): Nudge | null {
+  if (!i.plans || i.dow == null) return null;
+  const cue: PlanCue | null = i.badmintonDay ? 'badminton' : i.dow === 5 ? 'friday' : i.dow === 6 || i.dow === 0 ? 'weekend' : null;
+  // A badminton Friday with no badminton plan still gets the Friday one.
+  const candidates: Array<PlanCue | null> = [cue, i.dow === 5 ? 'friday' : null];
+  const pick = candidates.find((c): c is PlanCue => c != null && !!i.plans?.[c]?.trim());
+  if (!pick) return null;
+  const info = CUES.find((c) => c.cue === pick)!;
+  return { key: 'plan', atMinutes: PLAN_AT[pick]!, priority: 75, title: `${info.label}: your plan`, body: i.plans[pick]!.trim() };
 }
 
 /** Minutes-from-midnight for a Date, in local time. */

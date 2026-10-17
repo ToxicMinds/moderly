@@ -10,6 +10,8 @@
   import { upsertRecord } from '$lib/stores/sync';
   import { liveFoodLogs, liveDailyLogs, liveBiometrics, liveWorkoutLogs, liveProfile } from '$lib/stores/live';
   import { reviewInputs } from '$lib/stores/review';
+  import { editing } from '$lib/commitments';
+  import { cleanPlans } from '$lib/plans';
   import { weeklyReview } from '$lib/weeklyReview';
   import { body } from '$lib/stores/body';
   import { todayDate } from '$lib/stores/refresh';
@@ -128,8 +130,11 @@
     }
   }
 
-  // The week under review, as the share sheet sends it.
+  // The week under review, as the share sheet sends it, with the plan most
+  // likely to matter next week.
   const review = $derived(weeklyReview({ ...$reviewInputs, today: weekEnd }));
+  const plans = $derived(cleanPlans(($_profile as any)?.plans));
+  const sharedPlan = $derived(plans.weekend ?? plans.friday ?? plans.badminton ?? plans.evening ?? null);
   let sharing = $state(false);
   let shareMsg = $state('');
   async function share() {
@@ -138,7 +143,7 @@
     shareMsg = '';
     try {
       const { shareWeek } = await import('$lib/weeklyShare');
-      shareMsg = await shareWeek(review, { name: ($_profile as any)?.display_name ?? null });
+      shareMsg = await shareWeek(review, { name: ($_profile as any)?.display_name ?? null, plan: sharedPlan });
     } catch (e: any) {
       shareMsg = 'Share failed: ' + (e?.message || String(e)).slice(0, 100);
     } finally {
@@ -175,6 +180,9 @@
       <!-- Someone else knowing how the week went is one of the few things with
            real evidence for keeping weight off. One tap, the OS share sheet,
            the user picks who — the app never learns. -->
+      {#if !sharedPlan}
+        <button class="btn bg_ bfl wc-share" onclick={() => editing.set('plans')}>Plan next week's weekend</button>
+      {/if}
       <button class="btn bg_ bfl wc-share" onclick={share} disabled={sharing}>{sharing ? '…' : 'Send my week to someone'}</button>
       {#if shareMsg}<div class="wc-share-msg">{shareMsg}</div>{/if}
     {:else}
@@ -231,5 +239,6 @@
   .wc-reasons li.wc-train{border-left-color:var(--amber)}
   .wc-err{font-size:0.75rem;color:var(--red);text-align:center;margin-top:6px}
   .wc-share{margin-top:12px}
+  .wc-share + .wc-share{margin-top:8px}
   .wc-share-msg{font-size:0.75rem;font-weight:700;color:var(--led-good);text-align:center;margin-top:6px}
 </style>

@@ -64,7 +64,6 @@ const { parseCalorieTarget, waterTargetLitres } = await import('../src/lib/coach
 const { inferEquipment, nextGymWeight, roundToGymWeight } = await import('../src/lib/nextWeight.ts');
 const { evaluateFood } = await import('../src/lib/foodCoach.ts');
 const { PATTERNS, toneHaptic } = await import('../src/lib/haptics.ts');
-const { isStreakMilestone, streakBlurb, computeStreak } = await import('../src/lib/streaks.ts');
 
 // --- Today's Focus folds into three topics --------------------------------
 
@@ -920,7 +919,7 @@ const { situationalNudges, minutesOfDay, nudgeFireAt, MAX_NUDGES_PER_DAY } =
 const DAY = {
   nowMinutes: 12 * 60, proteinG: 60, proteinTargetG: 162, kcal: 1200, kcalTargetKcal: 2000,
   foodEntriesToday: 3, isTrainingDay: false, workoutLoggedToday: false,
-  streakDays: 0, loggedToday: true, daysSinceWeighIn: 0,
+  daysSinceWeighIn: 0,
 };
 
 check('being short on protein at midday earns a nudge with the real number in it', () => {
@@ -952,11 +951,19 @@ check('a training day you have not trained on gets one reminder, before the even
   assert.equal(situationalNudges({ ...DAY, isTrainingDay: true, workoutLoggedToday: true, proteinG: 165 }).length, 0);
 });
 
-check('a streak is only defended once it is worth defending', () => {
-  const at3 = situationalNudges({ ...DAY, streakDays: 3, loggedToday: false, foodEntriesToday: 0 });
-  assert.ok(at3.some((n) => n.key === 'streak-risk' || n.key === 'no-food'));
-  const at1 = situationalNudges({ ...DAY, streakDays: 1, loggedToday: false, proteinG: 165 });
-  assert.ok(!at1.some((n) => n.key === 'streak-risk'), 'a one-day streak is not a streak');
+check('no streak alarm: the user’s own plan fires before its moment instead', async () => {
+  const { readFileSync } = await import('node:fs');
+  assert.doesNotMatch(readFileSync('src/lib/situational.ts', 'utf8'), /streak-risk|on the line/, 'loss aversion aimed at the user is gone');
+  const plans = { friday: 'Dinner decided before I leave work.', weekend: 'Leftovers in a box.' };
+  const fri = situationalNudges({ ...DAY, proteinG: 165, plans, dow: 5 }).find((n) => n.key === 'plan');
+  assert.ok(fri, 'Friday with a Friday plan gets it');
+  assert.equal(fri.body, 'Dinner decided before I leave work.');
+  assert.ok(fri.atMinutes < 17 * 60, 'before leaving work, not after dinner');
+  assert.equal(situationalNudges({ ...DAY, nowMinutes: 8 * 60, proteinG: 165, plans, dow: 0 }).find((n) => n.key === 'plan')?.body, 'Leftovers in a box.');
+  assert.ok(!situationalNudges({ ...DAY, nowMinutes: 12 * 60, proteinG: 165, plans, dow: 0 }).some((n) => n.key === 'plan'), 'a weekend morning plan is not sent after lunch');
+  assert.equal(situationalNudges({ ...DAY, proteinG: 165, plans, dow: 2 }).length, 0, 'a Tuesday with no plan for it stays silent');
+  assert.equal(situationalNudges({ ...DAY, proteinG: 165, plans, dow: 5, badmintonDay: true }).find((n) => n.key === 'plan')?.body,
+    'Dinner decided before I leave work.', 'a badminton Friday without a badminton plan still gets the Friday one');
 });
 
 check('never more than two nudges in a day, whatever is wrong', () => {
@@ -965,7 +972,7 @@ check('never more than two nudges in a day, whatever is wrong', () => {
   const everythingWrong = situationalNudges({
     ...DAY, nowMinutes: 6 * 60, foodEntriesToday: 0, proteinG: 0,
     isTrainingDay: true, workoutLoggedToday: false,
-    streakDays: 9, loggedToday: false, daysSinceWeighIn: 6,
+    daysSinceWeighIn: 6, plans: { friday: 'x' }, dow: 5,
   });
   assert.ok(everythingWrong.length <= MAX_NUDGES_PER_DAY, `got ${everythingWrong.length}`);
   assert.equal(MAX_NUDGES_PER_DAY, 2);
@@ -2558,41 +2565,6 @@ check('celebrate is a distinct multi-beat crescendo', () => {
     'the nav tick must stay feather-light');
 });
 
-// ── STREAK MILESTONES ───────────────────────────────────────────────────────
-// A milestone must be rare enough to feel earned. The named steps fire; the
-// days between them stay silent; and past a year every hundred still counts.
-check('named milestones fire, in-between days stay quiet', () => {
-  for (const m of [3, 7, 14, 30, 100, 365]) {
-    assert.ok(isStreakMilestone(m), `${m} should be a milestone`);
-  }
-  for (const q of [1, 2, 4, 8, 13, 29, 99, 101]) {
-    assert.ok(!isStreakMilestone(q), `${q} must NOT be a milestone`);
-  }
-  assert.ok(!isStreakMilestone(0), 'zero is never a milestone');
-  assert.ok(!isStreakMilestone(-5), 'negatives are never milestones');
-});
-
-check('past a year, every hundredth day still lands', () => {
-  assert.ok(isStreakMilestone(400));
-  assert.ok(isStreakMilestone(500));
-  assert.ok(!isStreakMilestone(450));
-});
-
-check('milestone blurb scales its tone with the distance', () => {
-  assert.ok(/who you are/i.test(streakBlurb(100)));
-  assert.ok(/month/i.test(streakBlurb(30)));
-  assert.ok(/week/i.test(streakBlurb(7)));
-  assert.ok(streakBlurb(3).length > 0);
-});
-
-check('a real daily log bumps the streak by exactly one', () => {
-  // The milestone announcer only fires on a +1 step, so proving a fresh log is
-  // a single increment is what guarantees it can never mis-fire on data load.
-  const days = ['2026-08-06', '2026-08-07', '2026-08-08'];
-  const before = computeStreak(days, '2026-08-08', 1).current;
-  const after = computeStreak([...days, '2026-08-09'], '2026-08-09', 1).current;
-  assert.equal(after, before + 1, 'one more logged day = one more in the streak');
-});
 // ── Analysis bundle: muscle volume, lift stalls, sleep↔perf, nutrition, heatmap ──
 const { muscleVolume, SET_FLOOR, SET_CEILING } = await import('../src/lib/muscleVolume.ts');
 const { liftStalls } = await import('../src/lib/liftStalls.ts');
@@ -3022,6 +2994,13 @@ check('the week’s maintenance moves gently from Sunday to Sunday, and goes sta
   assert.ok(Math.max(...jumps) < 150, `a ±1 kg scale must not lurch the target: ${weeks.join(' → ')}`);
   const later = weeklyMaintenance({ intake: flatIntake, weights: flatWeights, weekStart: '2026-12-14', formulaKcal: 3200 });
   assert.equal(later.kcal, null, 'eight weeks without data is not this week’s maintenance');
+  // A heavy last week (water, salt) swings that Sunday's raw estimate; the
+  // week's number moves by about a third of it, not all of it.
+  const heavy = flatWeights.map((w) => (w.date > '2026-10-11' ? { ...w, weight: w.weight + 1.5 } : w));
+  const before = weeklyMaintenance({ intake: flatIntake, weights: heavy, weekStart: '2026-10-12', formulaKcal: 3200 });
+  const after = weeklyMaintenance({ intake: flatIntake, weights: heavy, weekStart: '2026-10-19', formulaKcal: 3200 });
+  const raw = Math.abs(after.latest.tdee - before.latest.tdee), smooth = Math.abs(after.kcal - before.kcal);
+  assert.ok(raw > 150 && smooth < raw * 0.5, `raw moved ${raw}, the week's number ${smooth}`);
 });
 
 check('the week’s target holds still all week and is read from last Sunday', async () => {
@@ -3097,6 +3076,112 @@ check('weight rate, learned burn and targets are computed in one place', async (
   assert.deepEqual(offenders(/diagnoseStall\(\{/, ['src/lib/stores/body.ts']), [], 'one stall diagnosis');
   assert.deepEqual(offenders(/resolveCalorieTarget\(\{/, ['src/lib/stores/body.ts']), [], 'one calorie target');
   assert.deepEqual(offenders(/goalKg \* 1\.8|GOAL_KG \* 1\.8/, []), [], 'one protein target (profile.proteinTargetG)');
+});
+
+// --- Real life: the line, the plans, the week, coming back -----------------
+
+console.log('\nreal life — the line, the plans, the week, coming back');
+
+const { lineState, suggestLine } = await import('../src/lib/line.ts');
+const { activePlan, cueActive, cleanPlans, CUES } = await import('../src/lib/plans.ts');
+const { morningsThisWeek, weighInMessage } = await import('../src/lib/scale.ts');
+const { weekShape } = await import('../src/lib/week.ts');
+
+// Synthetic mornings (the repo is public): a steady loss to a low, then a regain.
+const dayAt = (i) => shiftYmd(i, new Date('2026-07-01T12:00:00'));
+const cutThenRegain = Array.from({ length: 108 }, (_, i) => ({
+  date: dayAt(i),
+  weight: +((i < 60 ? 116 - i * 0.08 : 111.2 + (i - 60) * 0.05) + (NOISE[i % NOISE.length] / 3)).toFixed(1),
+}));
+
+check('the line follows a held low down, a kilo above it, and never back up', () => {
+  const at = (i) => lineState({ kg: 117, set: dayAt(0) }, cutThenRegain, dayAt(i));
+  const low = at(64);
+  assert.ok(low.kg < 117 && low.kg > 111, `ratcheted down from 117 with the cut, got ${low.kg}`);
+  assert.equal(low.kg, Math.round((low.heldLowKg + 1) * 10) / 10, 'a kilo above the lowest held trend');
+  const later = at(107);
+  assert.ok(later.kg <= low.kg, 'regaining never raises the line');
+  assert.notEqual(later.zone, 'under', `a ~2 kg regain crosses it, got ${later.zone} at trend ${later.trendKg} vs ${later.kg}`);
+});
+
+check('the line is judged on the trend, and a low that doesn’t hold a week can’t move it', () => {
+  // Three light mornings then a heavier week: the trend dips for a few days
+  // and climbs back. The line follows only a low that held for seven days.
+  const f = Array.from({ length: 46 }, (_, i) => ({ date: dayAt(i), weight: (i >= 34 && i <= 36 ? 111 : i >= 37 ? 114.5 : 113) + NOISE[i % NOISE.length] / 5 }));
+  const dipped = Math.min(...[34, 35, 36].map((i) => weightVerdict(f, Date.parse(`${dayAt(i)}T12:00:00`)).trendKg));
+  assert.ok(dipped <= 112.6, `the fixture must actually dip the trend, got ${dipped}`);
+  const s = lineState({ kg: 114, set: dayAt(0) }, f, dayAt(45));
+  assert.equal(s.kg, 114, `a three-day dip in the trend must not pull the line to ${(dipped + 1).toFixed(1)}`);
+  assert.equal(s.zone, 'under');
+  assert.equal(suggestLine(113.04), 114, 'drawn a kilo above today’s trend');
+  assert.equal(lineState(null, f, dayAt(45)), null);
+  assert.equal(lineState({ kg: 114, set: dayAt(0) }, f.slice(0, 3), dayAt(45)), null, 'no trend, no verdict');
+});
+
+check('a plan shows at its moment, the most specific moment first', () => {
+  const plans = { weekend: 'Leftovers in a box.', friday: 'Dinner decided early.', evening: 'Kitchen closed.', back: 'Walk, no lifting.' };
+  const m = { hour: 18, dow: 5, badmintonDay: false, backPain: null, overLine: false };
+  assert.equal(activePlan(plans, m)?.cue, 'friday');
+  assert.equal(activePlan(plans, { ...m, dow: 6, hour: 11 })?.cue, 'weekend');
+  assert.equal(activePlan(plans, { ...m, dow: 2, hour: 21 })?.cue, 'evening');
+  assert.equal(activePlan(plans, { ...m, backPain: 7 })?.cue, 'back', 'a bad back beats Friday');
+  assert.equal(activePlan(plans, { ...m, dow: 2, hour: 12 }), null, 'Tuesday lunchtime: nothing to say');
+  assert.equal(cueActive('badminton', { ...m, badmintonDay: true, hour: 16 }), false, 'before the session it isn’t “home from badminton” yet');
+  assert.deepEqual(cleanPlans({ weekend: '  x  ', bogus: 'y', friday: '', line: 5 }), { weekend: 'x' });
+  assert.ok(CUES.every((c) => c.suggestion && c.when && c.label));
+});
+
+check('mornings count up through the week and never reset mid-week', () => {
+  const w = [{ date: '2026-10-12' }, { date: '2026-10-14' }, { date: '2026-10-15' }, { date: '2026-10-11' }];
+  assert.deepEqual(morningsThisWeek(w, '2026-10-17'), { weighed: 3, days: 6 });
+  assert.deepEqual(morningsThisWeek(w, '2026-10-19'), { weighed: 0, days: 1 }, 'Monday starts fresh');
+});
+
+check('stepping back on the scale after a gap is welcomed, not scored', () => {
+  const weights = [{ date: '2026-10-08', weight: 113 }, { date: '2026-10-09', weight: 112.8 }];
+  const back = weighInMessage(113.4, { today: '2026-10-15', weights, goalKg: 96, startKg: 133 });
+  assert.equal(back.title, 'Back on the scale');
+  assert.match(back.body, /6 days since the last one/);
+  assert.doesNotMatch(back.body, /streak|lost|missed|broke/i);
+  assert.match(weighInMessage(112.1, { today: '2026-10-10', weights, goalKg: 96, startKg: 133 }).title, /New low/);
+  assert.equal(weighInMessage(113.1, { today: '2026-10-10', weights, goalKg: 96, startKg: 133 }), null, 'an ordinary morning earns nothing');
+  assert.match(weighInMessage(95.9, { today: '2026-10-10', weights, goalKg: 96, startKg: 133 }).title, /Goal weight reached/);
+});
+
+check('a reading far off the trend asks once before it bends five weeks of numbers', async () => {
+  const { offTrend } = await import('../src/lib/scale.ts');
+  assert.equal(offTrend(103.5, 113.1), -9.6, 'a dropped digit');
+  assert.equal(offTrend(114.6, 113.1), null, 'a heavy Monday is not a typo');
+  assert.equal(offTrend(113, null), null, 'no trend yet, nothing to compare');
+  const { readFileSync } = await import('node:fs');
+  assert.match(readFileSync('src/lib/weighIn.ts', 'utf8'), /if \(off != null && !ctx\.confirmed\)/);
+});
+
+check('the week’s shape: weekday medians, the weekend gap, and the scale’s rhythm', () => {
+  const intake = new Map();
+  const weights = [];
+  for (let i = 0; i < 84; i++) {
+    const d = shiftYmd(-i, new Date('2026-10-17T12:00:00'));
+    const dow = (new Date(`${d}T12:00:00`).getDay() + 6) % 7; // 0 = Monday
+    intake.set(d, { kcal: dow >= 4 ? 2600 : 1900 });
+    weights.push({ date: d, weight: 113 + [0.5, 0, -0.5, -0.5, 0, 0, 0.4][dow] });
+  }
+  const s = weekShape(intake, weights, '2026-10-17');
+  assert.deepEqual(s.kcal, [1900, 1900, 1900, 1900, 2600, 2600, 2600]);
+  assert.equal(s.weekendGap, 700);
+  assert.equal(s.heaviest, 0, 'Monday after the weekend');
+  assert.ok(s.lightest === 2 || s.lightest === 3, 'midweek');
+  assert.equal(weekShape(new Map([...intake].slice(0, 20)), weights, '2026-10-17'), null, 'needs four of every weekday');
+});
+
+check('one weigh-in path, one place the commitments are saved', async () => {
+  const { readFileSync } = await import('node:fs');
+  const files = await srcFiles();
+  const weighs = files.filter((f) => /upsertRecords?\('weights'/.test(readFileSync(f, 'utf8')));
+  assert.deepEqual(weighs.sort(), ['src/lib/components/Onboarding.svelte', 'src/lib/weighIn.ts'], 'onboarding seeds the first one; everything else goes through saveWeighIn');
+  const commits = files.filter((f) => /\b(line|plans): /.test(readFileSync(f, 'utf8')) && /upsertRecord\('user_settings'/.test(readFileSync(f, 'utf8')));
+  assert.deepEqual(commits, ['src/lib/commitments.ts']);
+  assert.ok(!files.includes('src/lib/streaks.ts'), 'no streak to lose');
 });
 
 // --- Engineering: the rules the audit found broken, kept as tests -----------

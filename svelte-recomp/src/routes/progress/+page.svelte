@@ -17,6 +17,7 @@
   import BodyGoals from '$lib/components/BodyGoals.svelte';
   import ProgressPhotos from '$lib/components/ProgressPhotos.svelte';
   import PageHero from '$lib/components/PageHero.svelte';
+  import WeekShape from '$lib/components/WeekShape.svelte';
   import { onMount, tick } from 'svelte';
   import { afterNavigate } from '$app/navigation';
   import { base } from '$app/paths';
@@ -285,6 +286,9 @@
     </div>
   </div>
 {/if}
+
+<!-- Where in the week the food goes, and what the scale does with it. -->
+<WeekShape />
 
 <div class="card verdict-card verdict-{tone}">
   <div class="verdict-tone-bar"></div>

@@ -1,4 +1,4 @@
-import { writable, get, derived, type Writable } from 'svelte/store';
+import { writable, derived, type Writable } from 'svelte/store';
 import { liveQuery } from 'dexie';
 import db from '$lib/db/dexie';
 import { userId } from './user';
@@ -191,28 +191,6 @@ export function liveWorkoutLogs() {
 // by date client-side for daily totals.
 export function liveFoodLogs() {
   return { subscribe: foodLogResults.subscribe };
-}
-
-// Union of every date on which the user logged ANY activity (daily
-// quick-log, weigh-in, food entry, or workout set) -- used to power the
-// logging-streak counter on the Today page. Derived from the same
-// liveQuery results already being tracked above, so no extra Dexie
-// subscription is needed.
-export function liveActivityDates() {
-  const store: Writable<string[]> = writable([]);
-  function updateDates() {
-    const dates = new Set<string>();
-    for (const row of get(logResults).values()) dates.add(row.date);
-    for (const row of get(weightResults)) dates.add(row.date);
-    for (const row of get(foodLogResults)) dates.add(row.date);
-    for (const row of get(workoutLogResults)) dates.add(row.date);
-    store.set([...dates]);
-  }
-  logResults.subscribe(updateDates);
-  weightResults.subscribe(updateDates);
-  foodLogResults.subscribe(updateDates);
-  workoutLogResults.subscribe(updateDates);
-  return { subscribe: store.subscribe };
 }
 
 // All biometrics rows (sleep/RHR/HRV) for the current user, used by the

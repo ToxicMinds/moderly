@@ -1,8 +1,7 @@
 <script lang="ts">
-  import { liveAlarms, liveWeights, liveGoal, liveActivityDates, liveGoalReason, liveSchedule, liveWorkoutSessions, liveSessionCompletions, liveDailySteps, liveBiometrics, liveWorkoutLogs, liveActivitySessions, liveDailyLogs } from '$lib/stores/live';
+  import { liveAlarms, liveWeights, liveGoal, liveGoalReason, liveSchedule, liveWorkoutSessions, liveSessionCompletions, liveDailySteps, liveBiometrics, liveWorkoutLogs, liveActivitySessions, liveDailyLogs } from '$lib/stores/live';
   import { upsertRecord } from '$lib/stores/sync';
   import { userId } from '$lib/stores/user';
-  import db from '$lib/db/dexie';
   import { liveProfile } from '$lib/stores/live';
   import { DEFAULT_SESSIONS } from '$lib/data/workoutPlanDefaults';
   import { buildSchedule } from '$lib/data/planTemplates';
@@ -11,11 +10,14 @@
   const FALLBACK_SCHEDULE = buildSchedule({ templateId: 'gym3' });
   import { base } from '$app/paths';
   import { cardNav } from '$lib/actions/cardNav';
-  import { computeStreak, isStreakMilestone, streakBlurb } from '$lib/streaks';
-  import { speak } from '$lib/stores/toast';
-  import { haptic } from '$lib/haptics';
+  import { morningsThisWeek } from '$lib/scale';
+  import { saveWeighIn, NeedsConfirm } from '$lib/weighIn';
   import { buildDailyFocus, goalSummary, waterTargetLitres } from '$lib/coach';
-  import { body, stall } from '$lib/stores/body';
+  import { body, stall, line } from '$lib/stores/body';
+  import { editing } from '$lib/commitments';
+  import { cleanPlans } from '$lib/plans';
+  import CommitmentAlerts from '$lib/components/CommitmentAlerts.svelte';
+  import Commitments from '$lib/components/Commitments.svelte';
   import { strengthTrend } from '$lib/strength';
   import { primaryActivity } from '$lib/health/exercise';
   import DailyFocus from '$lib/components/DailyFocus.svelte';
@@ -80,29 +82,9 @@
     } finally { markingSessionDone = false; }
   }
 
-  // Streak: consecutive days with ANY logged activity (weigh-in, food,
-  // workout, or the quick-log card), with a 1-day "shield" so a single
-  // missed day doesn't wipe out weeks of consistency (Noom/Lose It-style
-  // adherence mechanic -- loss aversion is a genuinely effective nudge).
-  const _activityDates = liveActivityDates();
-  const streak = $derived(computeStreak($_activityDates, today, 1));
-
-  // Celebrate a streak milestone the moment it's earned — but only on a genuine
-  // +1 daily increment while the app is open, never on the initial data-load
-  // jump (which arrives as one big leap, not a step). So a milestone fires the
-  // instant your logging tips it over, and stays silent every other launch.
-  let prevStreak = -1;
-  $effect(() => {
-    const c = streak.current;
-    if (prevStreak === -1) { prevStreak = c; return; } // baseline, no fanfare
-    if (c === prevStreak + 1 && isStreakMilestone(c)) {
-      speak(`streak-${c}`, `${c}-day streak! 🔥`, {
-        tone: 'good', icon: '🔥', ttl: 8000, body: streakBlurb(c),
-      });
-      haptic('celebrate');
-    }
-    prevStreak = c;
-  });
+  // This week's mornings on the scale. Not a streak: a missed morning costs one
+  // morning, never the whole count, and Monday starts fresh.
+  const mornings = $derived(morningsThisWeek($_weights as any[], today));
 
   let editingGoal = $state(false);
   let goalInput = $state('');
@@ -125,6 +107,8 @@
   let saving = $state(false);
   let saveMsg = $state('');
   let msgFor = $state<'weight' | 'steps'>('weight');
+  /** A reading far off the trend, waiting for its second tap. */
+  let confirmKg = $state<number | null>(null);
 
   // Every weight number on this screen is the trend's (stores/body): one
   // morning's reading swings a kilo either way and is never the headline.
@@ -150,14 +134,13 @@
     saveMsg = '';
     try {
       if (what === 'weight' && weight) {
-        const existing = await db.table('weights').where('[user_id+date]').equals([uid, today]).first();
-        await upsertRecord('weights', {
-          id: existing?.id || undefined,
-          user_id: uid, date: today, weight: parseFloat(weight),
-          created_at: new Date().toISOString(),
+        const kg = parseFloat(weight);
+        await saveWeighIn(uid, kg, {
+          today, weights: $_weights as any[], goalKg: $body.goalKg, trendKg: currentKg, confirmed: confirmKg === kg,
+          startKg: ($_profile as any)?.start_kg != null ? +($_profile as any).start_kg : null,
         });
         weight = '';
-        haptic('success');
+        confirmKg = null;
       }
       if (what === 'steps' && steps) {
         await upsertRecord('steps', {
@@ -169,6 +152,7 @@
         setTimeout(() => { saveMsg = ''; }, 3000);
       }
     } catch (e: any) {
+      if (e instanceof NeedsConfirm) { confirmKg = parseFloat(weight); saveMsg = e.message; return; }
       console.error('Log failed:', e);
       saveMsg = 'Save failed: ' + (e?.message || e?.error_description || String(e)).slice(0, 150);
     } finally {
@@ -288,6 +272,10 @@
 
   const GLASS_L = 0.25; // each logged "glass" = 250 ml
 
+  // The moment the plans are matched against (see $lib/plans).
+  const badmintonDay = $derived(dayInfo.label === 'Badminton' || watchToday?.label === 'Badminton');
+  const planCount = $derived(Object.keys(cleanPlans(($_profile as any)?.plans)).length);
+
   const focusItems = $derived(
     buildDailyFocus({
       goalKg: GOAL_KG,
@@ -321,19 +309,19 @@
   );</script>
 
 <TodayPulse greeting={greeting} sub={`${dayName} · ${dateStr}`}
-  streak={streak.current} atRisk={streak.atRisk}
+  {mornings}
   kgLost={kgLost} kgNow={currentKg != null ? currentKg.toFixed(1) : '--'} weeks={$body.weeksToGoal ?? '—'} />
 
 <!-- MORNING WEIGH-IN. The trend is only as good as the mornings behind it — a
      month of 13 weigh-ins left it a kilo wide either way — so the scale gets the
      top of the screen until today's reading is in, then shrinks to one line. -->
 {#if todayWeighIn}
-  <div class="mw-done">Weighed <b>{todayWeighIn.weight}</b> today{#if currentKg != null} · trend <b>{currentKg.toFixed(1)}</b> kg{/if}</div>
+  <div class="mw-done">Weighed <b>{todayWeighIn.weight}</b> today{#if currentKg != null} · trend <b>{currentKg.toFixed(1)}</b> kg{/if}{#if $line} · line <b class="mw-line z-{$line.zone}">{$line.kg.toFixed(1)}</b>{/if}</div>
 {:else}
   <div class="card mw">
     <div class="mw-top">
       <label class="card-lbl" for="ql-weight">Morning weigh-in</label>
-      {#if currentKg != null}<span class="mw-trend">trend <b>{currentKg.toFixed(1)}</b> kg</span>{/if}
+      {#if currentKg != null}<span class="mw-trend">trend <b>{currentKg.toFixed(1)}</b> kg{#if $line} · line <b class="mw-line z-{$line.zone}">{$line.kg.toFixed(1)}</b>{/if}</span>{/if}
     </div>
     <div class="mw-row">
       <input id="ql-weight" type="number" inputmode="decimal" step="0.1" bind:value={weight}
@@ -346,6 +334,10 @@
   </div>
 {/if}
 
+<!-- The line, when the trend is over it, and the plan whose moment it is.
+     Nothing on an ordinary day. -->
+<CommitmentAlerts moment={{ hour: nowHour, dow: dayIdx, badmintonDay, backPain: todayLog?.back_pain ?? null }} />
+
 <!-- Sits directly under the Pulse and only on Sun/Mon/Tue, once per week — the
      one moment the app asks instead of reports. Renders nothing otherwise. -->
 <WeekCheckIn />
@@ -355,17 +347,20 @@
 
 <DailyFocus items={focusItems} />
 
-<div class="flex ac jb" style="gap:10px;margin:2px 2px 14px">
-  <span style="font-size:0.8rem;color:var(--muted);font-weight:700">🎯 Goal weight</span>
+<!-- What you've committed to: where you're going, the line you don't cross
+     on the way back, and what you'll do when the hard moments come. -->
+<div class="cm-row">
   {#if editingGoal}
     <!-- svelte-ignore a11y_autofocus -->
-    <input type="number" step="0.5" bind:value={goalInput}
-      onkeydown={(e) => e.key === 'Enter' && saveGoal()} onblur={saveGoal}
-      style="width:96px;text-align:center" autofocus>
+    <input class="cm-goal-in" type="number" step="0.5" bind:value={goalInput} aria-label="Goal weight, kg"
+      onkeydown={(e) => e.key === 'Enter' && saveGoal()} onblur={saveGoal} autofocus>
   {:else}
-    <button class="btn bg_ bsm" onclick={() => { editingGoal = true; goalInput = GOAL_KG.toString(); }}>{GOAL_KG} kg ✎</button>
+    <button class="cm-chip" onclick={() => { editingGoal = true; goalInput = GOAL_KG.toString(); }}><span>Goal</span><b>{GOAL_KG} kg</b></button>
   {/if}
+  <button class="cm-chip" onclick={() => editing.set('line')}><span>Line</span><b class:cm-todo={!$line}>{$line ? `${$line.kg.toFixed(1)} kg` : 'Draw'}</b></button>
+  <button class="cm-chip" onclick={() => editing.set('plans')}><span>Plans</span><b class:cm-todo={!planCount}>{planCount || 'Make'}</b></button>
 </div>
+<Commitments />
 
 {#if $_goalReason}
   <div class="note-box">💡 {goalSummary($_goalReason)}</div>
@@ -483,4 +478,15 @@
   .mw-err,.mw-msg.bad{color:var(--led-bad)}
   .mw-done{font-size:0.8125rem;color:var(--muted);margin:-4px 2px 14px}
   .mw-done b{font-family:var(--font-display);font-size:1.0625rem;color:var(--text)}
+  .mw-line.z-over{color:var(--led-warn)}
+  .mw-line.z-well-over{color:var(--led-bad)}
+  .cm-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:2px 0 14px}
+  .cm-chip{display:flex;flex-direction:column;align-items:flex-start;gap:3px;min-width:0;cursor:pointer;font-family:inherit;color:inherit;
+    background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-md);padding:9px 11px;text-align:left;
+    transition:transform .18s var(--ease),border-color .15s}
+  .cm-chip:active{transform:scale(.97)}
+  .cm-chip span{font-family:var(--font-display);font-size:0.75rem;font-weight:800;text-transform:uppercase;letter-spacing:.14em;color:var(--muted)}
+  .cm-chip b{font-family:var(--font-display);font-size:1.25rem;font-weight:800;line-height:1;color:var(--text);white-space:nowrap}
+  .cm-chip b.cm-todo{color:var(--muted);text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--border2)}
+  .cm-goal-in{text-align:center;min-width:0}
 </style>
