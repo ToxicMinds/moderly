@@ -132,6 +132,12 @@
   const currentKg = $derived($body.currentKg);
   const kgLost = $derived($body.firstKg != null && currentKg != null ? ($body.firstKg - currentKg).toFixed(1) : '--');
   const todayWeighIn = $derived(($_weights as any[]).find((w) => w.date === today) ?? null);
+  // The raw reading stays visible beside the trend — the trend replaces it as
+  // the headline, never as the record.
+  const lastWeighIn = $derived(($_weights as any[]).at(-1) ?? null);
+  const lastWeighLabel = $derived(lastWeighIn
+    ? `${lastWeighIn.weight} on ${new Date(lastWeighIn.date + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}`
+    : null);
 
 
 
@@ -350,7 +356,7 @@
       <button class="btn bp" onclick={() => saveEntry('weight')} disabled={saving || !weight}>{saving ? 'Saving…' : 'Save'}</button>
     </div>
     {#if saveMsg && msgFor === 'weight'}<div class="mw-err">{saveMsg}</div>{/if}
-    <p class="mw-hint">Same time, before food or drink. One morning is noise; the trend is the number.</p>
+    <p class="mw-hint">{#if lastWeighLabel}Last reading {lastWeighLabel}. {/if}Same time, before food or drink. One morning is noise; the trend — the line through five weeks of mornings — is the number.</p>
   </div>
 {/if}
 

@@ -53,7 +53,7 @@
   story={showPlan ? plan!.headline : result.headline}
   stats={showPlan
     ? [{ v: plan!.targetKcal, l: 'kcal / day' }, { v: `${plan!.proteinG} g`, l: 'protein' }, { v: goalDateLabel(plan!.goalDate), l: `goal ${plan!.goalKg} kg` }]
-    : [{ v: kgLost, l: 'kg lost' }, { v: kgNow, l: 'kg now' }, { v: weeks, l: 'wks to goal' }]}>
+    : [{ v: kgLost, l: 'kg lost' }, { v: kgNow, l: 'kg trend' }, { v: weeks, l: 'wks to goal' }]}>
   {#snippet aside()}
     {#if streak > 0}
       <div class="ph-streak" class:risk={atRisk}>Streak <b>{streak}</b>{#if atRisk} · log today{/if}</div>
