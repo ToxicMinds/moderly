@@ -3529,6 +3529,59 @@ check('a day’s share of the week is worked out in one place', async () => {
   assert.deepEqual(offenders, [], 'the briefing reads body.week and body.tomorrow');
 });
 
+// ── Refresh speed ────────────────────────────────────────────────────────────
+const { changedDays, sameSessions } = await import('../src/lib/health/dedupe.ts');
+const { pageAll } = await import('../src/lib/paging.ts');
+
+check('a watch sync saves only the days that changed', () => {
+  const byDay = {
+    '2026-10-15': { steps: 8000, sleep_hours: 7.2, resting_hr: 58, hrv: 41.5 },
+    '2026-10-16': { steps: 9100, sleep_hours: null, resting_hr: 57, hrv: null },
+    '2026-10-17': { steps: 3200, sleep_hours: 6.9, resting_hr: 59, hrv: 40.1 },
+  };
+  const savedSteps = new Map([['2026-10-15', 8000], ['2026-10-16', 9100], ['2026-10-17', 2100]]);
+  const savedBio = new Map([
+    ['2026-10-15', { sleep_hours: '7.2', sleep_quality: null, resting_hr: 58, hrv: '41.5' }], // numeric comes back as text
+    ['2026-10-16', { sleep_hours: 7.8, sleep_quality: 4, resting_hr: 57, hrv: 39 }],
+  ]);
+  const { steps, bio } = changedDays('u', byDay, savedSteps, savedBio);
+  assert.deepEqual(steps, [{ user_id: 'u', date: '2026-10-17', count: 3200 }], 'today’s steps moved; the rest are as saved');
+  assert.deepEqual(bio.map((b) => b.date), ['2026-10-17'], 'the 15th and 16th are already saved exactly');
+  assert.equal(changedDays('u', byDay, new Map(), new Map()).steps.length, 3, 'nothing saved yet: all of it');
+  const kept = changedDays('u', { '2026-10-16': { steps: null, sleep_hours: null, resting_hr: 60, hrv: null } }, new Map(), savedBio).bio[0];
+  assert.deepEqual([kept.sleep_hours, kept.sleep_quality, kept.hrv], [7.8, 4, 39], 'what the read didn’t carry keeps its saved value');
+});
+
+check('the same watch workouts are not rewritten, whatever the timestamp spelling', () => {
+  const fresh = [{ id: 'a', user_id: 'u', date: '2026-10-15', start: '2026-10-15T17:00:00.000Z', kcal: 512.4, label: 'Badminton' }];
+  const saved = [{ ...fresh[0], start: '2026-10-15T17:00:00+00:00', kcal: '512.4', created_at: '2026-10-15T21:00:00+00:00' }];
+  assert.ok(sameSessions(saved, fresh), 'server spelling of the same instant and number');
+  assert.ok(!sameSessions(saved, [{ ...fresh[0], kcal: 530 }]), 'a changed number is a change');
+  assert.ok(!sameSessions([], fresh) && !sameSessions(saved, []), 'one more or one fewer is a change');
+  assert.ok(!sameSessions(saved, [{ ...fresh[0], start: '2026-10-15T18:00:00.000Z' }]));
+});
+
+check('a table pull pages past the server’s 1000-row cap', async () => {
+  const table = Array.from({ length: 2345 }, (_, i) => ({ i }));
+  const calls = [];
+  const all = await pageAll(async (from, to) => { calls.push([from, to]); return table.slice(from, to + 1); });
+  assert.equal(all.length, 2345, 'past the first thousand');
+  assert.deepEqual(calls, [[0, 999], [1000, 1999], [2000, 2999]]);
+  const exact = await pageAll(async (from, to) => table.slice(0, 1000).slice(from, to + 1));
+  assert.equal(exact.length, 1000, 'a full last page asks once more and stops on the empty one');
+  await assert.rejects(pageAll(async () => { throw new Error('offline'); }), /offline/);
+});
+
+check('refresh writes in batches: no save per day, no unpaged pull', async () => {
+  const { readFileSync } = await import('node:fs');
+  const hc = readFileSync('src/lib/health/healthConnect.ts', 'utf8');
+  assert.ok(!/for \([^)]*\)\s*\{[^}]*await (pushSteps|upsertRecords?|supabase)/.test(hc), 'one request per day, in a row, is what made refresh slow');
+  const sync = readFileSync('src/lib/stores/sync.ts', 'utf8');
+  assert.equal((sync.match(/\.select\('\*'\)/g) ?? []).length, 1, 'every table pull goes through pullTable');
+  assert.match(sync, /pageAll\(/);
+  assert.match(sync, /if \(lastPulled\.get\(table\) === seen\) return;/, 'an unchanged table is not rewritten');
+});
+
 // Nothing may be reported until the async checks have actually settled.
 await Promise.all(pending);
 

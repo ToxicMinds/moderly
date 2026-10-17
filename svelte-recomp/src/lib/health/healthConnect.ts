@@ -13,10 +13,10 @@
 import { writable } from 'svelte/store';
 import db from '$lib/db/dexie';
 import { supabase } from '$lib/db/client';
-import { upsertRecord } from '$lib/stores/sync';
+import { upsertRecords } from '$lib/stores/sync';
 import { buildActivitySessions } from './exercise';
 import { type RecordType, READ_TYPES, READ_PERMISSION, WRITE_TYPES, canWrite, readTypesKey } from './permissions';
-import { pickOriginByDay, countOrigins, percentile } from './dedupe';
+import { pickOriginByDay, countOrigins, percentile, changedDays, sameSessions } from './dedupe';
 import { preferredSource } from './watches';
 import { notify } from '$lib/stores/notices';
 
@@ -314,44 +314,43 @@ function aggregate(
   return byDay;
 }
 
-/** Steps: write via Supabase upsert then keep a single Dexie row per day. */
-async function pushSteps(uid: string, date: string, count: number) {
-  const { data, error } = await supabase
-    .from('steps')
-    .upsert({ user_id: uid, date, count }, { onConflict: 'user_id,date' })
-    .select()
-    .single();
+/** Steps: every changed day in one upsert, then one local row per day. */
+async function pushSteps(uid: string, rows: Array<{ user_id: string; date: string; count: number }>) {
+  const { data, error } = await supabase.from('steps').upsert(rows, { onConflict: 'user_id,date' }).select();
   if (error) throw error;
+  if (!data?.length) return;
   // The Dexie `steps` table has an auto-increment key, so a keyless put would
-  // create duplicates. Replace any existing rows for this day with the single
-  // authoritative Supabase row (which carries a stable id).
+  // create duplicates. Replace those days' local rows with the authoritative
+  // Supabase rows (which carry a stable id): two writes, not two per day.
   try {
-    await db.table('steps').where('[user_id+date]').equals([uid, date]).delete();
+    await db.table('steps').where('[user_id+date]').anyOf(data.map((r: any) => [uid, r.date])).delete();
   } catch {
     /* index may be missing on very old dbs; ignore */
   }
-  if (data) await db.table('steps').put(data);
+  await db.table('steps').bulkPut(data);
 }
 
-/** Biometrics: merge with any existing row so we never wipe a manual value. */
-async function pushBiometrics(uid: string, date: string, agg: DayAgg) {
-  if (agg.sleep_hours == null && agg.resting_hr == null && agg.hrv == null) return false;
-  let prev: any = null;
-  try {
-    prev = await db.table('biometrics').get([uid, date]);
-  } catch {
-    prev = null;
-  }
-  await upsertRecord('biometrics', {
-    user_id: uid,
-    date,
-    sleep_hours: agg.sleep_hours != null ? agg.sleep_hours : (prev?.sleep_hours ?? null),
-    sleep_quality: prev?.sleep_quality ?? null,
-    resting_hr: agg.resting_hr != null ? agg.resting_hr : (prev?.resting_hr ?? null),
-    hrv: agg.hrv != null ? agg.hrv : (prev?.hrv ?? null),
-    updated_at: new Date().toISOString()
-  });
-  return true;
+/**
+ * Save what a read changed (see changedDays): at most one request for steps
+ * and one for sleep/heart rate, in parallel, and none at all when every day
+ * came back as saved, which is most refreshes.
+ */
+async function saveDays(uid: string, byDay: Record<string, DayAgg>): Promise<{ steps: boolean; bio: boolean }> {
+  const [savedSteps, savedBio] = await Promise.all([
+    db.table('steps').where('user_id').equals(uid).toArray().catch(() => [] as any[]),
+    db.table('biometrics').where('user_id').equals(uid).toArray().catch(() => [] as any[]),
+  ]);
+  const { steps, bio } = changedDays(uid, byDay,
+    new Map(savedSteps.map((r: any) => [r.date, r.count])),
+    new Map(savedBio.map((r: any) => [r.date, r])));
+  const at = new Date().toISOString();
+  const [s, b] = await Promise.allSettled([
+    steps.length ? pushSteps(uid, steps) : null,
+    bio.length ? upsertRecords('biometrics', bio.map((r) => ({ ...r, updated_at: at }))) : null,
+  ]);
+  if (s.status === 'rejected') notify('Health Connect', `Could not save steps: ${s.reason?.message || s.reason}`, { level: 'warn' });
+  if (b.status === 'rejected') notify('Health Connect', `Could not save sleep/HR: ${b.reason?.message || b.reason}`, { level: 'warn' });
+  return { steps: s.status === 'fulfilled', bio: b.status === 'fulfilled' };
 }
 
 /**
@@ -370,15 +369,18 @@ async function pushActivitySessions(
   sinceYmd: string
 ): Promise<number> {
   try {
-    const stale = await db
+    const saved = await db
       .table('activity_sessions')
       .where('[user_id+date]')
       .between([uid, sinceYmd], [uid, '\uffff'])
       // Same rule as the remote delete below: a hand-logged session is never in
       // the watch's fresh set, so clearing the window unfiltered would erase it.
       .filter((r: any) => (r?.source ?? 'watch') === 'watch')
-      .primaryKeys();
-    if (stale.length) await db.table('activity_sessions').bulkDelete(stale);
+      .toArray();
+    // The same sessions as last time (most refreshes): nothing to rewrite,
+    // here or on the server.
+    if (sameSessions(saved, sessions)) return sessions.length;
+    if (saved.length) await db.table('activity_sessions').bulkDelete(saved.map((r: any) => r.id));
   } catch {
     /* index may be missing on very old dbs; ignore */
   }
@@ -497,6 +499,25 @@ export async function openHealthConnectSettings(): Promise<boolean> {
 let running = false;
 
 /**
+ * How far back a sync reads. Two weeks catches a watch that synced late, but
+ * re-reading it on every pull meant thousands of heart-rate samples across the
+ * bridge each time for days that don't change. So: the full two weeks at most
+ * every six hours (and whenever the user forces a sync), the last three days
+ * otherwise.
+ */
+const FULL_DAYS = 14;
+const RECENT_DAYS = 3;
+const FULL_READ_KEY = 'hc-last-full-read';
+function fullReadDue(): boolean {
+  try {
+    const at = Date.parse(localStorage.getItem(FULL_READ_KEY) ?? '');
+    return !(Date.now() - at < 6 * 60 * 60 * 1000);
+  } catch {
+    return true;
+  }
+}
+
+/**
  * Read Health Connect and sync into the app. No-ops off native.
  * @param force  when true, prompts for permissions even if previously asked.
  */
@@ -526,7 +547,8 @@ export async function syncHealthConnect(
     healthConnect.update((s) => ({ ...s, grantedPerms: Array.from(granted) }));
     if (!ok) throw new Error('Health Connect permission not granted');
 
-    const nDays = opts.days ?? 14;
+    const full = opts.force || fullReadDue();
+    const nDays = opts.days ?? (full ? FULL_DAYS : RECENT_DAYS);
     const startISO = startOfDaysAgo(nDays).toISOString();
     const endISO = new Date().toISOString();
 
@@ -588,41 +610,23 @@ export async function syncHealthConnect(
       distances: fromPreferred(distances),
       hrSeries
     });
-    let workoutDays = 0;
-    try {
-      workoutDays = await pushActivitySessions(uid, activity, ymd(startOfDaysAgo(nDays)));
-    } catch (e: any) {
-      notify('Health Connect', `Could not save watch workouts: ${e?.message || e}`, { level: 'warn' });
-    }
-
-    let stepDays = 0;
-    let sleepDays = 0;
-    let hrDays = 0;
-    for (const date of dates) {
-      const agg = byDay[date];
-      if (agg.steps != null) {
-        try {
-          await pushSteps(uid, date, agg.steps);
-          stepDays++;
-        } catch (e: any) {
-          notify('Health Connect', `Could not save steps for ${date}: ${e?.message || e}`, { level: 'warn' });
-        }
-      }
-      try {
-        const wrote = await pushBiometrics(uid, date, agg);
-        if (wrote) {
-          if (agg.sleep_hours != null) sleepDays++;
-          if (agg.resting_hr != null || agg.hrv != null) hrDays++;
-        }
-      } catch (e: any) {
-        notify('Health Connect', `Could not save sleep/HR for ${date}: ${e?.message || e}`, { level: 'warn' });
-      }
-    }
+    // Workouts, steps and sleep/HR are independent: save them side by side.
+    const [workoutDays, saved] = await Promise.all([
+      pushActivitySessions(uid, activity, ymd(startOfDaysAgo(nDays))).catch((e: any) => {
+        notify('Health Connect', `Could not save watch workouts: ${e?.message || e}`, { level: 'warn' });
+        return 0;
+      }),
+      saveDays(uid, byDay),
+    ]);
+    const stepDays = saved.steps ? dates.filter((d) => byDay[d].steps != null).length : 0;
+    const sleepDays = saved.bio ? dates.filter((d) => byDay[d].sleep_hours != null).length : 0;
+    const hrDays = saved.bio ? dates.filter((d) => byDay[d].resting_hr != null || byDay[d].hrv != null).length : 0;
 
     const result = { days: dates.length, steps: stepDays, sleep: sleepDays, hr: hrDays, workouts: workoutDays };
     const now = new Date().toISOString();
     try {
       localStorage.setItem('hc-last-sync', now);
+      if (nDays >= FULL_DAYS) localStorage.setItem(FULL_READ_KEY, now);
     } catch {
       /* ignore */
     }
@@ -630,7 +634,9 @@ export async function syncHealthConnect(
       ...s,
       syncing: false,
       lastSync: now,
-      lastResult: result,
+      // The counts mean "days with data in the last two weeks"; a short read
+      // would make them shrink, which reads as data going missing.
+      lastResult: nDays >= FULL_DAYS ? result : s.lastResult ?? result,
       lastError: null
     }));
   } catch (e: any) {

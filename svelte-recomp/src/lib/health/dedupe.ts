@@ -141,3 +141,72 @@ export function percentile(values: number[], p: number): number | null {
 // source logged more" and could have the phone chosen over the watch.
 // Consumers import from ./watches directly rather than re-exporting through
 // here, so this module stays purely about de-duplication maths.
+
+// ---------------------------------------------------------------------------
+// The second kind of duplicate: re-saving what's already saved.
+//
+// Every refresh re-reads the last days from Health Connect, and nearly all of
+// them come back exactly as saved last time. Writing them again anyway cost a
+// server round trip per day per signal, in a row (about 30 on a 14-day read),
+// and woke every screen that reads steps or sleep, which is most of why pull-
+// to-refresh felt slow. Values are rounded before they get here (steps whole,
+// sleep and HRV to 0.1), so plain equality is exact.
+// ---------------------------------------------------------------------------
+
+export interface DayValues { steps: number | null; sleep_hours: number | null; resting_hr: number | null; hrv: number | null }
+export interface SavedBio { sleep_hours?: number | null; sleep_quality?: number | null; resting_hr?: number | null; hrv?: number | null }
+export interface BioRow { user_id: string; date: string; sleep_hours: number | null; sleep_quality: number | null; resting_hr: number | null; hrv: number | null }
+
+/** The steps and sleep/heart-rate rows a read changed. A signal the read
+ *  didn't produce keeps what's saved, so a value typed in by hand survives. */
+export function changedDays(
+  uid: string,
+  byDay: Record<string, DayValues>,
+  savedSteps: Map<string, number>,
+  savedBio: Map<string, SavedBio>,
+): { steps: Array<{ user_id: string; date: string; count: number }>; bio: BioRow[] } {
+  const steps: Array<{ user_id: string; date: string; count: number }> = [];
+  const bio: BioRow[] = [];
+  for (const date of Object.keys(byDay).sort()) {
+    const a = byDay[date];
+    if (a.steps != null && savedSteps.get(date) !== a.steps) steps.push({ user_id: uid, date, count: a.steps });
+    if (a.sleep_hours == null && a.resting_hr == null && a.hrv == null) continue;
+    const prev = savedBio.get(date);
+    const row: BioRow = {
+      user_id: uid, date,
+      sleep_hours: a.sleep_hours ?? num(prev?.sleep_hours),
+      sleep_quality: num(prev?.sleep_quality),
+      resting_hr: a.resting_hr ?? num(prev?.resting_hr),
+      hrv: a.hrv ?? num(prev?.hrv),
+    };
+    const same = prev && num(prev.sleep_hours) === row.sleep_hours && num(prev.resting_hr) === row.resting_hr && num(prev.hrv) === row.hrv;
+    if (!same) bio.push(row);
+  }
+  return { steps, bio };
+}
+
+/** Postgres numeric can come back as a string; a missing value is null. */
+const num = (v: unknown): number | null => (v == null || v === '' ? null : Number(v));
+
+/** Whether the watch sessions just read are the ones already saved. Only the
+ *  fields the read produces are compared, and timestamps by instant: the
+ *  server writes "+00:00" where the phone wrote "Z". */
+export function sameSessions(saved: Array<Record<string, any>>, fresh: Array<Record<string, any>>): boolean {
+  if (saved.length !== fresh.length) return false;
+  const byId = new Map(saved.map((s) => [String(s.id), s]));
+  return fresh.every((f) => {
+    const s = byId.get(String(f.id));
+    return !!s && Object.keys(f).every((k) => sameValue(s[k], f[k]));
+  });
+}
+
+function sameValue(a: unknown, b: unknown): boolean {
+  if (a == null || b == null) return a == null && b == null;
+  if (typeof a === 'number' || typeof b === 'number') return Number(a) === Number(b);
+  if (typeof a === 'string' && typeof b === 'string') {
+    if (a === b) return true;
+    const ta = Date.parse(a), tb = Date.parse(b);
+    return /^\d{4}-\d\d-\d\dT/.test(a) && !Number.isNaN(ta) && ta === tb;
+  }
+  return JSON.stringify(a) === JSON.stringify(b);
+}

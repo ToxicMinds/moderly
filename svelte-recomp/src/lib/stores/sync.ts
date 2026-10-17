@@ -3,6 +3,7 @@ import { supabase } from '$lib/db/client';
 import db from '$lib/db/dexie';
 import type { RealtimeChannel, RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 import { notify } from './notices';
+import { pageAll } from '$lib/paging';
 
 export type SyncStatus = 'idle' | 'syncing' | 'synced' | 'error';
 export const syncStatus = writable<SyncStatus>('idle');
@@ -15,6 +16,28 @@ const TABLES = ['alarms', 'daily_logs', 'checks', 'tracks', 'weights', 'steps', 
 function dexieTable(table: string) {
   return db.table(table);
 }
+
+/**
+ * Every row of one table the user can see, paged (see pageAll: a bare
+ * select('*') stopped at 1000 rows without a word, so past 1000 food entries
+ * the newest would never have come down). Ordered by the table's conflict
+ * key, which is unique, so pages never overlap or skip.
+ */
+const pullTable = (table: (typeof TABLES)[number]) => pageAll(async (from, to) => {
+  let q = supabase.from(table).select('*');
+  for (const col of CONFLICT[table].split(',')) q = q.order(col);
+  const { data, error } = await q.range(from, to);
+  if (error) throw error;
+  return (data ?? []) as any[];
+});
+
+/**
+ * What each table held the last time it was pulled. A refresh that brings back
+ * the same rows writes nothing: a write wakes every screen that reads the
+ * table, and most refreshes change nothing at all. Cleared on sign-out, and
+ * initSync always writes, so a fresh local database is always filled.
+ */
+const lastPulled = new Map<string, string>();
 
 function primaryKeyFor(table: string, record: Record<string, any>): any {
   switch (table) {
@@ -75,15 +98,9 @@ export async function initSync(uid: string) {
     const failures: string[] = [];
     await Promise.all(TABLES.map(async (table) => {
       try {
-        const { data, error } = await supabase
-          .from(table)
-          .select('*');
-
-        if (error) throw error;
-
-        if (data && data.length > 0) {
-          await dexieTable(table).bulkPut(data as any[]);
-        }
+        const data = await pullTable(table);
+        if (data.length > 0) await dexieTable(table).bulkPut(data);
+        lastPulled.set(table, JSON.stringify(data));
 
         const channel = supabase
           .channel(`${table}-sync-${uid}`)
@@ -139,9 +156,11 @@ export async function refetchAll(): Promise<void> {
   await Promise.all(
     TABLES.map(async (table) => {
       try {
-        const { data, error } = await supabase.from(table).select('*');
-        if (error) throw error;
-        if (data && data.length > 0) await dexieTable(table).bulkPut(data as any[]);
+        const data = await pullTable(table);
+        const seen = JSON.stringify(data);
+        if (lastPulled.get(table) === seen) return;
+        if (data.length > 0) await dexieTable(table).bulkPut(data);
+        lastPulled.set(table, seen);
       } catch (e: any) {
         failures.push(table);
         notify('Sync', `Refresh of "${table}" failed: ${e?.message || e}`, { level: 'warn' });
@@ -260,5 +279,6 @@ export async function upsertRecords(table: string, rows: Record<string, any>[]) 
 export function destroySync() {
   channels.forEach((ch) => ch.unsubscribe());
   channels.length = 0;
+  lastPulled.clear();
   syncStatus.set('idle');
 }

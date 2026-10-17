@@ -10,7 +10,7 @@
   import { recentErrors, clearErrors } from '$lib/errorLog';
   import { healthConnect } from '$lib/health/healthConnect';
   import { syncStatus, syncError } from '$lib/stores/sync';
-  import { lastRefresh } from '$lib/stores/refresh';
+  import { lastRefresh, lastRefreshTook } from '$lib/stores/refresh';
   import Modal from '$lib/components/Modal.svelte';
 
   let open = $state(false);
@@ -45,6 +45,8 @@
     return h < 24 ? `${h}h ago` : `${Math.round(h / 24)}d ago`;
   }
 
+  const secs = (ms: number) => `${(ms / 1000).toFixed(1)} s`;
+
   function when(at: number): string {
     return new Date(at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
   }
@@ -67,7 +69,7 @@
     </div>
     <div class="diag-row">
       <span class="diag-k">Last full refresh</span>
-      <span class="diag-v">{ago($lastRefresh)}</span>
+      <span class="diag-v">{ago($lastRefresh)}{#if $lastRefreshTook}{' · '}server {secs($lastRefreshTook.cloud)}{#if $lastRefreshTook.watch != null}{' · '}watch {secs($lastRefreshTook.watch)}{/if}{/if}</span>
     </div>
     <div class="diag-row">
       <span class="diag-k">Watch data</span>

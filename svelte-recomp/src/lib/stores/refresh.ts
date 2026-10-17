@@ -33,6 +33,10 @@ export const todayDate = derived(nowTick, () => todayYmd());
 export const refreshing = writable(false);
 export const lastRefresh = writable<number | null>(null);
 export const refreshError = writable<string | null>(null);
+/** How long each half of the last refresh took, ms (watch: null off the
+ *  phone). Shown in App status, so a slow refresh on the phone can be read
+ *  off rather than guessed at. */
+export const lastRefreshTook = writable<{ cloud: number; watch: number | null } | null>(null);
 
 /**
  * How often the clock advances on its own. One minute is plenty: recovery
@@ -82,10 +86,13 @@ export async function refreshAll(uid: string | null): Promise<void> {
   refreshError.set(null);
 
   inFlight = (async () => {
+    const t0 = performance.now();
+    const took = { cloud: 0, watch: null as number | null };
     const results = await Promise.allSettled([
-      refetchAll(),
-      uid ? syncHealthConnect(uid) : Promise.resolve(null)
+      refetchAll().finally(() => { took.cloud = performance.now() - t0; }),
+      uid ? syncHealthConnect(uid).then((s) => { if (s?.native) took.watch = performance.now() - t0; return s; }) : Promise.resolve(null)
     ]);
+    lastRefreshTook.set({ cloud: Math.round(took.cloud), watch: took.watch == null ? null : Math.round(took.watch) });
 
     nowTick.set(Date.now());
     lastRefresh.set(Date.now());
