@@ -17,7 +17,6 @@ const scheduleResults = writable<any[]>([]);
 const sessionResults = writable<Map<string, any>>(new Map());
 const workoutLogResults = writable<any[]>([]);
 const foodLogResults = writable<any[]>([]);
-const mealPlanResults = writable<Map<string, any>>(new Map());
 const biometricResults = writable<any[]>([]);
 const checksResults = writable<any[]>([]);
 const sessionsResults = writable<any[]>([]);
@@ -92,23 +91,6 @@ userId.subscribe((uid) => {
     error: () => foodLogResults.set([])
   });
 
-  // meal_plans previously used a manual db.table().get() call re-run from
-  // a $effect keyed off $syncStatus === 'synced' -- but syncStatus can
-  // already be 'synced' (from an earlier, faster table's initial sync)
-  // by the time meal_plans' own initial fetch actually lands, so that
-  // effect would never re-fire and the page would silently show stale/
-  // empty data until a manual edit or full reload happened to re-trigger
-  // it. liveQuery reacts directly to the IndexedDB write itself, so it
-  // has no such race regardless of table fetch ordering/timing.
-  liveQuery(() => db.table('meal_plans').where('user_id').equals(uid).toArray()).subscribe({
-    next: (data) => {
-      const map = new Map<string, any>();
-      for (const row of data) map.set(row.week_start, row);
-      mealPlanResults.set(map);
-    },
-    error: () => mealPlanResults.set(new Map())
-  });
-
   liveQuery(() => db.table('biometrics').where('user_id').equals(uid).sortBy('date')).subscribe({
     next: (data) => biometricResults.set(data),
     error: () => biometricResults.set([])
@@ -150,22 +132,19 @@ export function liveAlarms() {
 }
 
 export function liveLog(date: string) {
-  const store: Writable<any> = writable(null);
-  const unsub = logResults.subscribe((map) => {
-    store.set(map.get(date) || null);
-  });
-  return { subscribe: store.subscribe };
+  // derived subscribes lazily and lets go with its last subscriber.
+  return derived(logResults, (map) => map.get(date) || null);
 }
 
 // All daily_logs rows as a flat array (every date). Used to build the intake
 // series for adaptive-TDEE — quick-logged single-kcal days count too, not just
 // itemised food_logs.
+// One derived store for every caller. Each call used to create its own
+// writable and subscribe it to logResults for good — a subscription leaked per
+// component mount.
+const dailyLogRows = derived(logResults, (map) => Array.from(map.values()));
 export function liveDailyLogs() {
-  const store: Writable<any[]> = writable([]);
-  const unsub = logResults.subscribe((map) => {
-    store.set(Array.from(map.values()));
-  });
-  return { subscribe: store.subscribe };
+  return { subscribe: dailyLogRows.subscribe };
 }
 
 export function liveWeights() {
@@ -212,16 +191,6 @@ export function liveWorkoutLogs() {
 // by date client-side for daily totals.
 export function liveFoodLogs() {
   return { subscribe: foodLogResults.subscribe };
-}
-
-// Meal plan for a specific week (keyed by week_start date string), reading
-// live from IndexedDB so it never depends on syncStatus timing.
-export function liveMealPlan(weekStart: string) {
-  const store: Writable<Record<string, any>> = writable({});
-  const unsub = mealPlanResults.subscribe((map) => {
-    store.set(map.get(weekStart)?.plan ?? {});
-  });
-  return { subscribe: store.subscribe };
 }
 
 // Union of every date on which the user logged ANY activity (daily
@@ -289,6 +258,21 @@ export function liveSessionCompletions() {
 // non-existent daily_logs.steps field.
 export function liveSteps() {
   return { subscribe: stepResults.subscribe };
+}
+
+// One count per day: the latest reading wins (a manual entry typed after the
+// watch synced, or a later sync that saw more of the day). Today and the
+// weekly review both read this instead of each picking their own.
+const stepsByDate = derived(stepResults, (rows) => {
+  const m = new Map<string, { count: number; at: string }>();
+  for (const s of rows as any[]) {
+    const prev = m.get(s.date);
+    if (!prev || (s.created_at || '') >= prev.at) m.set(s.date, { count: s.count, at: s.created_at || '' });
+  }
+  return new Map(Array.from(m, ([d, v]) => [d, v.count] as [string, number]));
+});
+export function liveDailySteps() {
+  return { subscribe: stepsByDate.subscribe };
 }
 
 // All tracks rows (body measurements like body_fat) for the current user,

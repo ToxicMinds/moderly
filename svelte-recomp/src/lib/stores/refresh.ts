@@ -18,12 +18,17 @@
 //    missing dependency: read it in any time-based $derived and the value moves
 //    on a timer and on every manual refresh.
 
-import { writable, get } from 'svelte/store';
+import { writable, derived, get } from 'svelte/store';
+import { todayYmd } from '$lib/date';
 import { refetchAll } from './sync';
 import { syncHealthConnect } from '$lib/health/healthConnect';
 
 /** Reactive "current time" in ms. Read this in any $derived that uses Date.now(). */
 export const nowTick = writable<number>(Date.now());
+
+/** Today's date (YYYY-MM-DD), rolling over at local midnight even in an app
+ *  left open — the one place a screen gets "today" from. */
+export const todayDate = derived(nowTick, () => todayYmd());
 
 export const refreshing = writable(false);
 export const lastRefresh = writable<number | null>(null);

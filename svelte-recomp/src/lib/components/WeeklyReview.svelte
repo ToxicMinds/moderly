@@ -3,35 +3,26 @@
   // narrative verdict plus concrete, prioritised adjustments for next week — the
   // kind of thing a good coach would text you on Sunday night. Pure aggregation
   // lives in $lib/weeklyReview; this component only feeds it live data.
-  import { liveWeights, liveSteps, liveBiometrics, liveWorkoutLogs, liveGoal, liveProfile } from '$lib/stores/live';
+  import { liveWeights, liveDailySteps, liveBiometrics, liveWorkoutLogs, liveGoal, liveProfile } from '$lib/stores/live';
   import { weeklyReview } from '$lib/weeklyReview';
   import { body } from '$lib/stores/body';
-  import { todayYmd } from '$lib/date';
-  import { nowTick } from '$lib/stores/refresh';
+  import { todayDate } from '$lib/stores/refresh';
 
   const _weights = liveWeights();
-  const _steps = liveSteps();
+  const _steps = liveDailySteps();
   const _bio = liveBiometrics();
   const _workoutLogs = liveWorkoutLogs();
   const _goal = liveGoal();
   const _profile = liveProfile();
 
-  const today = $derived.by(() => { void $nowTick; return todayYmd(); });
+  const today = $derived($todayDate);
   const goalKg = $derived($_goal ?? null);
   const proteinTargetG = $derived(goalKg ? $body.proteinTargetG : 0);
 
   // Per-day intake: the shared map from stores/body.
   const intake = $derived(Array.from($body.intake, ([date, d]) => ({ date, kcal: d.kcal, protein: d.protein })));
 
-  // Steps: keep only the latest reading per day.
-  const steps = $derived.by(() => {
-    const byDate = new Map<string, { count: number; at: string }>();
-    for (const s of $_steps as any[]) {
-      const prev = byDate.get(s.date);
-      if (!prev || (s.created_at || '') >= prev.at) byDate.set(s.date, { count: s.count, at: s.created_at || '' });
-    }
-    return Array.from(byDate, ([date, v]) => ({ date, count: v.count }));
-  });
+  const steps = $derived(Array.from($_steps, ([date, count]) => ({ date, count })));
 
   const sleep = $derived(($_bio as any[]).map((b) => ({ date: b.date, sleep_hours: b.sleep_hours ?? null })));
   const weights = $derived(($_weights as any[]).map((w) => ({ date: w.date, weight: w.weight })));

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { userId } from '$lib/stores/user';
-  import { upsertRecord, syncStatus } from '$lib/stores/sync';
+  import { upsertRecord, upsertRecords, syncStatus } from '$lib/stores/sync';
   import { liveFoodLogs, liveGoalReason, liveCustomRecipes } from '$lib/stores/live';
   import { goalSummary, goalDirection } from '$lib/coach';
   import { body } from '$lib/stores/body';
@@ -14,8 +14,7 @@
   import { speak } from '$lib/stores/toast';
   import { haptic } from '$lib/haptics';
   import db from '$lib/db/dexie';
-  import { todayYmd } from '$lib/date';
-  import { nowTick } from '$lib/stores/refresh';
+  import { todayDate } from '$lib/stores/refresh';
   import PageHero from '$lib/components/PageHero.svelte';
 
   // The modal renders both built-in and generated recipes, so it works on a
@@ -50,7 +49,7 @@
   const _foodLogs = liveFoodLogs();
   // Re-derived on the clock tick: a page left open past midnight must file the
   // next entry under the new day, not the day it was opened.
-  const todayStr = $derived.by(() => { void $nowTick; return todayYmd(); });
+  const todayStr = $derived($todayDate);
 
   // Weight, targets and the learned burn come from stores/body — the same
   // numbers Today, Progress and the weekly check-in show.
@@ -140,20 +139,20 @@
   const sourceLabel = (f: any) => SOURCE_TAG[sourceOf(f) ?? ''] ?? '';
 
   /** The ONE write path for food: FoodLogger (search, scan, photo, AI, quick
-   *  add) and re-logging all land here. Writes sequentially so a mid-way failure
-   *  leaves the earlier rows saved — a partially logged meal is recoverable, a
-   *  silently dropped one is not. */
+   *  add) and re-logging all land here. One request for the whole meal: all of
+   *  it is saved or none, so a failure shows in the logger with the meal still
+   *  in the review card, and tapping Log again can't double the items that had
+   *  already gone through. */
   async function logFoods(foods: NewFood[], _what: string) {
     if (!uid) throw new Error('Not signed in — sign back in.');
     const before = { kcal: todayTotals.kcal, protein: todayTotals.protein };
-    for (const f of foods) {
-      await upsertRecord('food_logs', {
-        id: crypto.randomUUID(), user_id: uid, date: todayStr, name: f.name,
-        kcal: f.kcal, protein_g: f.protein_g, carbs_g: f.carbs_g, fat_g: f.fat_g,
-        grams: f.grams ?? null, barcode: f.barcode ?? null, source: f.source,
-        created_at: new Date().toISOString(),
-      });
-    }
+    const at = new Date().toISOString();
+    await upsertRecords('food_logs', foods.map((f) => ({
+      id: crypto.randomUUID(), user_id: uid, date: todayStr, name: f.name,
+      kcal: f.kcal, protein_g: f.protein_g, carbs_g: f.carbs_g, fat_g: f.fat_g,
+      grams: f.grams ?? null, barcode: f.barcode ?? null, source: f.source,
+      created_at: at,
+    })));
     announceFood(before, {
       kcal: foods.reduce((s, f) => s + f.kcal, 0),
       protein: foods.reduce((s, f) => s + f.protein_g, 0),

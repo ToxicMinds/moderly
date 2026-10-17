@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { liveAlarms, liveWeights, liveGoal, liveActivityDates, liveGoalReason, liveSchedule, liveWorkoutSessions, liveSessionCompletions, liveSteps, liveFoodLogs, liveBiometrics, liveWorkoutLogs, liveActivitySessions, liveDailyLogs } from '$lib/stores/live';
+  import { liveAlarms, liveWeights, liveGoal, liveActivityDates, liveGoalReason, liveSchedule, liveWorkoutSessions, liveSessionCompletions, liveDailySteps, liveFoodLogs, liveBiometrics, liveWorkoutLogs, liveActivitySessions, liveDailyLogs } from '$lib/stores/live';
   import { upsertRecord } from '$lib/stores/sync';
   import { userId } from '$lib/stores/user';
   import db from '$lib/db/dexie';
@@ -23,11 +23,11 @@
   import TodayPulse from '$lib/components/TodayPulse.svelte';
   import WeekCheckIn from '$lib/components/WeekCheckIn.svelte';
   import BackRebuild from '$lib/components/BackRebuild.svelte';
-  import { todayYmd, shiftYmd, mondayOf } from '$lib/date';
-  import { nowTick } from '$lib/stores/refresh';
+  import { shiftYmd, mondayOf } from '$lib/date';
+  import { nowTick, todayDate } from '$lib/stores/refresh';
 
   const dayIdx = $derived(new Date($nowTick).getDay());
-  const today = $derived.by(() => { void $nowTick; return todayYmd(); });
+  const today = $derived($todayDate);
   const dayName = $derived(new Date($nowTick).toLocaleDateString('en-US', { weekday: 'long' }));
   const dateStr = $derived(new Date($nowTick).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }));
   const greeting = $derived.by(() => {
@@ -171,7 +171,7 @@
     }
   }
 
-  const _steps = liveSteps();
+  const _steps = liveDailySteps();
   const _dailyLogs = liveDailyLogs();
   // Today's daily_logs row, derived reactively from the full set + the reactive
   // `today` — so when the calendar day rolls over (a native app left open past
@@ -182,28 +182,28 @@
   // Steps live in their own `steps` table (field `count`), NOT on
   // daily_logs — the old `$_todayLog?.steps` always read undefined so
   // steps never displayed. Take the most recent entry logged today.
-  const todaySteps = $derived.by(() => {
-    const t = [...$_steps].filter((s: any) => s.date === today);
-    if (t.length === 0) return null;
-    const latest = t.sort((a: any, b: any) => (a.created_at || '').localeCompare(b.created_at || ''))[t.length - 1];
-    return latest?.count ?? null;
-  });
-  const todayWater = $derived(todayLog?.water_glasses ?? 0);
-  const waterGoalL = $derived(waterTargetLitres(currentKg));
-
+  const todaySteps = $derived($_steps.get(today) ?? null);
   // Water logging surfaced on Today (was buried under Body & Goals). Each
   // tap = one 250 ml glass; stored as water_glasses, shown/targeted in L.
-  async function addWater() {
+  //
+  // Each tap writes an absolute count, so two quick taps used to read the same
+  // stored count and save the same "next" — one glass lost. Taps now count from
+  // what was last ASKED for, and the writes queue so they land in tap order.
+  let waterAsked = $state<number | null>(null);
+  let waterQueue: Promise<unknown> = Promise.resolve();
+  const todayWater = $derived(waterAsked ?? todayLog?.water_glasses ?? 0);
+  const waterGoalL = $derived(waterTargetLitres(currentKg));
+  function setWater(n: number) {
     if (!uid) return;
-    const next = Math.min(todayWater + 1, 20);
-    try { await upsertRecord('daily_logs', { user_id: uid, date: today, water_glasses: next }); }
-    catch (e) { console.error('Water save failed:', e); }
+    const next = Math.max(0, Math.min(20, n));
+    waterAsked = next;
+    waterQueue = waterQueue
+      .then(() => upsertRecord('daily_logs', { user_id: uid, date: today, water_glasses: next }))
+      .catch((e) => { console.error('Water save failed:', e); })
+      .finally(() => { if (waterAsked === next) waterAsked = null; });
   }
-  async function removeWater() {
-    if (!uid || todayWater <= 0) return;
-    try { await upsertRecord('daily_logs', { user_id: uid, date: today, water_glasses: todayWater - 1 }); }
-    catch (e) { console.error('Water save failed:', e); }
-  }
+  const addWater = () => setWater(todayWater + 1);
+  const removeWater = () => setWater(todayWater - 1);
 
   // — Daily Focus coaching layer —
   // Derive prioritised, actionable guidance from every signal the app
@@ -248,17 +248,9 @@
 
   // Steps: latest reading per day, averaged over days with data in the last 7.
   const stepsWeekAvg = $derived.by(() => {
-    const cutoff = shiftYmd(-7);
-    const byDate = new Map<string, { count: number; at: string }>();
-    for (const s of $_steps as any[]) {
-      if (s.date < cutoff) continue;
-      const prev = byDate.get(s.date);
-      if (!prev || (s.created_at || '') >= prev.at) byDate.set(s.date, { count: s.count, at: s.created_at || '' });
-    }
-    if (byDate.size === 0) return null;
-    let sum = 0;
-    for (const v of byDate.values()) sum += v.count;
-    return sum / byDate.size;
+    const cutoff = shiftYmd(-7, new Date(`${today}T12:00:00`));
+    const week = [...$_steps].filter(([d]) => d >= cutoff).map(([, c]) => c);
+    return week.length ? week.reduce((a, b) => a + b, 0) / week.length : null;
   });
 
   // Last night's sleep = the entry Health Connect files under today's WAKE day

@@ -6,7 +6,7 @@
   import Modal from '$lib/components/Modal.svelte';
   import ExerciseMedia from '$lib/components/ExerciseMedia.svelte';
   import { userId } from '$lib/stores/user';
-  import { upsertRecord, syncStatus } from '$lib/stores/sync';
+  import { upsertRecord, upsertRecords, syncStatus } from '$lib/stores/sync';
   import { liveSchedule, liveWorkoutSessions, liveWorkoutLogs, liveSessionCompletions, liveGoalReason, liveActivitySessions } from '$lib/stores/live';
   import type { WorkoutSet } from '$lib/db/dexie';
   import db from '$lib/db/dexie';
@@ -58,12 +58,12 @@
     if (!uid || seeded) return;
     const existingDays = await db.table('workout_schedule').where('user_id').equals(uid).count();
     if (existingDays === 0) {
-      for (const s of DEFAULT_SESSIONS) {
-        await upsertRecord('workout_sessions_custom', { user_id: uid, ...s, updated_at: new Date().toISOString() });
-      }
-      for (const d of FALLBACK_SCHEDULE) {
-        await upsertRecord('workout_schedule', { user_id: uid, ...d, updated_at: new Date().toISOString() });
-      }
+      // One request per table, each saved whole or not at all. Schedule first:
+      // if the sessions then fail, the page already falls back to these same
+      // built-in sessions (see `sessions` below).
+      const at = new Date().toISOString();
+      await upsertRecords('workout_schedule', FALLBACK_SCHEDULE.map((d) => ({ user_id: uid, ...d, updated_at: at })));
+      await upsertRecords('workout_sessions_custom', DEFAULT_SESSIONS.map((s) => ({ user_id: uid, ...s, updated_at: at })));
     }
     seeded = true;
   }

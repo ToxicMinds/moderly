@@ -86,13 +86,25 @@ vercel --prod --yes --token "$VERCEL_TOKEN"
 ## Before you commit
 
 ```sh
-cd svelte-recomp && node scripts/selfcheck.js && npm run build
+cd svelte-recomp && npm run verify
 ```
 
-`selfcheck.js` is the whole test suite (~140 assertions, no framework). It must print
-**All checks passed.** Async checks only report because of `await Promise.all(pending)`
-at the end — if you ever see that line go missing, every file-reading check is passing
-vacuously and the suite is lying to you.
+`verify` = `selfcheck.js` (the whole test suite, no framework) + `svelte-check` + the
+build. selfcheck must print **All checks passed.** Async checks only report because of
+`await Promise.all(pending)` at the end — if you ever see that line go missing, every
+file-reading check is passing vacuously and the suite is lying to you. The type check is
+not optional: selfcheck once passed with a reference to a variable that no longer
+existed, in a branch no test reached.
+
+## One source of truth (enforced by selfcheck)
+
+- Weight trend, pace against the plan, learned burn, calorie and protein targets and
+  intake-by-date come from `src/lib/stores/body.ts`. Never fit a weight slope, call
+  `adaptiveTdee`/`resolveCalorieTarget` or write `goalKg * 1.8` anywhere else.
+- Rows that belong together (a meal, a seeded plan) go through `upsertRecords` — one
+  request, all or nothing. No `for … await upsertRecord` loops.
+- A table's conflict key lives in `CONFLICT` in `stores/sync.ts`; "today" comes from
+  `todayDate` in `stores/refresh.ts`.
 
 ## Data isolation — read before adding a table
 

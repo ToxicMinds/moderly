@@ -10,8 +10,7 @@
 // called the same readings too noisy and the real eight-week trend was a gain.
 import { derived, type Readable } from 'svelte/store';
 import { liveWeights, liveGoal, liveFoodLogs, liveDailyLogs, liveProfile, liveTracks, liveGoalReason } from './live';
-import { nowTick } from './refresh';
-import { todayYmd } from '$lib/date';
+import { todayDate } from './refresh';
 import { weightVerdict, paceVsPlan, type WeightVerdict, type Pace } from '$lib/insights';
 import { adaptiveTdee, type AdaptiveTdee } from '$lib/adaptiveTdee';
 import { resolveCalorieTarget, burnFloor, type LiveTargetResult, type ActivityLevel } from '$lib/tdee';
@@ -60,10 +59,9 @@ function intakeByDate(food: any[], daily: any[]): Map<string, DayIntake> {
 }
 
 export const body: Readable<Body> = derived(
-  [liveWeights(), liveGoal(), liveFoodLogs(), liveDailyLogs(), liveProfile(), liveTracks(), liveGoalReason(), nowTick],
-  ([$weights, $goal, $food, $daily, $profile, $tracks, $goalReason, $tick]) => {
-    void $tick;
-    const today = todayYmd();
+  [liveWeights(), liveGoal(), liveFoodLogs(), liveDailyLogs(), liveProfile(), liveTracks(), liveGoalReason(), todayDate],
+  ([$weights, $goal, $food, $daily, $profile, $tracks, $goalReason, $today]) => {
+    const today = $today as string;
     const weights = (($weights as any[]) ?? []).map((w) => ({ date: w.date, weight: +w.weight }));
     const p = $profile as any;
     const goalKg = ($goal as number | null) ?? null;

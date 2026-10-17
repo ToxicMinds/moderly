@@ -10,8 +10,7 @@
   import { upsertRecord } from '$lib/stores/sync';
   import { liveFoodLogs, liveDailyLogs, liveBiometrics, liveWorkoutLogs } from '$lib/stores/live';
   import { body } from '$lib/stores/body';
-  import { todayYmd } from '$lib/date';
-  import { nowTick } from '$lib/stores/refresh';
+  import { todayDate } from '$lib/stores/refresh';
   import { haptic } from '$lib/haptics';
   import {
     CHECK_IN_QUESTIONS, checkInAdjustment, reviewWeekStart, shouldAskCheckIn,
@@ -26,7 +25,7 @@
   const _bio = liveBiometrics();
   const _workoutLogs = liveWorkoutLogs();
 
-  const today = $derived.by(() => { void $nowTick; return todayYmd(); });
+  const today = $derived($todayDate);
   const weekStart = $derived(reviewWeekStart(today));
   const weekEnd = $derived.by(() => {
     const d = new Date(weekStart + 'T00:00:00');

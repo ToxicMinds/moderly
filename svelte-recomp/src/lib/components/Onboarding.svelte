@@ -9,7 +9,7 @@
   // Nothing is guessed silently: suggestions are shown as suggestions, and every
   // field can be changed later in Body & Goals.
   import { userId } from '$lib/stores/user';
-  import { upsertRecord } from '$lib/stores/sync';
+  import { upsertRecord, upsertRecords } from '$lib/stores/sync';
   import { liveProfile } from '$lib/stores/live';
   import db from '$lib/db/dexie';
   import { todayYmd } from '$lib/date';
@@ -236,13 +236,13 @@
         .where('user_id').equals(uid).count().catch(() => 0);
 
       if (existingDays === 0 && existingSessions === 0) {
+        // One request per table, each saved whole or not at all. Schedule
+        // first: if the sessions then fail, Train falls back to these same
+        // built-in sessions for the chosen week — whereas a missing schedule
+        // would later be re-seeded with a generic template.
         const now = new Date().toISOString();
-        for (const s of DEFAULT_SESSIONS) {
-          await upsertRecord('workout_sessions_custom', { user_id: uid, ...s, updated_at: now });
-        }
-        for (const d of schedulePreview) {
-          await upsertRecord('workout_schedule', { user_id: uid, ...d, updated_at: now });
-        }
+        await upsertRecords('workout_schedule', schedulePreview.map((d) => ({ user_id: uid, ...d, updated_at: now })));
+        await upsertRecords('workout_sessions_custom', DEFAULT_SESSIONS.map((s) => ({ user_id: uid, ...s, updated_at: now })));
       }
 
       // Alarms. Never fatal — a failed reminder must not cost someone the

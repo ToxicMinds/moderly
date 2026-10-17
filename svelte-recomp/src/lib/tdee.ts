@@ -4,6 +4,8 @@
 // This exists so a "goal weight" is never just a bare number again: it
 // comes with an actual calorie target and a realistic timeline attached.
 
+import { KCAL_PER_KG } from './adaptiveTdee.ts';
+
 export interface TdeeInput {
   weightKg: number;
   heightCm: number;
@@ -92,8 +94,6 @@ export function projectGoal(current: TdeeInput, targetKg: number): GoalProjectio
  */
 /** Inside this band of the goal, the job is to hold, not to chase. */
 const MAINTAIN_BAND_KG = 0.5;
-/** ~7700 kcal per kg of body mass, the standard approximation both ways. */
-const KCAL_PER_KG = 7700;
 
 export function projectGoalWithTdee(tdee: number, currentKg: number, targetKg: number): GoalProjection {
   const gap = currentKg - targetKg; // positive = above goal

@@ -110,12 +110,6 @@ export function canWrite(type: WriteType, granted: Set<string> | string[]): bool
   return !!perm && set.has(perm);
 }
 
-/** The subset of WRITE_TYPES that are safe to write (permission granted). */
-export function grantedWriteTypes(granted: Set<string> | string[]): WriteType[] {
-  const set = granted instanceof Set ? granted : new Set(granted);
-  return WRITE_TYPES.filter((t) => set.has(WRITE_PERMISSION[t]));
-}
-
 /** True only if this record type's read permission is in the granted set. */
 export function canRead(type: RecordType, granted: Set<string> | string[]): boolean {
   const set = granted instanceof Set ? granted : new Set(granted);

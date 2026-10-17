@@ -158,28 +158,55 @@ export async function refetchAll(): Promise<void> {
   syncError.set(failures.length ? `Not synced: ${failures.join(', ')}` : null);
 }
 
+/**
+ * The column(s) Postgres resolves an upsert on, per synced table — one table
+ * of facts instead of a fourteen-branch if/else. selfcheck fails if a table
+ * joins TABLES without an entry here.
+ */
+export const CONFLICT: Record<(typeof TABLES)[number], string> = {
+  alarms: 'id',
+  daily_logs: 'user_id,date',
+  checks: 'id',
+  tracks: 'id',
+  weights: 'user_id,date',
+  steps: 'user_id,date',
+  sessions: 'id',
+  meal_plans: 'user_id,week_start',
+  user_settings: 'user_id',
+  workout_schedule: 'user_id,day_of_week',
+  workout_sessions_custom: 'user_id,key',
+  workout_logs: 'user_id,date,exercise_name',
+  food_logs: 'id',
+  biometrics: 'user_id,date',
+  recipes_custom: 'id',
+  activity_sessions: 'id',
+};
+
 export async function upsertRecord(table: string, data: Record<string, any>) {
+  return upsertRecords(table, [data]);
+}
+
+/**
+ * Write several rows of one table as ONE request — one INSERT … ON CONFLICT
+ * statement, so Postgres saves all of them or none. A meal of three items, or
+ * a seeded plan, can no longer land half-written: a failure throws with
+ * nothing saved, and retrying can't duplicate the rows that did get through.
+ * Every row must carry the same columns (a missing column would be written as
+ * NULL over the stored value).
+ */
+export async function upsertRecords(table: string, rows: Record<string, any>[]) {
+  if (!rows.length) return;
+  const cols = (r: Record<string, any>) => Object.keys(r).filter((k) => r[k] !== undefined).sort().join(',');
+  if (rows.some((r) => cols(r) !== cols(rows[0]))) {
+    throw new Error(`upsertRecords(${table}): every row needs the same columns`);
+  }
   const currentStatus = get(syncStatus);
   if (currentStatus !== 'synced' && currentStatus !== 'syncing') {
     syncStatus.set('syncing');
   }
 
   try {
-    const upsertOptions: any = {};
-    if (table === 'weights') upsertOptions.onConflict = 'user_id,date';
-    else if (table === 'steps') upsertOptions.onConflict = 'user_id,date';
-    else if (table === 'daily_logs') upsertOptions.onConflict = 'user_id,date';
-    else if (table === 'checks') upsertOptions.onConflict = 'id';
-    else if (table === 'tracks') upsertOptions.onConflict = 'id';
-    else if (table === 'meal_plans') upsertOptions.onConflict = 'user_id,week_start';
-    else if (table === 'user_settings') upsertOptions.onConflict = 'user_id';
-    else if (table === 'workout_schedule') upsertOptions.onConflict = 'user_id,day_of_week';
-    else if (table === 'workout_sessions_custom') upsertOptions.onConflict = 'user_id,key';
-    else if (table === 'workout_logs') upsertOptions.onConflict = 'user_id,date,exercise_name';
-    else if (table === 'food_logs') upsertOptions.onConflict = 'id';
-    else if (table === 'biometrics') upsertOptions.onConflict = 'user_id,date';
-    else if (table === 'recipes_custom') upsertOptions.onConflict = 'id';
-    else if (table === 'activity_sessions') upsertOptions.onConflict = 'id';
+    const onConflict = (CONFLICT as Record<string, string>)[table];
 
     // When the row is identified by a NATURAL key (user_id,date / user_id,key /
     // …) rather than its surrogate `id`, never send that surrogate `id` to
@@ -193,12 +220,11 @@ export async function upsertRecord(table: string, data: Record<string, any>) {
     // id here lets the natural-key conflict resolve to a clean UPDATE. The local
     // Dexie put below still keeps the id so the correct local row is updated in
     // place (no duplicate optimistic row).
-    const remoteData =
-      upsertOptions.onConflict && upsertOptions.onConflict !== 'id' && 'id' in data
-        ? (() => { const { id, ...rest } = data; return rest; })()
-        : data;
+    const remote = onConflict && onConflict !== 'id'
+      ? rows.map(({ id, ...rest }) => rest)
+      : rows;
 
-    const { error } = await supabase.from(table).upsert(remoteData, upsertOptions);
+    const { error } = await supabase.from(table).upsert(remote, onConflict ? { onConflict } : {});
 
     if (error) {
       syncStatus.set('error');
@@ -216,11 +242,13 @@ export async function upsertRecord(table: string, data: Record<string, any>) {
     // — and a bare put() replaced the whole local row with that fragment:
     // the goal, the profile or the day's other fields vanished on this device
     // until a realtime echo happened to restore them.
-    const plain = JSON.parse(JSON.stringify(data));
-    const key = primaryKeyFor(table, plain);
-    const hasKey = Array.isArray(key) ? key.every((k) => k != null) : key != null;
-    const existing = hasKey ? await dexieTable(table).get(key).catch(() => undefined) : undefined;
-    await dexieTable(table).put(existing ? { ...existing, ...plain } : plain);
+    for (const row of rows) {
+      const plain = JSON.parse(JSON.stringify(row));
+      const key = primaryKeyFor(table, plain);
+      const hasKey = Array.isArray(key) ? key.every((k) => k != null) : key != null;
+      const existing = hasKey ? await dexieTable(table).get(key).catch(() => undefined) : undefined;
+      await dexieTable(table).put(existing ? { ...existing, ...plain } : plain);
+    }
     syncStatus.set('synced');
   } catch (e: any) {
     syncStatus.set('error');

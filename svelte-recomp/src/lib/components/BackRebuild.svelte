@@ -9,8 +9,7 @@
   import { liveProfile, liveDailyLogs, liveSchedule, liveWorkoutSessions } from '$lib/stores/live';
   import { upsertRecord } from '$lib/stores/sync';
   import { userId } from '$lib/stores/user';
-  import { nowTick } from '$lib/stores/refresh';
-  import { todayYmd } from '$lib/date';
+  import { todayDate } from '$lib/stores/refresh';
   import { haptic } from '$lib/haptics';
   import { programWeek, phaseFor, nextMonday, shiftStart, painAdvice, gymKeysInOrder, type ProgramState } from '$lib/program';
   import { DAILY, WEEKS, RULES, RED_FLAGS, INTRO_VIDEOS } from '$lib/data/backRebuild';
@@ -27,7 +26,7 @@
   let uid = $state('');
   userId.subscribe((v) => { if (v) uid = v; });
 
-  const today = $derived.by(() => { void $nowTick; return todayYmd(); });
+  const today = $derived($todayDate);
   const program = $derived(($_profile as any)?.program as ProgramState);
   const week = $derived(programWeek(program, today));
   const phase = $derived(phaseFor(Math.max(1, week)));

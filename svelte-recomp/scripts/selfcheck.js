@@ -848,7 +848,7 @@ check('sharing adds no table, no policy and no cross-account read', async () => 
 
 console.log('\nhealth write-back — hand-logged sessions reach the platform, without crashing it');
 
-const { WRITE_TYPES, WRITE_PERMISSION, canWrite, grantedWriteTypes, readTypesKey: permKey } =
+const { WRITE_TYPES, WRITE_PERMISSION, canWrite, readTypesKey: permKey } =
   await import('../src/lib/health/permissions.ts');
 const { buildRecords, DEFAULT_SESSION_MINUTES } = await import('../src/lib/health/writeBack.ts');
 
@@ -872,8 +872,7 @@ check('canWrite is exact — a read grant is never mistaken for a write grant', 
   assert.equal(canWrite('ExerciseSession', new Set(['android.permission.health.READ_EXERCISE'])), false);
   assert.equal(canWrite('ExerciseSession', ALL_WRITE), true);
   assert.equal(canWrite('Steps', ALL_WRITE), false, 'a type we never write must never report writable');
-  assert.deepEqual(grantedWriteTypes(ALL_WRITE).sort(), [...WRITE_TYPES].sort());
-  assert.deepEqual(grantedWriteTypes(new Set()), []);
+  assert.ok(WRITE_TYPES.every((t) => canWrite(t, ALL_WRITE)), 'every type we write is writable with full grants');
 });
 
 check('a zero-length session gets a real duration instead of being rejected', () => {
@@ -2915,7 +2914,7 @@ check('a program session can never be saved over the user’s own plan', async (
   const { readFileSync } = await import('node:fs');
   const page = readFileSync('src/routes/workouts/+page.svelte', 'utf8');
   assert.match(page, /if \(!sess \|\| !uid \|\| sess\.program\) return;/);
-  assert.equal((page.match(/upsertRecord\('workout_sessions_custom'/g) ?? []).length, 2, 'seed + the one guarded save');
+  assert.equal((page.match(/upsertRecords?\('workout_sessions_custom'/g) ?? []).length, 2, 'seed + the one guarded save');
 });
 
 check('while a program runs, Train names the day after the program’s session', async () => {
@@ -3029,6 +3028,54 @@ check('weight rate, learned burn and targets are computed in one place', async (
   assert.deepEqual(offenders(/adaptiveTdee\(\{/, ['src/lib/stores/body.ts']), [], 'one learned burn');
   assert.deepEqual(offenders(/resolveCalorieTarget\(\{/, ['src/lib/stores/body.ts']), [], 'one calorie target');
   assert.deepEqual(offenders(/goalKg \* 1\.8|GOAL_KG \* 1\.8/, []), [], 'one protein target (profile.proteinTargetG)');
+});
+
+// --- Engineering: the rules the audit found broken, kept as tests -----------
+
+console.log('\nengineering — atomic writes, one source of truth, no leaks');
+
+const srcFiles = async () => {
+  const { readdirSync } = await import('node:fs');
+  return [
+    ...readdirSync('src/lib', { recursive: true }).map((f) => `src/lib/${f}`),
+    ...readdirSync('src/routes', { recursive: true }).map((f) => `src/routes/${f}`),
+  ].filter((f) => /\.(ts|svelte)$/.test(f));
+};
+
+check('rows that belong together are written in one request (all or nothing)', async () => {
+  const { readFileSync } = await import('node:fs');
+  // A loop of awaited single-row writes leaves half a meal or half a plan on
+  // failure — and a retry duplicates the half that landed. Use upsertRecords.
+  const loops = (await srcFiles()).filter((f) => /for \([^)]*\) \{\s*await upsertRecord\(/.test(readFileSync(f, 'utf8')));
+  assert.deepEqual(loops, []);
+  const sync = readFileSync('src/lib/stores/sync.ts', 'utf8');
+  assert.match(sync, /export async function upsertRecord\(table: string, data: Record<string, any>\) \{\s*return upsertRecords\(table, \[data\]\);/, 'one write path');
+  assert.match(sync, /every row needs the same columns/, 'a missing column must not be written as NULL');
+});
+
+check('every synced table names its conflict key in one map', async () => {
+  const { readFileSync } = await import('node:fs');
+  const sync = readFileSync('src/lib/stores/sync.ts', 'utf8');
+  assert.doesNotMatch(sync, /upsertOptions\.onConflict =/, 'no if/else chain of keys');
+  const tables = [...sync.match(/const TABLES = \[([^\]]+)\]/)[1].matchAll(/'([a-z_]+)'/g)].map((m) => m[1]);
+  const block = sync.slice(sync.indexOf('export const CONFLICT'), sync.indexOf('};', sync.indexOf('export const CONFLICT')));
+  const keyed = [...block.matchAll(/^\s+([a-z_]+): '/gm)].map((m) => m[1]);
+  assert.deepEqual([...keyed].sort(), [...tables].sort());
+});
+
+check('“today” comes from one store, constants from one module', async () => {
+  const { readFileSync } = await import('node:fs');
+  const files = await srcFiles();
+  const local = files.filter((f) => /void \$nowTick; return todayYmd\(\)/.test(readFileSync(f, 'utf8')));
+  assert.deepEqual(local, [], 'use todayDate from stores/refresh');
+  const kcal = files.filter((f) => /const KCAL_PER_KG\s*=/.test(readFileSync(f, 'utf8')));
+  assert.deepEqual(kcal, ['src/lib/adaptiveTdee.ts']);
+});
+
+check('live stores never leak a subscription per call', async () => {
+  const { readFileSync } = await import('node:fs');
+  const live = readFileSync('src/lib/stores/live.ts', 'utf8');
+  assert.doesNotMatch(live, /const unsub = \w+\.subscribe\(/, 'derive from the source store instead');
 });
 
 // --- Design system: the scoreboard, one vocabulary, both themes -------------

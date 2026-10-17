@@ -7,12 +7,11 @@
   import ReadinessCard from '$lib/components/ReadinessCard.svelte';
   import { liveBiometrics } from '$lib/stores/live';
   import { computeReadiness } from '$lib/readiness';
-  import { todayYmd } from '$lib/date';
-  import { nowTick } from '$lib/stores/refresh';
+  import { todayDate } from '$lib/stores/refresh';
 
   let open = $state(false);
   const _bio = liveBiometrics();
-  const today = $derived.by(() => { void $nowTick; return todayYmd(); });
+  const today = $derived($todayDate);
   const readiness = $derived.by(() => {
     const todayEntry = ($_bio as any[]).find((b) => b.date === today);
     const history = ($_bio as any[]).filter((b) => b.date < today).slice(-14);
