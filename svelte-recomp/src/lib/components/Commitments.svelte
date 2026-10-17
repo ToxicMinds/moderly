@@ -13,7 +13,7 @@
   import { editing, saveLine, savePlans, saveWhy, saveMilestone } from '$lib/commitments';
   import { CUES, cleanPlans, type Plans } from '$lib/plans';
   import { suggestLine } from '$lib/line';
-  import { suggestStops, milestoneState } from '$lib/milestone';
+  import { suggestStops, milestoneState, type MilestoneSetting } from '$lib/milestone';
   import { line, body } from '$lib/stores/body';
   import { liveProfile } from '$lib/stores/live';
   import { todayDate } from '$lib/stores/refresh';
@@ -82,13 +82,14 @@
     await saveLine(weight(lineKg), $todayDate);
     await savePlans({ ...plans, line: linePlan });
   });
+  const milestone = $derived((($_profile as any)?.milestone ?? null) as MilestoneSetting | null);
   const lineAsNextStop = () => run(async () => {
-    await saveMilestone(weight(lineKg), $todayDate);
+    await saveMilestone(weight(lineKg), $todayDate, milestone);
     if (drawn) await saveLine(null, $todayDate);
   });
   const removeLine = () => run(() => saveLine(null, $todayDate));
-  const keepNext = () => run(() => saveMilestone(weight(nextKg), $todayDate));
-  const removeNext = () => run(() => saveMilestone(null, $todayDate));
+  const keepNext = () => run(() => saveMilestone(weight(nextKg), $todayDate, milestone));
+  const removeNext = () => run(() => saveMilestone(null, $todayDate, milestone));
   const keepPlans = () => run(async () => {
     await savePlans(draft);
     if (whyDraft.trim() !== ((($_profile as any)?.why ?? '').trim())) await saveWhy(whyDraft);

@@ -3681,6 +3681,42 @@ check('Back Rebuild looks after the neck as well as the lower back', async () =>
   assert.ok(rb.RED_FLAGS.some((f) => /arm or hand/.test(f)) && rb.RED_FLAGS.some((f) => /Clumsy hands/.test(f)), 'the neck’s red flags, not only the low back’s');
 });
 
+// ── The next-stop moment ─────────────────────────────────────────────────────
+check('a next stop is reached when the trend stays there three days, not on one lucky morning', async () => {
+  const { heldUnder, milestoneState } = await import('../src/lib/milestone.ts');
+  const series = (vals) => { const m = new Map(vals.map(([d, v]) => [d, v])); return (ymd) => m.get(ymd) ?? null; };
+  const t = series([['2026-12-01', 105.3], ['2026-12-02', 104.95], ['2026-12-03', 104.8], ['2026-12-04', 104.7]]);
+  assert.equal(heldUnder(105, t, '2026-12-04'), true, 'three days at or under');
+  assert.equal(heldUnder(105, t, '2026-12-03'), false, 'the 1st was above: only two days so far');
+  assert.equal(heldUnder(105, series([['2026-12-02', 104.9], ['2026-12-04', 104.7]]), '2026-12-04'), false, 'a day with no trend is no proof');
+  const set = { kg: 105, set: '2026-10-17' };
+  const ctx = (today, trend) => ({ today, trendOn: (ymd) => (ymd === '2026-10-17' ? 112.64 : trend) });
+  const reached = milestoneState(set, 104.8, 187, ctx('2026-12-04', 104.8));
+  assert.equal(reached.held, true);
+  assert.equal(reached.fromKg, 112.6, 'how far it came, from the trend on the day it was set');
+  assert.equal(reached.crossed, 'obese', 'under 104.9 at 187 cm: really out of the obese range');
+  const at105 = milestoneState(set, 105.0, 187, ctx('2026-12-04', 105.0));
+  assert.equal(at105.held, true);
+  assert.equal(at105.crossed, null, '105.0 is still BMI 30.0: never claim the range was left');
+  assert.equal(milestoneState({ ...set, reached: '2026-12-04' }, 104.8, 187, ctx('2026-12-04', 104.8)).celebrated, true, 'shown once');
+  const late = milestoneState({ kg: 105, set: '2026-10-01' }, 104.8, 187, { today: '2026-12-04', trendOn: (ymd) => (ymd < '2026-10-04' ? null : ymd === '2026-10-04' ? 113.2 : 104.8) });
+  assert.equal(late.fromKg, 113.2, 'no trend on the day it was set: the first day after that has one');
+  const { suggestStops } = await import('../src/lib/milestone.ts');
+  assert.deepEqual(suggestStops(110.1, 192, 92), [105, 92], 'the goal, not a BMI line 0.1 kg off it');
+});
+
+check('choosing the next stop keeps the one reached, for the journal', async () => {
+  const { nextMilestone } = await import('../src/lib/milestone.ts');
+  const reached = { kg: 105, set: '2026-10-17', reached: '2026-12-04' };
+  assert.deepEqual(nextMilestone(reached, 100, '2026-12-04'),
+    { kg: 100, set: '2026-12-04', history: [{ kg: 105, set: '2026-10-17', reached: '2026-12-04' }] });
+  assert.deepEqual(nextMilestone({ kg: 105, set: '2026-10-17' }, 103, '2026-10-20'), { kg: 103, set: '2026-10-20' }, 'changed before reaching it: no history');
+  assert.deepEqual(nextMilestone({ ...reached, history: [{ kg: 110, set: '2026-08-01', reached: '2026-09-15' }] }, null, '2026-12-05'),
+    { kg: null, set: '2026-12-05', history: [{ kg: 110, set: '2026-08-01', reached: '2026-09-15' }, { kg: 105, set: '2026-10-17', reached: '2026-12-04' }] },
+    'no stop for now, the history stays');
+  assert.equal(nextMilestone(null, null, '2026-12-05'), null);
+});
+
 // Nothing may be reported until the async checks have actually settled.
 await Promise.all(pending);
 

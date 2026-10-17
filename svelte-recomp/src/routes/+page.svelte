@@ -17,6 +17,7 @@
   import { editing } from '$lib/commitments';
   import { cleanPlans } from '$lib/plans';
   import CommitmentAlerts from '$lib/components/CommitmentAlerts.svelte';
+  import MilestoneMoment from '$lib/components/MilestoneMoment.svelte';
   import Commitments from '$lib/components/Commitments.svelte';
   import { strengthTrend } from '$lib/strength';
   import { primaryActivity } from '$lib/health/exercise';
@@ -295,6 +296,9 @@
     <p class="mw-hint">{#if lastWeighLabel}Last reading {lastWeighLabel}.{' '}{/if}Same time, before food or drink. One morning is noise; the trend — the line through five weeks of mornings — is the number.</p>
   </div>
 {/if}
+
+<!-- A next stop held for three days: shown once, then the next one is chosen. -->
+<MilestoneMoment />
 
 <!-- The line, when the trend is over it, and the plan whose moment it is.
      Nothing on an ordinary day. -->

@@ -135,7 +135,9 @@ export const body: Readable<Body> = derived(
       tomorrow: weekBudget(target.target, intake, shiftYmd(1, new Date(`${today}T12:00:00`))),
       proteinTargetG: Math.max(1, proteinTargetG(goalKg, currentKg)),
       bodyFatPct, profile, floorKcal,
-      next: milestoneState(p?.milestone ?? null, currentKg, p?.height_cm ? +p.height_cm : null),
+      next: milestoneState(p?.milestone ?? null, currentKg, p?.height_cm ? +p.height_cm : null, {
+        today, trendOn: (ymd) => weightVerdict(weights, Date.parse(`${ymd}T12:00:00`))?.trendKg ?? null,
+      }),
       logShortKcal: short >= 100 ? Math.round(short / 10) * 10 : null,
     };
   },
