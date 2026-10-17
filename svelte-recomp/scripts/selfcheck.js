@@ -305,13 +305,20 @@ check('an incomplete profile returns null rather than inventing a height', () =>
 
 check('the first-week checklist tracks what the user has actually done', () => {
   assert.equal(dayOnePlan(NEW_USER).stepsDone, 0);
-  const some = dayOnePlan({ ...NEW_USER, weighInCount: 1, foodLogCount: 12 });
-  assert.equal(some.stepsDone, 2, 'a weigh-in and a food log are two of four');
-  assert.ok(some.steps.find((s) => s.key === 'weigh').done);
-  assert.ok(!some.steps.find((s) => s.key === 'watch').done);
-  const all = dayOnePlan({ ...NEW_USER, weighInCount: 1, foodLogCount: 1, workoutLogCount: 1, hasWatchData: true });
+  const some = dayOnePlan({ ...NEW_USER, weighInCount: 3, foodLogCount: 12 });
+  assert.equal(some.stepsDone, 2, 'three mornings and a meal are two of four');
+  assert.ok(!dayOnePlan({ ...NEW_USER, weighInCount: 1 }).steps.find((s) => s.key === 'weigh').done, 'one morning is noise, not a trend');
+  assert.ok(!some.steps.find((s) => s.key === 'plan').done);
+  const all = dayOnePlan({ ...NEW_USER, weighInCount: 3, foodLogCount: 1, workoutLogCount: 1, planCount: 1 });
   assert.equal(all.stepsDone, all.steps.length);
   assert.ok(all.steps.every((s) => s.href && s.hint), 'every step must be tappable and explain itself');
+});
+
+check('day one asks for what keeps people, and never for a full day of food', () => {
+  const steps = dayOnePlan(NEW_USER).steps;
+  assert.deepEqual(steps.map((s) => s.key), ['weigh', 'plan', 'food', 'train'], 'the habit and the plan before food');
+  assert.match(steps.find((s) => s.key === 'food').label, /one meal/i, 'seven in eight left after a few food rows: one meal, roughly');
+  assert.ok(!steps.some((s) => /watch/i.test(s.label)), 'a step without a watch is unfinishable');
 });
 
 check('someone already at goal is told to hold, not to lose 0 kg', () => {

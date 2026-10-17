@@ -2,7 +2,7 @@
   // First-run setup.
   //
   // Everything asked here was previously either a hardcoded constant compiled
-  // into the app or a form you had to refill on every visit. Five short steps,
+  // into the app or a form you had to refill on every visit. Seven short steps,
   // each explaining WHY it's needed — a fitness app that demands your body
   // measurements without saying what it does with them has not earned them.
   //
@@ -25,6 +25,11 @@
   import { WATCH_BRANDS, brandById } from '$lib/health/watches';
   import { setWatchBrand } from '$lib/health/healthConnect';
   import { DEFAULT_SESSIONS } from '$lib/data/workoutPlanDefaults';
+  import { CUES, cleanPlans, type PlanCue } from '$lib/plans';
+  import { suggestStops, milestoneState } from '$lib/milestone';
+  import { saveWhy, saveMilestone, savePlans } from '$lib/commitments';
+  import { saveMoments } from '$lib/stores/moments';
+  import { isNativeApp } from '$lib/nativeAlarms';
 
   let { onDone }: { onDone: () => void } = $props();
 
@@ -103,6 +108,29 @@
   // — Step 5: goal —
   let goalInput = $state('');
 
+  // — Step 6: what it's for. The parts of a coach that need nobody else: a
+  // reason to come back to, a stop near enough to steer by, and one plan made
+  // before the hard moment. Day one gets these instead of a full day of food,
+  // the ask seven in eight people left after. All optional, none invented.
+  let whyInput = $state('');
+  let stopKg = $state<number | null>(null);
+  let planCue = $state<PlanCue | ''>('');
+  let planText = $state('');
+  const HARD_MOMENTS: PlanCue[] = ['weekend', 'friday', 'evening'];
+  // The suggestion is a hint, never pre-typed words: a plan only works in the
+  // user's own words.
+  function pickCue(c: PlanCue) {
+    planCue = c;
+    planText = cleanPlans($_existing?.plans)[c] ?? '';
+  }
+  const cueInfo = $derived(planCue ? CUES.find((x) => x.cue === planCue)! : null);
+
+  // — Step 7: reminders. In the Android app the two moments replace the
+  // weigh-in alarm: posted the first time the phone is unlocked, never rung.
+  const native = isNativeApp();
+  let wantBriefing = $state(true);
+  let wantHold = $state(true);
+
   $effect(() => {
     const p = $_existing;
     if (!p || prefilled) return;
@@ -119,6 +147,8 @@
     if (p.goal_kg) goalInput = String(p.goal_kg);
     if (p.activity_level) { activityLevel = p.activity_level; activityTouched = true; }
     if (p.watch_brand) watchBrand = p.watch_brand;
+    if (p.why) whyInput = p.why;
+    if (p.milestone?.kg) stopKg = +p.milestone.kg;
     prefilled = true;
   });
 
@@ -146,6 +176,8 @@
   });
 
   const age = $derived(ageFrom(parseInt(birthYear, 10)));
+  const stops = $derived(weightInKg && heightInCm ? suggestStops(weightInKg, heightInCm, goalInKg) : []);
+  const stopMeaning = $derived(stopKg ? milestoneState({ kg: stopKg, set: '' }, weightInKg, heightInCm)?.meaning ?? null : null);
   const suggestedGoal = $derived(suggestGoalKg(heightInCm));
 
   // Keep activity in step with the training question unless the user overrode it.
@@ -245,6 +277,17 @@
         await upsertRecords('workout_sessions_custom', DEFAULT_SESSIONS.map((s) => ({ user_id: uid, ...s, updated_at: now })));
       }
 
+      // What it's for. Each is optional, and never fatal: the profile above is
+      // what the rest of the app needs.
+      try {
+        if (whyInput.trim() && whyInput.trim() !== ($_existing?.why ?? '').trim()) await saveWhy(whyInput);
+        if (stopKg && stopKg !== ($_existing?.milestone?.kg ?? null)) await saveMilestone(stopKg, todayYmd(), $_existing?.milestone ?? null);
+        if (planCue && planText.trim()) await savePlans({ ...cleanPlans($_existing?.plans), [planCue]: planText.trim() });
+        if (native) await saveMoments({ on: wantBriefing, after: '06:00', hold: wantHold });
+      } catch (e: any) {
+        notify('Setup', `Profile saved, but your reason, stop or plan could not be: ${e?.message || e}`, { level: 'warn' });
+      }
+
       // Alarms. Never fatal — a failed reminder must not cost someone the
       // profile they just spent five screens entering, so this is caught
       // separately and reported rather than thrown.
@@ -254,7 +297,7 @@
           // onboarding updates the same rows instead of duplicating them.
           await syncAutoAlarms(uid, schedulePreview);
         }
-        if (wantWeighIn) {
+        if (wantWeighIn && !native) {
           // Same idea via a fixed auto_key: one weigh-in alarm per user, ever.
           // Without the key this would stack a new 07:00 alarm every time
           // onboarding was completed.
@@ -289,7 +332,7 @@
 
 <div class="ob">
   <div class="ob-progress">
-    {#each [0, 1, 2, 3, 4, 5] as s}
+    {#each [0, 1, 2, 3, 4, 5, 6] as s}
       <div class="ob-dot" class:on={s <= step}></div>
     {/each}
   </div>
@@ -480,6 +523,38 @@
         </div>
       </div>
     {/if}
+  {:else if step === 5}
+    <h2 class="ob-h">What it’s for</h2>
+    <p class="ob-p">
+      Three things only you see. They come back at the moments they’re for: a hard Friday night, the
+      Sunday check-in, the morning you reach the stop. Skip any of them.
+    </p>
+
+    <label class="flbl" for="ob-why">Why you’re doing this</label>
+    <textarea id="ob-why" rows="2" bind:value={whyInput} placeholder="In your own words."></textarea>
+
+    {#if stops.length}
+      <div class="flbl ob-gap">Your first stop</div>
+      <p class="ob-hint">A weight near enough to steer by, on the way to your goal.</p>
+      <div class="ob-stops">
+        {#each stops as k}<button type="button" class="ob-stop" class:on={stopKg === k} onclick={() => (stopKg = stopKg === k ? null : k)}>{k}</button>{/each}
+      </div>
+      {#if stopMeaning}<div class="ob-hint">{stopKg} kg: {stopMeaning}.</div>{/if}
+    {/if}
+
+    <div class="flbl ob-gap">One plan for the moment that tends to go wrong</div>
+    <div class="ob-stops">
+      {#each HARD_MOMENTS as c}
+        <button type="button" class="ob-stop" class:on={planCue === c} onclick={() => pickCue(c)}>{CUES.find((x) => x.cue === c)?.label}</button>
+      {/each}
+    </div>
+    {#if cueInfo}
+      <label class="flbl" for="ob-plan">{cueInfo.when}, I’ll…</label>
+      <textarea id="ob-plan" rows="2" bind:value={planText} placeholder={cueInfo.suggestion}></textarea>
+      {#if !planText}<button type="button" class="ob-use" onclick={() => (planText = cueInfo.suggestion)}>Use this one</button>{/if}
+      <div class="ob-hint">Plans made ahead like this, this specific, make people clearly more likely to follow through.</div>
+    {/if}
+
   {:else}
     <h2 class="ob-h">When should we nudge you?</h2>
     <p class="ob-p">
@@ -487,6 +562,30 @@
       the Alarms tab — nothing here is permanent.
     </p>
 
+    {#if native}
+      <button class="ob-alarm" class:on={wantBriefing} onclick={() => (wantBriefing = !wantBriefing)}>
+        <span class="ob-alarm-e">☀️</span>
+        <span class="f1">
+          <span class="ob-alarm-n">Morning briefing</span>
+          <span class="ob-alarm-s">
+            The first time you unlock after 6:00: the weather, the day’s session and food, your plan, and a
+            button to log your weight without opening the app. Not an alarm, no sound.
+          </span>
+        </span>
+        <span class="ob-alarm-x">{wantBriefing ? '✓' : ''}</span>
+      </button>
+      <button class="ob-alarm" class:on={wantHold} onclick={() => (wantHold = !wantHold)}>
+        <span class="ob-alarm-e">🌙</span>
+        <span class="f1">
+          <span class="ob-alarm-n">Evening hold</span>
+          <span class="ob-alarm-s">
+            The first time you unlock after 19:30 (17:00 Friday to Sunday): your plan for the evening and
+            what’s left of the day, when old habits pull hardest.
+          </span>
+        </span>
+        <span class="ob-alarm-x">{wantHold ? '✓' : ''}</span>
+      </button>
+    {:else}
     <button class="ob-alarm" class:on={wantWeighIn} onclick={() => wantWeighIn = !wantWeighIn}>
       <span class="ob-alarm-e">⚖️</span>
       <span class="f1">
@@ -508,6 +607,7 @@
         every day is what makes the readings comparable.
       </div>
     {/if}
+    {/if}
 
     <button class="ob-alarm" class:on={wantTrainingAlarms} onclick={() => wantTrainingAlarms = !wantTrainingAlarms}>
       <span class="ob-alarm-e">🏋️</span>
@@ -528,7 +628,7 @@
     {#if step > 0}
       <button class="btn bg_ bfl" onclick={() => step--}>Back</button>
     {/if}
-    {#if step < 5}
+    {#if step < 6}
       <button class="btn bp bfl" disabled={!canNext} onclick={() => step++}>Continue</button>
     {:else}
       <button class="btn bp bfl" disabled={!canNext || saving} onclick={finish}>
@@ -540,6 +640,13 @@
 
 <style>
   .ob{padding:24px 20px 40px;max-width:460px;margin:0 auto}
+  .ob-gap{margin-top:16px}
+  .ob-stops{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 4px}
+  .ob-stop{font-family:var(--font-display);font-size:1rem;font-weight:800;color:var(--text);cursor:pointer;
+    background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r-sm);padding:8px 14px}
+  .ob-stop.on{border-color:var(--amber);background:var(--ab)}
+  .ob-use{background:none;border:none;padding:6px 0 0;font:inherit;font-size:0.8125rem;font-weight:700;color:var(--text);
+    text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--border2);cursor:pointer}
   .ob-progress{display:flex;gap:6px;margin-bottom:24px}
   .ob-dot{flex:1;height:3px;border-radius:2px;background:var(--bg3);transition:background .3s var(--ease)}
   .ob-dot.on{background:var(--amber)}

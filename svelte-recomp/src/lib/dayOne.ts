@@ -27,7 +27,7 @@ import { shiftYmd } from './date.ts';
 const PROTEIN_G_PER_KG = 1.8;
 
 export interface FirstStep {
-  key: 'weigh' | 'food' | 'train' | 'watch';
+  key: 'weigh' | 'food' | 'plan' | 'train';
   label: string;
   hint: string;
   href: string;
@@ -58,7 +58,8 @@ export interface DayOneInput {
   weighInCount: number;
   foodLogCount: number;
   workoutLogCount: number;
-  hasWatchData: boolean;
+  /** Plans written for the hard moments (user_settings.plans). */
+  planCount?: number;
   now?: Date;
 }
 
@@ -87,15 +88,27 @@ export function dayOnePlan(input: DayOneInput): DayOnePlan | null {
   const perWeekKg = proj.weeksToGoal > 0 ? proj.kgToChange / proj.weeksToGoal : 0;
   const goalDate = shiftYmd(proj.weeksToGoal * 7, now);
 
+  // The first week asks for what keeps people, in the order it pays off. Of
+  // the accounts that ever logged anything, seven in eight left after one to
+  // four food entries: a full day of food was the second thing asked, and the
+  // last thing most people did. So food is one meal, roughly, and the habit
+  // the whole app stands on (the scale) and the plan for the hard moment come
+  // first. "Connect your watch" left the list: without a watch it could never
+  // be ticked, and an unfinishable step is a small reproach every morning.
   const steps: FirstStep[] = [
     {
-      key: 'weigh', label: 'Log your first weigh-in', href: '/progress',
-      hint: 'Same time each morning. Two weeks of dots is what turns the scale into a trend.',
-      done: input.weighInCount > 0,
+      key: 'weigh', label: 'Weigh in on three mornings', href: '/',
+      hint: 'Same time, before food or drink. One morning is noise; three start the trend.',
+      done: input.weighInCount >= 3,
     },
     {
-      key: 'food', label: 'Log one full day of food', href: '/recipes',
-      hint: `One honest day tells the app what your ${proj.targetIntakeKcal} kcal actually looks like.`,
+      key: 'plan', label: 'Write one plan for your hardest moment', href: '/',
+      hint: 'The weekend, a Friday night, late evenings: decide now what you’ll do then.',
+      done: (input.planCount ?? 0) > 0,
+    },
+    {
+      key: 'food', label: 'Log one meal — rough is fine', href: '/recipes',
+      hint: 'Guess the portion or snap a photo. The app learns from how you log, not from perfect logs.',
       done: input.foodLogCount > 0,
     },
     {
@@ -104,11 +117,6 @@ export function dayOnePlan(input: DayOneInput): DayOnePlan | null {
         ? 'Your lifts are what direct the extra calories into muscle instead of fat.'
         : 'Your lifts are the proof the weight coming off is fat and not muscle.',
       done: input.workoutLogCount > 0,
-    },
-    {
-      key: 'watch', label: 'Connect your watch', href: '/progress',
-      hint: 'Sleep and heart rate turn the daily verdict from a guess into a reading.',
-      done: input.hasWatchData,
     },
   ];
 

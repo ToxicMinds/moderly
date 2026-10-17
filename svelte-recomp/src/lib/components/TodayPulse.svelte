@@ -17,6 +17,7 @@
   import PageHero from './PageHero.svelte';
   import Modal from './Modal.svelte';
   import ReadinessCard from './ReadinessCard.svelte';
+  import { editing } from '$lib/commitments';
 
   let breakdownOpen = $state(false);
   let recoveryOpen = $state(false);
@@ -95,13 +96,18 @@
     <ol class="ph-steps">
       {#each plan!.steps as s}
         <li class:done={s.done}>
-          <a href={base + s.href}>
-            <span class="ph-step-tick" aria-hidden="true">{s.done ? '✓' : ''}</span>
-            <span class="ph-step-txt">
-              <b>{s.label}</b>
-              <em>{s.hint}</em>
-            </span>
-          </a>
+          {#if s.key === 'plan'}
+            <!-- The plans editor lives on this page: open it, don't navigate. -->
+            <button type="button" class="ph-step-btn" onclick={() => editing.set('plans')}>
+              <span class="ph-step-tick" aria-hidden="true">{s.done ? '✓' : ''}</span>
+              <span class="ph-step-txt"><b>{s.label}</b><em>{s.hint}</em></span>
+            </button>
+          {:else}
+            <a href={base + s.href}>
+              <span class="ph-step-tick" aria-hidden="true">{s.done ? '✓' : ''}</span>
+              <span class="ph-step-txt"><b>{s.label}</b><em>{s.hint}</em></span>
+            </a>
+          {/if}
         </li>
       {/each}
     </ol>
@@ -154,10 +160,10 @@
   /* Day-one checklist. Four taps, each one a real first action — this is what
      occupies the space the empty readout would otherwise leave blank. */
   .ph-steps{list-style:none;margin:12px 0 0;padding:0;display:flex;flex-direction:column;gap:6px}
-  .ph-steps a{display:flex;align-items:flex-start;gap:10px;text-decoration:none;
-    background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-md);
+  .ph-steps a,.ph-step-btn{display:flex;align-items:flex-start;gap:10px;text-decoration:none;width:100%;
+    background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-md);text-align:left;font:inherit;color:inherit;cursor:pointer;
     padding:10px 12px;transition:transform .18s var(--ease),border-color .18s var(--ease)}
-  .ph-steps a:active{transform:scale(.985)}
+  .ph-steps a:active,.ph-step-btn:active{transform:scale(.985)}
   .ph-step-tick{flex-shrink:0;width:20px;height:20px;border-radius:var(--r-sm);margin-top:1px;
     border:1.5px solid var(--border2);display:flex;align-items:center;justify-content:center;
     font-size:0.6875rem;font-weight:900;color:#06110b}

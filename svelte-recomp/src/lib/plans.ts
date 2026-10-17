@@ -32,8 +32,8 @@ export const CUES: CueInfo[] = [
   { cue: 'back', when: 'When my back says 6 or more', label: 'Back day', suggestion: 'A 30-minute walk instead of the gym. No lifting today.' },
   { cue: 'badminton', when: 'When I get home from badminton', label: 'After badminton', suggestion: 'A shake first, then dinner — never dinner starving.' },
   { cue: 'friday', when: 'When it’s Friday evening', label: 'Friday evening', suggestion: 'Dinner decided before I leave work: one plate, protein first.' },
-  { cue: 'weekend', when: 'On the weekend', label: 'Weekend', suggestion: 'My kid’s leftovers go in a box for tomorrow, not in me.' },
-  { cue: 'evening', when: 'When I’m hungry late at night', label: 'Late evening', suggestion: 'Tvaroh or a shake, then the kitchen’s closed.' },
+  { cue: 'weekend', when: 'On the weekend', label: 'Weekend', suggestion: 'Leftovers go in a box for tomorrow, not in me.' },
+  { cue: 'evening', when: 'When I’m hungry late at night', label: 'Late evening', suggestion: 'Quark, yoghurt or a shake, then the kitchen’s closed.' },
 ];
 
 export interface PlanMoment {
