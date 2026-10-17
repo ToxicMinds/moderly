@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { liveAlarms, liveWeights, liveGoal, liveGoalReason, liveSchedule, liveWorkoutSessions, liveSessionCompletions, liveDailySteps, liveBiometrics, liveWorkoutLogs, liveActivitySessions, liveDailyLogs } from '$lib/stores/live';
+  import { liveWeights, liveGoal, liveGoalReason, liveSchedule, liveWorkoutSessions, liveSessionCompletions, liveDailySteps, liveBiometrics, liveWorkoutLogs, liveActivitySessions, liveDailyLogs } from '$lib/stores/live';
   import { upsertRecord } from '$lib/stores/sync';
   import { userId } from '$lib/stores/user';
   import { liveProfile } from '$lib/stores/live';
@@ -12,7 +12,7 @@
   import { cardNav } from '$lib/actions/cardNav';
   import { morningsThisWeek } from '$lib/scale';
   import { saveWeighIn, NeedsConfirm } from '$lib/weighIn';
-  import { buildDailyFocus, goalSummary, waterTargetLitres } from '$lib/coach';
+  import { buildDailyFocus, waterTargetLitres } from '$lib/coach';
   import { body, stall, line } from '$lib/stores/body';
   import { editing } from '$lib/commitments';
   import { cleanPlans } from '$lib/plans';
@@ -36,7 +36,6 @@
     return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
   });
 
-  const _alarms = liveAlarms();
   const _weights = liveWeights();
   const _goal = liveGoal();
   const _goalReason = liveGoalReason();
@@ -69,19 +68,6 @@
   const todaySessionDone = $derived(
     !!todaySchedule?.session_key && $_completions.some((c: any) => c.date === today && c.type === todaySchedule.session_key)
   );
-  let markingSessionDone = $state(false);
-  async function markTodaySessionComplete() {
-    if (!uid || !todaySchedule?.session_key || todaySessionDone) return;
-    markingSessionDone = true;
-    try {
-      await upsertRecord('sessions', {
-        user_id: uid, date: today, type: todaySchedule.session_key,
-        created_at: new Date().toISOString(),
-      });
-    } catch (e) { console.error('Mark complete failed:', e);
-    } finally { markingSessionDone = false; }
-  }
-
   // This week's mornings on the scale. Not a streak: a missed morning costs one
   // morning, never the whole count, and Monday starts fresh.
   const mornings = $derived(morningsThisWeek($_weights as any[], today));
@@ -103,10 +89,8 @@
   userId.subscribe((v) => { if (v) uid = v; });
 
   let weight = $state('');
-  let steps = $state('');
   let saving = $state(false);
   let saveMsg = $state('');
-  let msgFor = $state<'weight' | 'steps'>('weight');
   /** A reading far off the trend, waiting for its second tap. */
   let confirmKg = $state<number | null>(null);
 
@@ -124,11 +108,10 @@
 
 
 
-  // Weight and steps. These cards once took a bare kcal number too, written to
-  // daily_logs.kcal — a second, item-less food log that the Food page never
+  // The morning weigh-in. This card once took a bare kcal number too, written
+  // to daily_logs.kcal — a second, item-less food log that the Food page never
   // saw and that competed with it in every calorie sum. Food has one way in now.
-  async function saveEntry(what: 'weight' | 'steps') {
-    msgFor = what;
+  async function saveEntry(what: 'weight') {
     if (!uid) { saveMsg = 'Not signed in — please sign back in.'; return; }
     saving = true;
     saveMsg = '';
@@ -141,15 +124,6 @@
         });
         weight = '';
         confirmKg = null;
-      }
-      if (what === 'steps' && steps) {
-        await upsertRecord('steps', {
-          user_id: uid, date: today, count: parseInt(steps),
-          created_at: new Date().toISOString(),
-        });
-        steps = '';
-        saveMsg = 'Saved ✓';
-        setTimeout(() => { saveMsg = ''; }, 3000);
       }
     } catch (e: any) {
       if (e instanceof NeedsConfirm) { confirmKg = parseFloat(weight); saveMsg = e.message; return; }
@@ -172,27 +146,9 @@
   // daily_logs — the old `$_todayLog?.steps` always read undefined so
   // steps never displayed. Take the most recent entry logged today.
   const todaySteps = $derived($_steps.get(today) ?? null);
-  // Water logging surfaced on Today (was buried under Body & Goals). Each
-  // tap = one 250 ml glass; stored as water_glasses, shown/targeted in L.
-  //
-  // Each tap writes an absolute count, so two quick taps used to read the same
-  // stored count and save the same "next" — one glass lost. Taps now count from
-  // what was last ASKED for, and the writes queue so they land in tap order.
-  let waterAsked = $state<number | null>(null);
-  let waterQueue: Promise<unknown> = Promise.resolve();
-  const todayWater = $derived(waterAsked ?? todayLog?.water_glasses ?? 0);
+  // Water is logged under Progress → Body & Goals now; the coach still reads it.
+  const todayWater = $derived(todayLog?.water_glasses ?? 0);
   const waterGoalL = $derived(waterTargetLitres(currentKg));
-  function setWater(n: number) {
-    if (!uid) return;
-    const next = Math.max(0, Math.min(20, n));
-    waterAsked = next;
-    waterQueue = waterQueue
-      .then(() => upsertRecord('daily_logs', { user_id: uid, date: today, water_glasses: next }))
-      .catch((e) => { console.error('Water save failed:', e); })
-      .finally(() => { if (waterAsked === next) waterAsked = null; });
-  }
-  const addWater = () => setWater(todayWater + 1);
-  const removeWater = () => setWater(todayWater - 1);
 
   // — Daily Focus coaching layer —
   // Derive prioritised, actionable guidance from every signal the app
@@ -225,6 +181,10 @@
   // with quick-logged kcal standing in for days that have no itemised food.
   const coachTodayKcal = $derived($body.intake.get(today)?.kcal ?? null);
   const coachTodayProtein = $derived($body.intake.get(today)?.protein ?? null);
+  const todayShare = $derived($body.week?.share ?? null);
+  // Trained today: the session marked done on the Gym page, a set logged, or
+  // the watch saw a workout.
+  const trainedToday = $derived(todaySessionDone || ($_workoutLogs as any[]).some((w) => w.date === today) || !!watchToday);
 
   const daysElapsedThisWeek = $derived(dayIdx === 0 ? 7 : dayIdx); // Mon=1..Sun=7
 
@@ -329,8 +289,8 @@
         onkeydown={(e) => e.key === 'Enter' && saveEntry('weight')}>
       <button class="btn bp" onclick={() => saveEntry('weight')} disabled={saving || !weight}>{saving ? 'Saving…' : 'Save'}</button>
     </div>
-    {#if saveMsg && msgFor === 'weight'}<div class="mw-err">{saveMsg}</div>{/if}
-    <p class="mw-hint">{#if lastWeighLabel}Last reading {lastWeighLabel}. {/if}Same time, before food or drink. One morning is noise; the trend — the line through five weeks of mornings — is the number.</p>
+    {#if saveMsg}<div class="mw-err">{saveMsg}</div>{/if}
+    <p class="mw-hint">{#if lastWeighLabel}Last reading {lastWeighLabel}.{' '}{/if}Same time, before food or drink. One morning is noise; the trend — the line through five weeks of mornings — is the number.</p>
   </div>
 {/if}
 
@@ -346,6 +306,32 @@
 <BackRebuild compact />
 
 <DailyFocus items={focusItems} />
+
+
+<!-- TODAY: the day in one card, what's left to eat and what's on, each row
+     going where you'd act on it. It replaced six cards (food stats, the gym
+     session, the alarm list, water, manual steps and the goal's reasoning)
+     that each said a little and together said too much. Water and the goal's
+     reasoning live under Progress → Body & Goals; steps come from the watch. -->
+<div class="card td">
+  <div class="td-row" use:cardNav={`${base}/recipes`}>
+    <span class="td-k">Food</span>
+    <span class="td-v">
+      {#if coachTodayKcal}<b>{Math.round(coachTodayKcal).toLocaleString()}</b>{#if todayShare}{' '}of {todayShare.toLocaleString()} kcal{:else}{' '}kcal{/if}{:else}Nothing logged yet{/if}
+    </span>
+    <span class="td-go" aria-hidden="true">›</span>
+  </div>
+  <div class="td-sub">
+    {Math.round(coachTodayProtein ?? 0)} of {$body.proteinTargetG} g protein{#if todaySteps != null}{' · '}{todaySteps.toLocaleString()} steps{/if}
+  </div>
+  <div class="td-row" use:cardNav={`${base}/workouts`}>
+    <span class="td-k">{dayInfo.kind === 'gym' ? 'Gym' : dayInfo.kind === 'active' ? dayInfo.label : 'Rest'}</span>
+    <span class="td-v">
+      {#if todaySession}{todaySession.name}{:else if dayInfo.kind === 'active'}{todaySchedule?.time ? `at ${todaySchedule.time}` : 'today'}{:else}A walk counts{/if}{#if trainedToday}{' '}<span class="td-done">✓ done</span>{/if}
+    </span>
+    <span class="td-go" aria-hidden="true">›</span>
+  </div>
+</div>
 
 <!-- What you've committed to: the next stop below you, the goal past it, the
      ceiling above you that you don't go back over, and what you'll do when the
@@ -363,108 +349,6 @@
   <button class="cm-chip" onclick={() => editing.set('plans')}><span>Plans</span><b class:cm-todo={!planCount}>{planCount || 'Make'}</b></button>
 </div>
 <Commitments />
-
-{#if $_goalReason}
-  <div class="note-box">💡 {goalSummary($_goalReason)}</div>
-{:else}
-  <div class="note-box warn">⚠️ No math behind this goal yet — set a real one in <strong>Progress → Body &amp; Goals</strong>.</div>
-{/if}
-
-<div class="card">
-  <div class="flex jb ac" style="margin-bottom:8px">
-    <div class="card-lbl" style="margin-bottom:0">Water</div>
-    <div style="font-size:0.8125rem;font-weight:700;color:var(--blue)">{(todayWater * 0.25).toFixed(2)} <span style="opacity:.6;font-weight:400">/ {waterGoalL.toFixed(1)} L</span></div>
-  </div>
-  <div class="flex gap2 ac">
-    <button class="btn bg_ bsm" onclick={removeWater} disabled={todayWater <= 0} aria-label="Remove a glass" style="min-width:44px">−</button>
-    <div class="f1" style="height:10px;background:var(--bg3);border-radius:6px;overflow:hidden">
-      <div style="height:100%;width:{Math.min(100, (todayWater * 0.25 / waterGoalL) * 100)}%;background:var(--blue);border-radius:6px;transition:width .2s"></div>
-    </div>
-    <button class="btn bp bsm" onclick={addWater} aria-label="Add a 250 ml glass" style="min-width:44px">+</button>
-  </div>
-  <div style="font-size:0.6875rem;color:var(--muted);margin-top:6px;text-align:center">
-    {#if todayWater * 0.25 >= waterGoalL}✓ Hydration goal met{:else}Tap + for each 250 ml glass{/if}
-  </div>
-</div>
-
-<div class="card" use:cardNav={`${base}/recipes`}>
-    <div class="flex jb ac">
-      <div class="card-lbl" style="margin-bottom:0">Today's Stats</div>
-      <span class="card-link">{coachTodayKcal ? 'Food →' : 'Log food →'}</span>
-    </div>
-    <div class="flex gap2" style="font-size:0.8125rem;margin-top:10px">
-      <div class="f1" style="background:var(--bg3);border-radius:8px;padding:8px;text-align:center">
-        <div style="font-weight:700;color:var(--amber);font-size:1.125rem">{Math.round(coachTodayKcal ?? 0)}</div>
-        <div style="font-size:0.6875rem;color:var(--muted)">kcal eaten</div>
-      </div>
-      {#if todaySteps !== null}
-        <div class="f1" style="background:var(--bg3);border-radius:8px;padding:8px;text-align:center">
-          <div style="font-weight:700;color:var(--green);font-size:1.125rem">{todaySteps.toLocaleString()}</div>
-          <div style="font-size:0.6875rem;color:var(--muted)">steps</div>
-        </div>
-      {/if}
-      <div class="f1" style="background:var(--bg3);border-radius:8px;padding:8px;text-align:center">
-        <div style="font-weight:700;color:var(--blue);font-size:1.125rem">{(todayWater * 0.25).toFixed(1)}<span style="font-size:0.6875rem">L</span></div>
-        <div style="font-size:0.6875rem;color:var(--muted)">water</div>
-      </div>
-    </div>
-  </div>
-
-
-<div class="card" use:cardNav={`${base}/workouts`}>
-  <div class="flex jb ac">
-    <div class="card-lbl" style="margin-bottom:0">Today's Gym Session</div>
-    <span class="card-link">Gym →</span>
-  </div>
-  {#if todaySession}
-    <div class="gi" style="padding:5px 0">
-      <div class="gn"><strong>{todaySession.name}</strong></div>
-      <div style="color:var(--amber);font-weight:600">{todaySession.duration}</div>
-    </div>
-    <div style="font-size:0.75rem;color:var(--muted);margin:-2px 0 8px 0">{todaySession.focus}</div>
-    {#if todaySessionDone}
-      <div style="font-size:0.75rem;color:var(--green);font-weight:600">✓ Marked complete for today</div>
-    {:else}
-      <button class="btn bg_ bsm" onclick={markTodaySessionComplete} disabled={markingSessionDone}>{markingSessionDone ? 'Saving…' : 'Mark Complete ✓'}</button>
-    {/if}
-  {:else}
-    <div style="color:var(--muted);font-size:0.8125rem">{todaySchedule?.note || 'No session scheduled for today'}</div>
-  {/if}
-</div>
-
-<div class="card" use:cardNav={`${base}/alarms`}>
-  <div class="flex jb ac">
-    <div class="card-lbl" style="margin-bottom:0">Today's Schedule</div>
-    <span class="card-link">Alarms →</span>
-  </div>
-  {#each $_alarms as alarm}
-    {#if alarm.enabled && alarm.days?.includes(dayIdx)}
-      <div class="gi" style="padding:5px 0">
-        <div class="gn"><strong>{alarm.title}</strong></div>
-        <div style="color:var(--amber);font-weight:600">{alarm.time}</div>
-      </div>
-      {#if alarm.message}
-        <div style="font-size:0.75rem;color:var(--muted);margin:-2px 0 4px 0">{alarm.message}</div>
-      {/if}
-    {/if}
-  {/each}
-  {#if $_alarms.length === 0}
-    <div style="color:var(--muted);font-size:0.8125rem">No alarms for today</div>
-  {/if}
-</div>
-
-<div class="card">
-  <label class="card-lbl" for="ql-steps">Steps</label>
-  <div class="mw-row">
-    <input id="ql-steps" type="number" inputmode="numeric" bind:value={steps} placeholder={todaySteps != null ? String(todaySteps) : '9000'}
-      onkeydown={(e) => e.key === 'Enter' && saveEntry('steps')}>
-    <button class="btn bp" onclick={() => saveEntry('steps')} disabled={saving || !steps}>Save</button>
-  </div>
-  <p class="mw-hint">The watch fills this in on its own; type here only on a day it wasn't worn.</p>
-  {#if saveMsg && msgFor === 'steps'}
-    <div class="mw-msg" class:bad={!saveMsg.startsWith('Saved')}>{saveMsg}</div>
-  {/if}
-</div>
 
 <style>
   .mw{padding:13px 14px}
@@ -491,4 +375,13 @@
   .cm-chip b{font-family:var(--font-display);font-size:1.25rem;font-weight:800;line-height:1;color:var(--text);white-space:nowrap}
   .cm-chip b.cm-todo{color:var(--muted);text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--border2)}
   .cm-goal-in{text-align:center;min-width:0}
+  .td{padding:6px 14px}
+  .td-row{display:flex;align-items:baseline;gap:12px;padding:9px 0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+  .td-row + .td-sub + .td-row{border-top:1px solid var(--border);margin-top:9px}
+  .td-k{font-family:var(--font-display);font-size:0.8125rem;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);min-width:76px}
+  .td-v{flex:1;min-width:0;font-size:0.9375rem;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .td-v b{font-family:var(--font-display);font-size:1.25rem;font-weight:800}
+  .td-sub{font-size:0.75rem;color:var(--muted);margin:-6px 0 0 88px}
+  .td-go{color:var(--muted);font-size:1.25rem;line-height:1}
+  .td-done{color:var(--led-good);font-weight:700;font-size:0.8125rem}
 </style>

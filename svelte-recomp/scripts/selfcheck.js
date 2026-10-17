@@ -49,7 +49,7 @@ function check(name, fn) {
 const { pickOriginByDay, percentile } = await import('../src/lib/health/dedupe.ts');
 const { preferredSource: guessWatchOrigin } = await import('../src/lib/health/watches.ts');
 const { ymd, todayYmd, mondayOf, shiftYmd } = await import('../src/lib/date.ts');
-const { foldDailyFocus, goalDirection } = await import('../src/lib/coach.ts');
+const { foldDailyFocus, todaysFocus, goalDirection } = await import('../src/lib/coach.ts');
 const { weightVerdict, tCritical, proteinByTrainingDay, watchAgreement, recoveryCost, paceVsPlan, fitWeightLine, diagnoseStall } = await import('../src/lib/insights.ts');
 const { EXERCISE_TYPES, ACTIVITY_MUSCLE_LOAD, QUICK_ACTIVITIES } = await import('../src/lib/health/exercise.ts');
 
@@ -78,6 +78,14 @@ check('focus folds into at most three topics, weight becomes the headline', () =
   assert.equal(headline.id, 'weight-up', 'weight is the outcome, not a topic');
   assert.ok(groups.length <= 3, `expected <=3 topics, got ${groups.length}`);
   assert.deepEqual(groups.map((g) => g.key).sort(), ['fuel', 'recover', 'train']);
+});
+
+check('Today’s Focus is one voice, and silent on a good day', () => {
+  const pick = (...items) => todaysFocus(items)?.id ?? null;
+  assert.equal(pick(fi('weight-up', 'warn'), fi('protein-low', 'warn')), 'protein-low', 'the weight is the Pulse’s to say, not a second voice');
+  assert.equal(pick(fi('protein-low', 'warn'), fi('sleep-low', 'bad')), 'sleep-low', 'worst first');
+  assert.equal(pick(fi('steps-good', 'good'), fi('water-low'), fi('protein-hit', 'good')), null, 'nothing pressing: nothing said');
+  assert.equal(pick(fi('weight-plateau', 'warn')), null);
 });
 
 check('each topic leads with its most severe item and counts the rest', () => {
@@ -3330,9 +3338,10 @@ check('no separator opens an {#if}: Svelte drops the space before it', async () 
     ...readdirSync('src/lib/components').map((f) => `src/lib/components/${f}`),
     ...readdirSync('src/routes', { recursive: true }).filter((f) => f.endsWith('.svelte')).map((f) => `src/routes/${f}`),
   ].filter((f) => f.endsWith('.svelte'));
-  // "today{#if x} · trend" renders "today· trend". Write {' · '} instead.
+  // "today{#if x} · trend" renders "today· trend", and "Oct. {/if}Same" renders
+  // "Oct.Same": Svelte trims whitespace at a block's edges. Write {' '} instead.
   const offenders = files.flatMap((f) => readFileSync(f, 'utf8').split('\n')
-    .filter((l) => /\{#if [^}]*\} (·|&middot;) /.test(l)).map((l) => `${f}: ${l.trim().slice(0, 80)}`));
+    .filter((l) => /\{#if [^}]*\} (·|&middot;) /.test(l) || /[^\s>] \{\/if\}\S/.test(l)).map((l) => `${f}: ${l.trim().slice(0, 80)}`));
   assert.deepEqual(offenders, []);
 });
 
@@ -3627,6 +3636,15 @@ check('food is saved in one place, so the notification logs it the way the app d
   const actions = readFileSync('src/lib/momentActions.ts', 'utf8');
   assert.match(actions, /saveWeighIn\(/, 'a weight from the watch goes through the one weigh-in path, typo guard included');
   assert.match(actions, /saveFoods\(/);
+});
+
+check('Today stays calm: one card for the day, no cards that said a little each', async () => {
+  const { readFileSync } = await import('node:fs');
+  const today = readFileSync('src/routes/+page.svelte', 'utf8');
+  for (const gone of ['addWater', 'ql-steps', "Today's Schedule", "Today's Stats", "Today's Gym Session", 'goalSummary(']) {
+    assert.ok(!today.includes(gone), `${gone} is back on Today`);
+  }
+  assert.match(today, /class="card td"/, 'the day in one card');
 });
 
 // Nothing may be reported until the async checks have actually settled.

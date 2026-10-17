@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { foldDailyFocus, type FocusItem, type FocusGroup, type Severity } from '$lib/coach';
+  import { todaysFocus, type FocusItem, type Severity } from '$lib/coach';
   import { cardNav } from '$lib/actions/cardNav';
   import { base } from '$app/paths';
   import VideoEmbed from '$lib/components/VideoEmbed.svelte';
@@ -53,12 +53,11 @@
 
   // Three topics, not a feed. The weight item becomes the headline when there
   // is one; otherwise the worst topic leads so the card is never headless.
-  const folded = $derived(foldDailyFocus(items));
-  const hero = $derived(folded.headline ?? folded.groups[0]?.lead ?? null);
-  // Don't repeat the lead in the row beneath it when it was promoted to hero.
-  const groups = $derived(
-    folded.headline ? folded.groups : folded.groups.slice(1)
-  );
+  // ONE voice, and only when today needs it (see todaysFocus). The card used
+  // to lead with the weight headline, which the Pulse above already says, and
+  // add a row each for Fuel, Train and Recover: four voices before breakfast,
+  // three of them repeating the Today card.
+  const hero = $derived(todaysFocus(items));
 </script>
 
 {#if hero && hidden}
@@ -91,18 +90,6 @@
       </div>
     {/if}
 
-    <!-- Fuel · Train · Recover — one row each, leading with that topic's worst -->
-    {#each groups as g (g.key)}
-      {#if g.lead.href}
-        <div class="pill card-tap" style="--ac:{COLORS[g.severity].c};--abg:{COLORS[g.severity].bg}" use:cardNav={base + g.lead.href}>
-          {@render groupBody(g)}
-        </div>
-      {:else}
-        <div class="pill" style="--ac:{COLORS[g.severity].c};--abg:{COLORS[g.severity].bg}">
-          {@render groupBody(g)}
-        </div>
-      {/if}
-    {/each}
   </div>
 {/if}
 
@@ -119,17 +106,6 @@
   {/if}
 {/snippet}
 
-{#snippet groupBody(g: FocusGroup)}
-  <div class="f1">
-    <div class="pill-title">
-      <span class="topic">{g.label}</span>{g.lead.title}{#if g.lead.metric}<span class="pill-metric">{g.lead.metric}</span>{/if}{#if g.more > 0}<span class="more-n">+{g.more}</span>{/if}
-    </div>
-    <div class="pill-msg">{g.lead.msg}</div>
-    {#if g.lead.vid}
-      <div class="focus-video" data-no-nav><VideoEmbed vid={g.lead.vid} label={g.lead.videoLabel ?? 'Watch how ▸'} compact /></div>
-    {/if}
-  </div>
-{/snippet}
 
 <style>
   .focus-wrap { margin-bottom: 16px; }
@@ -153,16 +129,5 @@
   .hero-metric { font-size: 0.8125rem; font-weight: 700; color: var(--ac); margin-top: 1px; }
   .hero-msg { font-size: 0.875rem; line-height: 1.5; color: var(--text); margin-top: 7px; }
 
-  .pill {
-    display: flex; align-items: flex-start; gap: 11px;
-    background: var(--bg2);
-    border: 1px solid var(--border); border-left: 3px solid var(--ac);
-    border-radius: var(--r-md); padding: 11px 13px; margin-bottom: 7px;
-  }
-  .pill-title { font-size: 0.875rem; font-weight: 700; color: var(--text); display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 8px; }
-  .topic { font-family: var(--font-display); font-size: 0.875rem; font-weight: 800; text-transform: uppercase; letter-spacing: .1em; color: var(--ac); flex-shrink: 0; }
-  .more-n { font-size: 0.75rem; font-weight: 700; color: var(--muted); }
-  .pill-metric { font-size: 0.75rem; font-weight: 700; color: var(--ac); }
-  .pill-msg { font-size: 0.8125rem; line-height: 1.45; color: var(--muted); margin-top: 2px; }
   .focus-video { display: block; }
 </style>

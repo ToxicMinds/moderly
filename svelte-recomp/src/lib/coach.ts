@@ -675,3 +675,14 @@ export function foldDailyFocus(items: FocusItem[]): FoldedFocus {
 
   return { headline, groups };
 }
+
+/**
+ * What Today's Focus says: one thing, and only when today needs it. The most
+ * pressing Fuel, Train or Recover item at warn or worse, else nothing. Weight
+ * is left out on purpose: it's the outcome, and the Pulse already says it.
+ * A good day passes in silence; good news comes as a toast when it happens.
+ */
+export function todaysFocus(items: FocusItem[]): FocusItem | null {
+  return foldDailyFocus(items).groups.find((g) => SEV_WEIGHT[g.severity] <= SEV_WEIGHT.warn)?.lead ?? null;
+}
+
