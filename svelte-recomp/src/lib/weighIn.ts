@@ -21,7 +21,7 @@ export async function saveWeighIn(uid: string, kg: number, ctx: {
   if (!(kg > 0)) throw new Error('That isn’t a weight.');
   const off = offTrend(kg, ctx.trendKg);
   if (off != null && !ctx.confirmed) {
-    throw new NeedsConfirm(`${kg} is ${Math.abs(off).toFixed(1)} kg ${off > 0 ? 'above' : 'below'} your trend. A typo? If it's right, tap Save again.`);
+    throw new NeedsConfirm(`${kg} is ${Math.abs(off).toFixed(1)} kg ${off > 0 ? 'above' : 'below'} your trend. A typo? If it's right, tap again to save it.`);
   }
   const existing = await db.table('weights').where('[user_id+date]').equals([uid, ctx.today]).first();
   await upsertRecord('weights', {
