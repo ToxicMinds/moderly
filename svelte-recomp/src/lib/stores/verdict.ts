@@ -5,15 +5,12 @@
 // truth AND lets the background glow reflect the verdict on EVERY page, not
 // just Today.
 import { derived, type Readable } from 'svelte/store';
-import {
-  liveWeights, liveGoal, liveWorkoutLogs, liveFoodLogs, liveBiometrics
-} from '$lib/stores/live';
-import { nowTick } from '$lib/stores/refresh';
-import { weightTrend } from '$lib/coach';
+import { liveWorkoutLogs, liveBiometrics } from '$lib/stores/live';
+import { body } from '$lib/stores/body';
 import { strengthTrend } from '$lib/strength';
 import { computeReadiness } from '$lib/readiness';
 import { recompScore, type RecompScore, type RecompBand } from '$lib/recompScore';
-import { todayYmd, shiftYmd } from '$lib/date';
+import { shiftYmd } from '$lib/date';
 
 export type Tone = 'good' | 'ok' | 'warn' | 'bad' | 'na';
 
@@ -32,36 +29,24 @@ export interface TodayVerdict {
 }
 
 // Instantiate the live queries once for the whole app.
-const _weights = liveWeights();
-const _goal = liveGoal();
 const _workoutLogs = liveWorkoutLogs();
-const _foodLogs = liveFoodLogs();
 const _bio = liveBiometrics();
 
 export const todayVerdict: Readable<TodayVerdict> = derived(
-  [_weights, _goal, _workoutLogs, _foodLogs, _bio, nowTick],
-  ([$weights, $goal, $workoutLogs, $foodLogs, $bio, $tick]) => {
-    void $tick;
-    const today = todayYmd();
-    const goalKg = ($goal as number | null) ?? null;
-    const weights = ($weights as any[]) ?? [];
-    const currentWeight = weights.length ? weights[weights.length - 1].weight : null;
-    const proteinTargetG = goalKg ? Math.round(goalKg * 1.8) : 0;
-    const trend = weightTrend(weights.map((w) => ({ date: w.date, weight: w.weight })), goalKg ?? 0);
+  [body, _workoutLogs, _bio],
+  ([$body, $workoutLogs, $bio]) => {
+    const today = $body.today;
     const strength = strengthTrend($workoutLogs as any);
 
+    // Protein adherence: mean of the last 7 LOGGED days' (protein / target).
     let proteinAdherencePct: number | null = null;
-    if (proteinTargetG) {
-      const cutoff = shiftYmd(-7, new Date($tick as number));
-      const byDate = new Map<string, number>();
-      for (const f of ($foodLogs as any[])) {
-        if (f.date < cutoff) continue;
-        byDate.set(f.date, (byDate.get(f.date) ?? 0) + (f.protein_g || 0));
-      }
-      if (byDate.size) {
+    if ($body.goalKg) {
+      const cutoff = shiftYmd(-7, new Date(`${today}T12:00:00`));
+      const days = [...$body.intake].filter(([d, v]) => d >= cutoff && v.items > 0);
+      if (days.length) {
         let sum = 0;
-        for (const g of byDate.values()) sum += Math.min(100, (g / proteinTargetG) * 100);
-        proteinAdherencePct = sum / byDate.size;
+        for (const [, v] of days) sum += Math.min(100, (v.protein / $body.proteinTargetG) * 100);
+        proteinAdherencePct = sum / days.length;
       }
     }
 
@@ -70,9 +55,9 @@ export const todayVerdict: Readable<TodayVerdict> = derived(
     const readinessScore = computeReadiness(todayBio, history)?.score ?? null;
 
     const result = recompScore({
-      weeklyLossRateKg: trend.rateKgPerWeek,
-      currentWeightKg: currentWeight,
-      goalKg,
+      weeklyLossRateKg: $body.weight?.rateKgPerWeek ?? 0,
+      currentWeightKg: $body.currentKg,
+      goalKg: $body.goalKg,
       strength: { direction: strength.direction, avgPct: strength.avgPct },
       proteinAdherencePct,
       readinessScore,

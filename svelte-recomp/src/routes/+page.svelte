@@ -14,8 +14,9 @@
   import { computeStreak, isStreakMilestone, streakBlurb } from '$lib/streaks';
   import { speak } from '$lib/stores/toast';
   import { haptic } from '$lib/haptics';
-  import { buildDailyFocus, parseCalorieTarget, goalSummary, waterTargetLitres, weightTrend } from '$lib/coach';
-  import { adaptiveTdee, targetIntakeForLoss } from '$lib/adaptiveTdee';
+  import { buildDailyFocus, goalSummary, waterTargetLitres } from '$lib/coach';
+  import { body } from '$lib/stores/body';
+  import { diagnoseStall } from '$lib/insights';
   import { strengthTrend } from '$lib/strength';
   import { primaryActivity } from '$lib/health/exercise';
   import DailyFocus from '$lib/components/DailyFocus.svelte';
@@ -124,66 +125,44 @@
   let steps = $state('');
   let saving = $state(false);
   let saveMsg = $state('');
+  let msgFor = $state<'weight' | 'steps'>('weight');
 
-  const firstWeight = $derived.by(() => {
-    const w = $_weights;
-    return w.length > 0 ? w[0].weight : null;
-  });
-  const recentWeight = $derived.by(() => {
-    const w = $_weights;
-    return w.length > 0 ? w[w.length - 1].weight : null;
-  });
-  const kgLost = $derived(firstWeight && recentWeight ? (firstWeight - recentWeight).toFixed(1) : '--');
+  // Every weight number on this screen is the trend's (stores/body): one
+  // morning's reading swings a kilo either way and is never the headline.
+  const currentKg = $derived($body.currentKg);
+  const kgLost = $derived($body.firstKg != null && currentKg != null ? ($body.firstKg - currentKg).toFixed(1) : '--');
+  const todayWeighIn = $derived(($_weights as any[]).find((w) => w.date === today) ?? null);
 
 
-  function weeklyLoss(): number {
-    const w = $_weights;
-    if (w.length < 2) return 0;
-    const last7 = w.filter((r: any) => {
-      const daysAgo = (Date.now() - new Date(r.created_at || r.date).getTime()) / 86400000;
-      return daysAgo <= 14;
-    });
-    if (last7.length < 2) return 0;
-    const oldest = last7[0].weight;
-    const newest = last7[last7.length - 1].weight;
-    const diff = oldest - newest;
-    const days = last7.length > 1 ? (new Date(last7[last7.length - 1].date).getTime() - new Date(last7[0].date).getTime()) / 86400000 : 1;
-    return days > 0 ? (diff / days) * 7 : 0;
-  }
 
-  const weeksToGoal = $derived.by(() => {
-    if (!recentWeight || recentWeight <= GOAL_KG) return 0;
-    const wl = weeklyLoss();
-    if (wl <= 0) return '--';
-    return Math.ceil((recentWeight - GOAL_KG) / wl);
-  });
-
-  // Weight and steps only. This card also took a bare kcal number, written to
+  // Weight and steps. These cards once took a bare kcal number too, written to
   // daily_logs.kcal — a second, item-less food log that the Food page never
   // saw and that competed with it in every calorie sum. Food has one way in now.
-  async function quickLog() {
+  async function saveEntry(what: 'weight' | 'steps') {
+    msgFor = what;
     if (!uid) { saveMsg = 'Not signed in — please sign back in.'; return; }
-    if (!weight && !steps) { saveMsg = 'Enter a weight or steps first.'; return; }
     saving = true;
     saveMsg = '';
     try {
-      if (weight) {
+      if (what === 'weight' && weight) {
         const existing = await db.table('weights').where('[user_id+date]').equals([uid, today]).first();
         await upsertRecord('weights', {
           id: existing?.id || undefined,
           user_id: uid, date: today, weight: parseFloat(weight),
           created_at: new Date().toISOString(),
         });
+        weight = '';
+        haptic('success');
       }
-      if (steps) {
+      if (what === 'steps' && steps) {
         await upsertRecord('steps', {
           user_id: uid, date: today, count: parseInt(steps),
           created_at: new Date().toISOString(),
         });
+        steps = '';
+        saveMsg = 'Saved ✓';
+        setTimeout(() => { saveMsg = ''; }, 3000);
       }
-      weight = ''; steps = '';
-      saveMsg = 'Saved ✓';
-      setTimeout(() => { saveMsg = ''; }, 3000);
     } catch (e: any) {
       console.error('Log failed:', e);
       saveMsg = 'Save failed: ' + (e?.message || e?.error_description || String(e)).slice(0, 150);
@@ -210,7 +189,7 @@
     return latest?.count ?? null;
   });
   const todayWater = $derived(todayLog?.water_glasses ?? 0);
-  const waterGoalL = $derived(waterTargetLitres(recentWeight));
+  const waterGoalL = $derived(waterTargetLitres(currentKg));
 
   // Water logging surfaced on Today (was buried under Body & Goals). Each
   // tap = one 250 ml glass; stored as water_glasses, shown/targeted in L.
@@ -254,36 +233,16 @@
     };
   });
 
-  // Per-day calorie + protein totals from the detailed food log (the same
-  // source the Nutrition page trusts). Falls back to the quick-logged single
-  // kcal number on daily_logs for days with no itemised food.
-  const foodByDate = $derived.by(() => {
-    const m = new Map<string, { kcal: number; protein: number }>();
-    for (const f of $_foodLogs) {
-      const cur = m.get(f.date) ?? { kcal: 0, protein: 0 };
-      cur.kcal += f.kcal || 0;
-      cur.protein += f.protein_g || 0;
-      m.set(f.date, cur);
-    }
-    return m;
-  });
-
-  const coachTodayKcal = $derived.by(() => {
-    const fromFood = foodByDate.get(today)?.kcal ?? 0;
-    if (fromFood > 0) return fromFood;
-    return todayLog?.kcal ?? null;
-  });
-  const coachTodayProtein = $derived(foodByDate.get(today)?.protein ?? null);
+  // Per-day totals come from stores/body — the same map every screen reads,
+  // with quick-logged kcal standing in for days that have no itemised food.
+  const coachTodayKcal = $derived($body.intake.get(today)?.kcal ?? null);
+  const coachTodayProtein = $derived($body.intake.get(today)?.protein ?? null);
 
   const weekMonday = $derived(mondayOf(new Date($nowTick)));
   const daysElapsedThisWeek = $derived(dayIdx === 0 ? 7 : dayIdx); // Mon=1..Sun=7
   const weekKcalSoFar = $derived.by(() => {
     let sum = 0;
-    for (const [date, v] of foodByDate) {
-      if (date >= weekMonday && date <= today) sum += v.kcal;
-    }
-    // include today's quick-logged kcal if no itemised food covers it
-    if ((foodByDate.get(today)?.kcal ?? 0) === 0 && todayLog?.kcal) sum += todayLog.kcal;
+    for (const [date, v] of $body.intake) if (date >= weekMonday && date <= today) sum += v.kcal;
     return sum;
   });
 
@@ -313,42 +272,12 @@
     return ($_biometrics as any[]).find((b) => b.sleep_hours != null && b.date === today) ?? null;
   });
 
-  // Robust weight trend (regression over ~28d) — kills daily water-weight
-  // noise that made point-to-point deltas read as "dropping too fast".
-  const wTrend = $derived(
-    weightTrend(($_weights as any[]).map((w) => ({ date: w.date, weight: w.weight })), GOAL_KG)
-  );
-
-  // Adaptive (LEARNED) TDEE — the user's real maintenance backed out from their
-  // own intake vs weight trend, so the calorie target self-corrects from real
-  // results instead of trusting the Mifflin-St Jeor formula forever. Intake
-  // per day = itemised food_logs total, falling back to the quick-logged
-  // daily_logs kcal for days with no itemised food (a fuller, less-biased set).
-  const learnedTdee = $derived.by(() => {
-    const intakeByDate = new Map<string, number>();
-    for (const [date, v] of foodByDate) {
-      if (v.kcal > 0) intakeByDate.set(date, v.kcal);
-    }
-    for (const l of $_dailyLogs as any[]) {
-      if (!intakeByDate.has(l.date) && (l.kcal || 0) > 0) intakeByDate.set(l.date, l.kcal);
-    }
-    const intake = Array.from(intakeByDate, ([date, kcal]) => ({ date, kcal }));
-    const weights = ($_weights as any[]).map((w) => ({ date: w.date, weight: w.weight }));
-    return adaptiveTdee({ intake, weights, asOf: today });
-  });
-
-  // Package for the coach: only surface a claim when there's enough data, and
-  // pair it with an intake recommendation for a sustainable ~0.7 kg/wk loss.
-  const coachTdee = $derived.by(() => {
-    const t = learnedTdee;
-    if (t.tdee == null || t.confidence === 'insufficient') return null;
-    return {
-      tdee: t.tdee,
-      confidence: t.confidence,
-      recommendedIntake: targetIntakeForLoss(t.tdee, 0.7),
-      loggedDays: t.loggedDays,
-    };
-  });
+  // Only when the trend has ruled the plan out: what the log says against what
+  // this body burns, and where food most often goes missing (see insights).
+  const stall = $derived(diagnoseStall({
+    pace: $body.pace, intake: $body.intake, foods: $_foodLogs as any[],
+    floorKcal: $body.floorKcal, today,
+  }));
 
   // What KIND of day is today? A gym session, an ACTIVE day (badminton/
   // cardio with no barbell session), or a true rest day. Badminton days have
@@ -378,30 +307,30 @@
   const focusItems = $derived(
     buildDailyFocus({
       goalKg: GOAL_KG,
-      currentWeight: recentWeight,
-      weeklyLossRate: wTrend.rateKgPerWeek,
-      plateau: wTrend.plateau,
-      plateauWeeks: wTrend.plateauWeeks,
-      trendSpanDays: wTrend.spanDays,
-      totalLostKg: firstWeight != null && recentWeight != null ? +(firstWeight - recentWeight).toFixed(1) : null,
-      weeksToGoal,
-      calorieTarget: parseCalorieTarget($_goalReason),
+      currentWeight: currentKg,
+      rateKgPerWeek: $body.weight?.rateKgPerWeek ?? 0,
+      pace: $body.pace,
+      planKgPerWeek: $body.target.planKgPerWeek,
+      weeksToGoal: $body.weeksToGoal,
+      weighInsNeeded: $body.weight?.weighInsNeeded ?? null,
+      stall,
+      totalLostKg: $body.firstKg != null && currentKg != null ? +($body.firstKg - currentKg).toFixed(1) : null,
+      calorieTarget: $body.target.target,
       todayKcal: coachTodayKcal,
       weekKcalSoFar,
       daysElapsedThisWeek,
-      proteinTarget: Math.round(GOAL_KG * 1.8),
+      proteinTarget: $body.proteinTargetG,
       todayProtein: coachTodayProtein,
       sleepHours: lastSleep?.sleep_hours ?? null,
       sleepQuality: lastSleep?.sleep_quality ?? null,
       stepsToday: todaySteps,
       stepsWeekAvg,
       waterToday: todayWater * GLASS_L,
-      waterTarget: waterTargetLitres(recentWeight),
+      waterTarget: waterGoalL,
       dayKind: dayInfo.kind,
       activityLabel: dayInfo.label,
       workoutDoneToday: todaySessionDone,
       strengthTrend: strengthRead,
-      adaptiveTdee: coachTdee,
       watchActivityToday: watchToday,
       hour: nowHour,
     })
@@ -409,7 +338,29 @@
 
 <TodayPulse greeting={greeting} sub={`${dayName} · ${dateStr}`}
   streak={streak.current} atRisk={streak.atRisk}
-  kgLost={kgLost} kgNow={recentWeight ?? '--'} weeks={weeksToGoal} />
+  kgLost={kgLost} kgNow={currentKg != null ? currentKg.toFixed(1) : '--'} weeks={$body.weeksToGoal ?? '—'} />
+
+<!-- MORNING WEIGH-IN. The trend is only as good as the mornings behind it — a
+     month of 13 weigh-ins left it a kilo wide either way — so the scale gets the
+     top of the screen until today's reading is in, then shrinks to one line. -->
+{#if todayWeighIn}
+  <div class="mw-done">Weighed <b>{todayWeighIn.weight}</b> today{#if currentKg != null} · trend <b>{currentKg.toFixed(1)}</b> kg{/if}</div>
+{:else}
+  <div class="card mw">
+    <div class="mw-top">
+      <label class="card-lbl" for="ql-weight">Morning weigh-in</label>
+      {#if currentKg != null}<span class="mw-trend">trend <b>{currentKg.toFixed(1)}</b> kg</span>{/if}
+    </div>
+    <div class="mw-row">
+      <input id="ql-weight" type="number" inputmode="decimal" step="0.1" bind:value={weight}
+        placeholder={currentKg != null ? currentKg.toFixed(1) : 'kg'}
+        onkeydown={(e) => e.key === 'Enter' && saveEntry('weight')}>
+      <button class="btn bp" onclick={() => saveEntry('weight')} disabled={saving || !weight}>{saving ? 'Saving…' : 'Save'}</button>
+    </div>
+    {#if saveMsg && msgFor === 'weight'}<div class="mw-err">{saveMsg}</div>{/if}
+    <p class="mw-hint">Same time, before food or drink. One morning is noise; the trend is the number.</p>
+  </div>
+{/if}
 
 <!-- Sits directly under the Pulse and only on Sun/Mon/Tue, once per week — the
      one moment the app asks instead of reports. Renders nothing otherwise. -->
@@ -522,21 +473,30 @@
 </div>
 
 <div class="card">
-  <div class="card-lbl">Weigh-in &amp; steps</div>
-  <div class="flex gap2" style="margin-bottom:8px">
-    <div class="f1">
-      <label class="flbl" for="ql-weight">Weight (kg)</label>
-      <input id="ql-weight" type="number" step="0.1" bind:value={weight} placeholder={recentWeight?.toString() || '116.0'} style="text-align:center">
-    </div>
-    <div class="f1">
-      <label class="flbl" for="ql-steps">Steps</label>
-      <input id="ql-steps" type="number" bind:value={steps} placeholder="9000" style="text-align:center">
-    </div>
+  <label class="card-lbl" for="ql-steps">Steps</label>
+  <div class="mw-row">
+    <input id="ql-steps" type="number" inputmode="numeric" bind:value={steps} placeholder={todaySteps != null ? String(todaySteps) : '9000'}
+      onkeydown={(e) => e.key === 'Enter' && saveEntry('steps')}>
+    <button class="btn bp" onclick={() => saveEntry('steps')} disabled={saving || !steps}>Save</button>
   </div>
-  <button class="btn bp bfl" onclick={quickLog} disabled={saving}>{saving ? 'Saving…' : 'Save Today ✓'}</button>
-  {#if saveMsg}
-    <div style="font-size:0.75rem;text-align:center;margin-top:6px;color:{saveMsg.startsWith('Saved') ? 'var(--green)' : 'var(--red)'}">{saveMsg}</div>
+  <p class="mw-hint">The watch fills this in on its own; type here only on a day it wasn't worn.</p>
+  {#if saveMsg && msgFor === 'steps'}
+    <div class="mw-msg" class:bad={!saveMsg.startsWith('Saved')}>{saveMsg}</div>
   {/if}
 </div>
 
-
+<style>
+  .mw{padding:13px 14px}
+  .mw-top{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:8px}
+  .mw-top .card-lbl{margin:0}
+  .mw-trend{font-size:0.8125rem;color:var(--muted)}
+  .mw-trend b{font-family:var(--font-display);font-size:1.125rem;color:var(--text)}
+  .mw-row{display:flex;gap:8px}
+  .mw-row input{flex:1;min-width:0;font-size:1.25rem;font-weight:700;text-align:center;font-variant-numeric:tabular-nums}
+  .mw-row .btn{flex-shrink:0;min-width:88px}
+  .mw-hint{font-size:0.75rem;color:var(--muted);margin-top:7px;line-height:1.45}
+  .mw-err,.mw-msg{font-size:0.75rem;margin-top:6px;color:var(--led-good)}
+  .mw-err,.mw-msg.bad{color:var(--led-bad)}
+  .mw-done{font-size:0.8125rem;color:var(--muted);margin:-4px 2px 14px}
+  .mw-done b{font-family:var(--font-display);font-size:1.0625rem;color:var(--text)}
+</style>

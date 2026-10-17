@@ -62,7 +62,13 @@
     await upsertRecord('daily_logs', { user_id: uid, date: today, back_pain: n });
   }
 
-  const startLabel = $derived(new Date(nextMonday(today) + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' }));
+  // The saved start while one is pending; the coming Monday for a new offer.
+  const startLabel = $derived(new Date((program?.start && week === 0 ? program.start : nextMonday(today)) + 'T12:00:00')
+    .toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' }));
+  // Red before day one: waiting a week is the one-tap answer — unless the
+  // ratings say it isn't settling, when the answer is a physio, not a delay.
+  const offerLater = $derived(week === 0 && advice.tone === 'bad' && advice.ratedToday && !advice.physio);
+  const later = () => program?.start && saveProgram({ id: 'back-rebuild', start: shiftStart(program.start, 7) });
 </script>
 
 {#snippet rating()}
@@ -86,6 +92,7 @@
       </div>
       <div class="br-q">How’s the back this morning?</div>
       {@render rating()}
+      {#if offerLater}<button class="btn bg_ bsm br-later" disabled={busy} onclick={later}>Start a week later</button>{/if}
     </section>
   {:else}
     <section class="br card">
@@ -133,7 +140,7 @@
       </div>
 
       <div class="br-actions">
-        {#if week > 0}<button class="btn bg_ bsm" disabled={busy} onclick={() => saveProgram({ id: 'back-rebuild', start: shiftStart(program.start, 7) })}>Repeat this week</button>{/if}
+        {#if !advice.physio}<button class="btn bg_ bsm" disabled={busy} onclick={later}>{week === 0 ? 'Start a week later' : 'Repeat this week'}</button>{/if}
         {#if confirmEnd}
           <button class="btn bd bsm" disabled={busy} onclick={() => saveProgram(null)}>Yes, end it</button>
         {:else}
@@ -211,6 +218,7 @@
   .br-flags li::before{content:'';position:absolute;left:0;top:7px;width:6px;height:6px;border-radius:50%;background:var(--led-bad,#ff3b47)}
   .br-videos{display:flex;flex-direction:column;align-items:flex-start;gap:8px;padding:10px 0}
   .br-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+  .br-later{margin-top:-2px}
   .br-dhead{font-family:var(--font-display,inherit);font-size:1.5rem;font-weight:900;text-transform:uppercase;color:var(--text);margin-bottom:4px}
   .br-dex{border-top:1px solid var(--border);padding:12px 0}
   .br-dex-top{display:flex;justify-content:space-between;gap:10px;align-items:baseline}

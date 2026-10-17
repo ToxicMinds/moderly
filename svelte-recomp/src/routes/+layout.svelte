@@ -29,6 +29,7 @@
   import { isComplete } from '$lib/profile';
   import { setWatchBrand } from '$lib/health/healthConnect';
   import { todayVerdict } from '$lib/stores/verdict';
+  import { body } from '$lib/stores/body';
   import { initHaptics, hapticsEnabled, setHapticsEnabled, haptic } from '$lib/haptics';
 
   let { children }: { children: import('svelte').Snippet } = $props();
@@ -234,7 +235,7 @@
     scheduleNudges(situationalNudges({
       nowMinutes: minutesOfDay(now),
       proteinG: todayFood.reduce((s, f) => s + (f.protein_g || 0), 0),
-      proteinTargetG: goalKg ? Math.round(goalKg * 1.8) : null,
+      proteinTargetG: goalKg ? $body.proteinTargetG : null,
       kcal: todayFood.reduce((s, f) => s + (f.kcal || 0), 0),
       kcalTargetKcal: null,
       foodEntriesToday: todayFood.length,

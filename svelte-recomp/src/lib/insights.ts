@@ -58,7 +58,7 @@ export function tCritical(df: number): number {
 /** Minimum weigh-ins before the residual scatter itself is meaningful. */
 const MIN_WEIGHINS = 7;
 /** Trailing window. Longer than this and a real change of pace gets averaged away. */
-const WINDOW_DAYS = 35;
+export const WINDOW_DAYS = 35;
 /** Below this the rate is indistinguishable from maintaining, in practice. */
 const RATE_FLOOR_KG_WK = 0.15;
 /** Never promise an answer further out than this — past it, "log more" is the honest advice. */
@@ -85,38 +85,44 @@ export interface WeightVerdict {
   weighInsNeeded: number | null;
   /** Only when state is 'too-noisy': days away, assuming near-daily weighing. */
   daysUntilAnswer: number | null;
+  /** Where the fitted line says you are at the last weigh-in — the number to
+   *  show instead of one morning's reading. null until there is a line. */
+  trendKg: number | null;
+  /** The most recent reading, any age. */
+  latestKg: number | null;
 }
 
 /**
- * Fit weight against time and report the rate WITH its uncertainty.
- *
- * The existing weightTrend() gives a slope; this gives a slope you can act on,
- * because it also says whether that slope is distinguishable from zero. Those
- * are very different claims and the app has been making the first while
- * implying the second.
+ * The ONE least-squares line through weigh-ins: the trend, the learned burn
+ * and every verdict read their slope from here, so no two screens can fit the
+ * same scale readings differently. null when no slope is defined.
  */
-export function weightVerdict(points: WeighIn[], asOfMs?: number): WeightVerdict | null {
-  if (!Array.isArray(points) || points.length === 0) return null;
+export interface WeightLine {
+  n: number;
+  /** kg/day; negative = losing. */
+  slopePerDay: number;
+  /** Half-width of the 95% interval on the slope, kg/day (0 when df < 1). */
+  halfWidthPerDay: number;
+  /** Residual scatter around the line, kg. */
+  scatterKg: number;
+  /** The line's value at the last weigh-in. */
+  endKg: number;
+  spanDays: number;
+}
 
-  const now = asOfMs ?? Date.now();
-  const cutoff = now - WINDOW_DAYS * 86400000;
-  const rows = points
+function inWindow(points: WeighIn[], asOfMs: number, windowDays: number) {
+  const cutoff = asOfMs - windowDays * 86400000;
+  return (points ?? [])
     .filter((p) => p && p.date && isFinite(p.weight) && p.weight > 0)
     .map((p) => ({ t: new Date(`${p.date}T12:00:00`).getTime(), w: p.weight }))
-    .filter((p) => isFinite(p.t) && p.t >= cutoff)
+    .filter((p) => isFinite(p.t) && p.t >= cutoff && p.t <= asOfMs + 86400000)
     .sort((a, b) => a.t - b.t);
+}
 
+export function fitWeightLine(points: WeighIn[], asOfMs: number, windowDays = WINDOW_DAYS): WeightLine | null {
+  const rows = inWindow(points, asOfMs, windowDays);
   const n = rows.length;
-  if (n < MIN_WEIGHINS) {
-    return {
-      state: 'not-enough', rateKgPerWeek: 0, halfWidthKgPerWeek: 0,
-      loKgPerWeek: 0, hiKgPerWeek: 0, scatterKg: 0, n,
-      spanDays: n > 1 ? Math.round((rows[n - 1].t - rows[0].t) / 86400000) : 0,
-      weighInsNeeded: MIN_WEIGHINS - n, daysUntilAnswer: MIN_WEIGHINS - n,
-    };
-  }
-
-  // Ordinary least squares of weight on days-since-first.
+  if (n < 2) return null;
   const x = rows.map((r) => (r.t - rows[0].t) / 86400000);
   const y = rows.map((r) => r.w);
   const xbar = x.reduce((a, b) => a + b, 0) / n;
@@ -128,38 +134,65 @@ export function weightVerdict(points: WeighIn[], asOfMs?: number): WeightVerdict
   }
   // Everything logged on one day: no slope is defined, and pretending otherwise
   // would divide by zero.
-  if (sxx === 0) {
+  if (sxx === 0) return null;
+  const slope = sxy / sxx;
+  const intercept = ybar - slope * xbar;
+  const resid = y.map((v, i) => v - (intercept + slope * x[i]));
+  const sse = resid.reduce((a, r) => a + r * r, 0);
+  const df = n - 2;
+  const scatter = df > 0 ? Math.sqrt(sse / df) : 0;
+  // A heavy morning tends to follow a heavy morning (water and gut content
+  // carry over), so daily readings are not independent and the textbook error
+  // bar is too narrow. Widen it by the residuals' own lag-1 autocorrelation:
+  // with ρ = 0.4 the honest interval is 1.5× the naive one.
+  let lag = 0;
+  for (let i = 0; i < n - 1; i++) lag += resid[i] * resid[i + 1];
+  const rho = sse > 0 ? Math.min(0.9, Math.max(0, lag / sse)) : 0;
+  const seSlope = df > 0 ? (scatter / Math.sqrt(sxx)) * Math.sqrt((1 + rho) / (1 - rho)) : 0;
+  return {
+    n, slopePerDay: slope, halfWidthPerDay: tCritical(df) * seSlope, scatterKg: scatter,
+    endKg: intercept + slope * x[n - 1], spanDays: Math.round(x[n - 1]),
+  };
+}
+
+/**
+ * Fit weight against time and report the rate WITH its uncertainty.
+ *
+ * A slope alone is not a verdict; this also says whether that slope is
+ * distinguishable from zero. Those are very different claims, and the app
+ * once made the first while implying the second.
+ */
+export function weightVerdict(points: WeighIn[], asOfMs?: number): WeightVerdict | null {
+  if (!Array.isArray(points) || points.length === 0) return null;
+
+  const now = asOfMs ?? Date.now();
+  const valid = points.filter((p) => p && p.date && isFinite(p.weight) && p.weight > 0 && new Date(`${p.date}T12:00:00`).getTime() <= now + 86400000).sort((a, b) => a.date.localeCompare(b.date));
+  const latestKg = valid.length ? valid[valid.length - 1].weight : null;
+  const n = inWindow(points, now, WINDOW_DAYS).length;
+  const line = n >= MIN_WEIGHINS ? fitWeightLine(points, now) : null;
+  if (!line) {
     return {
       state: 'not-enough', rateKgPerWeek: 0, halfWidthKgPerWeek: 0,
-      loKgPerWeek: 0, hiKgPerWeek: 0, scatterKg: 0, n, spanDays: 0,
-      weighInsNeeded: MIN_WEIGHINS, daysUntilAnswer: MIN_WEIGHINS,
+      loKgPerWeek: 0, hiKgPerWeek: 0, scatterKg: 0, n,
+      spanDays: n > 1 ? fitWeightLine(points, now)?.spanDays ?? 0 : 0,
+      weighInsNeeded: Math.max(1, MIN_WEIGHINS - n), daysUntilAnswer: Math.max(1, MIN_WEIGHINS - n),
+      trendKg: null, latestKg,
     };
   }
 
-  const slope = sxy / sxx; // kg/day, negative = losing
-  const intercept = ybar - slope * xbar;
-
-  let sse = 0;
-  for (let i = 0; i < n; i++) sse += (y[i] - (intercept + slope * x[i])) ** 2;
-  const df = n - 2;
-  const scatter = df > 0 ? Math.sqrt(sse / df) : 0;
-  const seSlope = df > 0 ? scatter / Math.sqrt(sxx) : 0;
-
-  const rate = -slope * 7;                       // positive = losing
-  const halfWidth = tCritical(df) * seSlope * 7; // kg/week
-  const spanDays = Math.round((rows[n - 1].t - rows[0].t) / 86400000);
+  const rate = -line.slopePerDay * 7;          // positive = losing
+  const halfWidth = line.halfWidthPerDay * 7;  // kg/week
+  const scatter = line.scatterKg;
+  const base = {
+    rateKgPerWeek: rate, halfWidthKgPerWeek: halfWidth,
+    loKgPerWeek: rate - halfWidth, hiKgPerWeek: rate + halfWidth,
+    scatterKg: scatter, n, spanDays: line.spanDays,
+    trendKg: +line.endKg.toFixed(1), latestKg,
+  };
 
   // The interval excludes zero => the direction is real, not scale noise.
   if (halfWidth < Math.abs(rate)) {
-    return {
-      state: 'answerable',
-      rateKgPerWeek: rate,
-      halfWidthKgPerWeek: halfWidth,
-      loKgPerWeek: rate - halfWidth,
-      hiKgPerWeek: rate + halfWidth,
-      scatterKg: scatter, n, spanDays,
-      weighInsNeeded: null, daysUntilAnswer: null,
-    };
+    return { state: 'answerable', ...base, weighInsNeeded: null, daysUntilAnswer: null };
   }
 
   // Too noisy to call. Work out how many near-daily weigh-ins WOULD settle it.
@@ -174,15 +207,39 @@ export function weightVerdict(points: WeighIn[], asOfMs?: number): WeightVerdict
   }
 
   return {
-    state: 'too-noisy',
-    rateKgPerWeek: rate,
-    halfWidthKgPerWeek: halfWidth,
-    loKgPerWeek: rate - halfWidth,
-    hiKgPerWeek: rate + halfWidth,
-    scatterKg: scatter, n, spanDays,
+    state: 'too-noisy', ...base,
     weighInsNeeded: needed ? needed - n : null,
     daysUntilAnswer: needed ? Math.min(MAX_FORECAST_DAYS, needed - n) : null,
   };
+}
+
+/**
+ * Pace against the PLAN, not against zero — the question a cut actually asks.
+ *
+ * "Too noisy to tell if you're losing" and "you are not losing at the pace you
+ * planned" are different claims, and the second is often already certain: a
+ * flat month with a ±1 kg scale can't prove a small loss, but it can rule out
+ * 0.6 kg a week. Each answer below is only given when the 95% interval
+ * supports it; everything else is 'too-early'.
+ *
+ *   gaining  — the whole interval is weight going UP
+ *   stalled  — ruled out the plan's pace, and the best estimate is ~flat
+ *   slower   — ruled out the plan's pace, but genuinely losing
+ *   faster   — losing well over 1.5× the plan (muscle is at risk)
+ *   on-pace  — confirmed losing, and the plan's pace is still in the interval
+ */
+export type Pace = 'too-early' | 'gaining' | 'stalled' | 'slower' | 'on-pace' | 'faster';
+
+export function paceVsPlan(v: WeightVerdict | null, planKgPerWeek: number | null): Pace {
+  if (!v || v.state === 'not-enough') return 'too-early';
+  if (v.hiKgPerWeek < 0) return 'gaining';
+  if (planKgPerWeek == null || planKgPerWeek <= 0) return 'too-early';
+  if (v.hiKgPerWeek < planKgPerWeek) {
+    return v.loKgPerWeek <= 0 || v.rateKgPerWeek < RATE_FLOOR_KG_WK ? 'stalled' : 'slower';
+  }
+  if (v.loKgPerWeek > planKgPerWeek * 1.5) return 'faster';
+  if (v.loKgPerWeek > 0) return 'on-pace';
+  return 'too-early';
 }
 
 // ---------------------------------------------------------------------------
@@ -361,40 +418,101 @@ export function recoveryCost(
 }
 
 // ---------------------------------------------------------------------------
-// Formula burn vs learned burn
+// Why the scale isn't moving
 // ---------------------------------------------------------------------------
 
-export interface LedgerGap {
-  learnedTdee: number;
-  formulaTdee: number;
-  gapKcal: number;
+export interface StallClue { id: 'cooking-fat' | 'same-portion' | 'thin-days'; title: string; detail: string }
+
+export interface StallDiagnosis {
+  /** Median logged kcal on the days that count (≥ 800 kcal), over the trend window. */
+  medianKcal: number;
+  loggedDays: number;
+  /** The least this body burns just living (resting × 1.2), when known. */
+  floorKcal: number | null;
+  /** floor − median, when the log sits below the floor: a LOWER bound on what's missing. */
+  missingAtLeastKcal: number | null;
+  clues: StallClue[];
 }
 
+const COOKED = /masala|curry|tikka|dal\b|daal|sambar|korma|biryani|stir[- ]?fr|fried|omelet|omelette|vajíčk|praženic|curr|gul[aá]š|soté|saut|roast|pečen|vyprážan|smažen|risotto|pasta|stew/i;
+const COOKING_FAT = /\boil\b|olej|ghee|butter|maslo|máslo|masło|lard|bravčová mast|sádlo/i;
+
 /**
- * Compare the TDEE learned from the user's own intake-and-weight history
- * against what the height/age/sex formula predicts.
+ * Only when the trend has ruled out the plan (stalled or gaining): set what the
+ * log says against what a body this size burns, and point at where food most
+ * often goes missing — from this person's own entries.
  *
- * Deliberately excludes steps: that table is far too sparse, and a day off the
- * wrist would manufacture a gap that isn't there.
- *
- * The copy must never accuse the user of under-logging — under-reported food
- * and an over-generous formula produce an identical number, and the app cannot
- * tell which it is looking at.
+ * It never says "you under-log". An over-generous FORMULA and missing food look
+ * identical, so the comparison is against the floor — resting metabolism plus
+ * bare daily living — not the activity estimate; a log that holds weight below
+ * that floor has its likeliest explanation in food that never reached it. The
+ * clues are checkable facts about the entries, not accusations.
  */
-export function ledgerGap(
-  learnedTdee: number | null,
-  learnedConfidence: string | null,
-  formulaTdee: number | null,
-  opts: { minGapKcal?: number } = {}
-): LedgerGap | null {
-  const minGap = opts.minGapKcal ?? 250;
-  if (learnedTdee == null || formulaTdee == null) return null;
-  if (learnedConfidence !== 'high' && learnedConfidence !== 'medium') return null;
-  const gap = learnedTdee - formulaTdee;
-  if (Math.abs(gap) < minGap) return null;
-  return {
-    learnedTdee: Math.round(learnedTdee),
-    formulaTdee: Math.round(formulaTdee),
-    gapKcal: Math.round(gap),
+export function diagnoseStall(input: {
+  pace: string;
+  intake: Map<string, { kcal: number; items: number }>;
+  foods: Array<{ date: string; name?: string | null; kcal?: number | null }>;
+  floorKcal: number | null;
+  today: string;
+  windowDays?: number;
+}): StallDiagnosis | null {
+  if (input.pace !== 'stalled' && input.pace !== 'gaining') return null;
+  const dayMs = 86400000;
+  const end = new Date(`${input.today}T12:00:00`).getTime();
+  const since = (days: number) => (d: string) => {
+    const t = new Date(`${d}T12:00:00`).getTime();
+    return t <= end && t > end - days * dayMs;
   };
+  const inTrend = since(input.windowDays ?? WINDOW_DAYS);
+  const days = [...input.intake].filter(([d, v]) => inTrend(d) && v.kcal >= 800).map(([, v]) => v);
+  if (days.length < 10) return null;
+  const sorted = days.map((d) => d.kcal).sort((a, b) => a - b);
+  const median = Math.round(sorted.length % 2 ? sorted[sorted.length >> 1] : (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2);
+
+  const clues: StallClue[] = [];
+  const recent = input.foods.filter((f) => f?.date && since(60)(f.date));
+
+  // 1. Cooking fat: days with a cooked dish and no oil, ghee or butter logged
+  //    that same day.
+  const cookedDays = new Set(recent.filter((f) => COOKED.test(f.name ?? '')).map((f) => f.date));
+  const fatDays = new Set(recent.filter((f) => COOKING_FAT.test(f.name ?? '')).map((f) => f.date));
+  const dry = [...cookedDays].filter((d) => !fatDays.has(d)).length;
+  if (dry >= 7 && dry >= cookedDays.size * 0.7) {
+    clues.push({
+      id: 'cooking-fat', title: 'Is the cooking fat in the log?',
+      detail: `${dry} of ${cookedDays.size} days with a cooked dish have no oil, ghee or butter logged that day. A tablespoon is about 120 kcal and a curry often takes two to four — unless the dish entries already include it.`,
+    });
+  }
+
+  // 2. One portion logged the same way again and again — the biggest such
+  //    lever (times × kcal), skipping anything already measured ("250 g").
+  const MEASURED = /\d\s*(g|kg|ml|l|scoops?|ks|pcs)\b/i;
+  const reps = new Map<string, { n: number; name: string; kcal: number }>();
+  for (const f of recent) {
+    const k = Math.round(+(f.kcal ?? 0));
+    if (!f.name || k < 100 || MEASURED.test(f.name)) continue;
+    const key = `${f.name.toLowerCase().replace(/\(.*?\)/g, '').trim()}|${k}`;
+    const r = reps.get(key) ?? { n: 0, name: f.name.replace(/\s*\(.*?\)\s*/g, ' ').trim(), kcal: k };
+    r.n++; reps.set(key, r);
+  }
+  const top = [...reps.values()].filter((r) => r.n >= 8).sort((a, b) => b.n * b.kcal - a.n * a.kcal)[0];
+  if (top) {
+    clues.push({
+      id: 'same-portion', title: 'Is that portion right?',
+      detail: `${top.name} is logged ${top.n} times at exactly ${top.kcal} kcal. Weigh it once: if the real portion is bigger, every one of those entries came up short.`,
+    });
+  }
+
+  // 3. Days that are only half there.
+  const thin = [...input.intake].filter(([d, v]) => inTrend(d) && v.items > 0 && v.items <= 2 && v.kcal < median * 0.6).length;
+  if (thin >= 3) {
+    clues.push({
+      id: 'thin-days', title: 'Half-logged days?',
+      detail: `${thin} days in the last five weeks have only one or two entries. A day that's half logged reads as a day you ate half.`,
+    });
+  }
+
+  const missing = input.floorKcal != null && median < input.floorKcal ? input.floorKcal - median : null;
+  return { medianKcal: median, loggedDays: days.length, floorKcal: input.floorKcal, missingAtLeastKcal: missing, clues };
 }
+

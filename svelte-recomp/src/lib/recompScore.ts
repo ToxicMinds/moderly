@@ -9,7 +9,7 @@
 // unit-tested; no Svelte/Dexie.
 
 export interface RecompInput {
-  /** Weight-trend slope in kg/week; POSITIVE = losing (matches weightTrend.rateKgPerWeek). */
+  /** Weight-trend slope in kg/week; POSITIVE = losing (the trend's rateKgPerWeek, stores/body). */
   weeklyLossRateKg: number | null;
   currentWeightKg: number | null;
   goalKg: number | null;

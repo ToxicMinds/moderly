@@ -69,7 +69,7 @@ export function overlaySessions(
 }
 
 export type PainEntry = { date: string; back_pain?: number | null };
-export type Advice = { tone: 'good' | 'warn' | 'bad' | 'na'; title: string; body: string; ratedToday: boolean };
+export type Advice = { tone: 'good' | 'warn' | 'bad' | 'na'; title: string; body: string; ratedToday: boolean; physio: boolean };
 
 /**
  * The traffic light, from the morning ratings. Red on 6+; amber on 4–5 or on
@@ -82,17 +82,25 @@ export function painAdvice(entries: PainEntry[], today: string): Advice {
     .sort((a, b) => a.date.localeCompare(b.date));
   const last = rated[rated.length - 1];
   const ratedToday = last?.date === today;
-  if (!last) return { tone: 'na', title: 'How’s the back this morning?', body: 'Rate it each morning, 0–10. The plan paces itself on it.', ratedToday };
+  if (!last) return { tone: 'na', title: 'How’s the back this morning?', body: 'Rate it each morning, 0–10. The plan paces itself on it.', ratedToday, physio: false };
   const now = last.back_pain as number;
   const prev = rated.length > 1 ? (rated[rated.length - 2].back_pain as number) : null;
+  // "Not settling within a week" as a rule, not a sentence: 6+ on five of the
+  // last seven mornings. Past that point the plan stops offering to wait.
+  const weekAgo = shiftStart(today, -6);
+  const badDays = rated.filter((e) => e.date >= weekAgo && (e.back_pain as number) >= 6).length;
+  if (badDays >= 5) {
+    return { tone: 'bad', ratedToday, physio: true, title: `6+ on ${badDays} of the last 7 mornings — see a physio`,
+      body: 'It isn’t settling on its own. Get it assessed before you load it. Until then: walk, and the daily basics only if they’re comfortable.' };
+  }
   if (now >= 6) {
-    return { tone: 'bad', ratedToday, title: `Back at ${now}/10 — back off`,
+    return { tone: 'bad', ratedToday, physio: false, title: `Back at ${now}/10 — back off`,
       body: 'No loaded hinges or squats today. Walk, do the daily basics if they’re comfortable, and rate it again tomorrow. Not settling within a week? See a physio.' };
   }
   if (now >= 4 || (prev != null && now > prev && now >= 3)) {
-    return { tone: 'warn', ratedToday, title: `Back at ${now}/10 — hold here`,
+    return { tone: 'warn', ratedToday, physio: false, title: `Back at ${now}/10 — hold here`,
       body: 'Train, but don’t progress: keep this week’s loads (or take 20% off) and repeat the week if it stays here.' };
   }
-  return { tone: 'good', ratedToday, title: `Back at ${now}/10 — green`,
+  return { tone: 'good', ratedToday, physio: false, title: `Back at ${now}/10 — green`,
     body: 'Follow the plan. Add load next session only if every set felt like 3/10 or less.' };
 }

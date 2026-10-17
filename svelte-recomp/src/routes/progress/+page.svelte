@@ -5,14 +5,14 @@
   // logged sets, body-fat measurements, food. None of it needed new input; it just
   // had nowhere to be read together. See $lib/recomp.ts for the reasoning.
   import { liveWeights, liveWorkoutLogs, liveTracks, liveFoodLogs, liveGoal, liveGoalReason, liveActivitySessions } from '$lib/stores/live';
-  import { weightTrend, parseCalorieTarget } from '$lib/coach';
+  import { parseCalorieTarget } from '$lib/coach';
+  import { body } from '$lib/stores/body';
   import { strengthTrend } from '$lib/strength';
   import { recompVerdict, verdictTone, leanMass, fatMass, type BodyFatPoint } from '$lib/recomp';
   import { liveProfile } from '$lib/stores/live';
-  import { proteinTargetG as calcProteinTarget } from '$lib/profile';
   import { nowTick } from '$lib/stores/refresh';
   import { shiftYmd } from '$lib/date';
-  import { weightVerdict, proteinByTrainingDay, watchAgreement } from '$lib/insights';
+  import { diagnoseStall, proteinByTrainingDay, watchAgreement } from '$lib/insights';
   import MiniChart from '$lib/components/MiniChart.svelte';
   import WeeklyReview from '$lib/components/WeeklyReview.svelte';
   import BodyGoals from '$lib/components/BodyGoals.svelte';
@@ -51,12 +51,15 @@
   const weightPoints = $derived(
     ($_weights as any[]).map((w) => ({ date: w.date, weight: w.weight }))
   );
-  const trend = $derived(weightTrend(weightPoints, goalKg ?? 0));
+  // The trend, its interval and the pace verdict all come from stores/body —
+  // the same numbers Today and the coach show.
+  const wv = $derived($body.weight);
   const strength = $derived(strengthTrend($_logs as any, { asOf: $nowTick }));
-  const currentWeight = $derived(weightPoints.length ? weightPoints[weightPoints.length - 1].weight : null);
-  // Falls back to current weight when no goal is set, so this is never 0 (which
-  // would make the adherence comparison below trivially true).
-  const proteinTargetG = $derived(Math.max(1, calcProteinTarget(goalKg, currentWeight)));
+  const currentWeight = $derived($body.currentKg);
+  const proteinTargetG = $derived($body.proteinTargetG);
+  const stall = $derived(diagnoseStall({
+    pace: $body.pace, intake: $body.intake, foods: $_foodLogs as any[], floorKcal: $body.floorKcal, today: $body.today,
+  }));
 
   // Body-fat readings live in `tracks` (name='body_fat'). Each needs the
   // bodyweight from the same day to become a composition point — we take the
@@ -105,8 +108,8 @@
 
   const verdict = $derived(
     recompVerdict({
-      weightRateKgPerWeek: trend.rateKgPerWeek,
-      trendSpanDays: trend.spanDays,
+      weightRateKgPerWeek: wv?.rateKgPerWeek ?? 0,
+      trendSpanDays: wv?.spanDays ?? 0,
       currentWeightKg: currentWeight,
       strength,
       bodyFat: bodyFatPoints,
@@ -137,11 +140,6 @@
 
   const calorieTarget = $derived(parseCalorieTarget($_goalReason));
 
-  // The scale trend WITH its uncertainty. The verdict card above states a
-  // direction; this states whether that direction is distinguishable from the
-  // noise in the readings it was fitted to — which is a different claim, and
-  // the one the app has been implying without ever checking.
-  const wv = $derived(weightVerdict(weightPoints, $nowTick));
 
   function kg(n: number) { return `${Math.abs(n).toFixed(2)} kg`; }
   const rateWord = $derived(wv && wv.rateKgPerWeek >= 0 ? 'down' : 'up');
@@ -175,7 +173,7 @@
 
   // ── JOURNEY hero ── the orb fills with how far you've travelled from your
   // starting weight toward goal; colour is the recomp verdict (fat vs muscle).
-  const startWeight = $derived(weightPoints.length ? weightPoints[0].weight : null);
+  const startWeight = $derived($body.firstKg);
   const journeyPct = $derived.by(() => {
     if (startWeight == null || currentWeight == null || goalKg == null) return 0;
     const total = startWeight - goalKg;
@@ -196,7 +194,7 @@
 <PageHero title="Progress" sub="Is the weight coming off fat, or muscle?"
   tone={journeyTone} pct={journeyPct}
   value={currentWeight != null ? currentWeight.toFixed(1) : '—'}
-  caption={goalKg != null ? `kg → ${goalKg} goal` : 'kg'}
+  caption={goalKg != null ? `kg trend → ${goalKg} goal` : 'kg trend'}
   story={verdict.headline}
   stats={[
     { v: changeToDate != null ? `${changeToDate >= 0 ? '−' : '+'}${Math.abs(changeToDate).toFixed(1)}` : '—', l: 'kg to date' },
@@ -207,7 +205,9 @@
 {#if wv}
   <div class="card trust-card" class:trust-solid={wv.state === 'answerable'}>
     <div class="card-lbl">
-      {wv.state === 'answerable' ? '✓ This screen can answer you' : '◔ Not enough to answer yet'}
+      {wv.state === 'answerable' ? '✓ This screen can answer you'
+        : $body.pace === 'stalled' || $body.pace === 'gaining' ? '◑ Enough to rule out your plan'
+        : '◔ Not enough to answer yet'}
     </div>
 
     {#if wv.state === 'answerable'}
@@ -227,6 +227,17 @@
         Body weight swings a kilo or two a day on water and food alone, so a
         handful of readings can't separate a real trend from noise.
         <b>{wv.weighInsNeeded} more</b> and this screen starts working.
+      </div>
+    {:else if $body.pace === 'stalled'}
+      <div class="trust-head">
+        Not losing at your planned pace.
+      </div>
+      <div class="trust-body">
+        Across {wv.n} weigh-ins your readings scatter <b>&plusmn;{wv.scatterKg.toFixed(1)} kg</b>, which
+        puts the real rate between <b>{kg(wv.loKgPerWeek)} {wv.loKgPerWeek >= 0 ? 'down' : 'up'}</b> and
+        <b>{kg(wv.hiKgPerWeek)} {wv.hiKgPerWeek >= 0 ? 'down' : 'up'}</b> a week. Your plan is
+        <b>{$body.target.planKgPerWeek?.toFixed(2)} kg down</b> — outside that range. A little loss or none,
+        it isn't the plan.
       </div>
     {:else}
       <div class="trust-head">
@@ -248,6 +259,42 @@
       Everything below is built on this. Weigh yourself at the same time each
       morning, before food or drink — same conditions is what makes the readings
       comparable.
+    </div>
+  </div>
+{/if}
+
+{#if stall}
+  <!-- WHY THE SCALE ISN'T MOVING. Only once the trend has ruled the plan out.
+       The arithmetic first, then checkable facts about the entries — never
+       "you under-log": a log can't tell missing food from a generous formula,
+       so the comparison is with the floor, not the formula. -->
+  <div class="card stall-card" id="why-stalled">
+    <div class="card-lbl">Why the scale isn't moving</div>
+    {#if stall.missingAtLeastKcal != null}
+      <div class="trust-head">Your log and your scale disagree.</div>
+      <div class="trust-body">
+        Over the last five weeks your logged days came to a median <b>{stall.medianKcal.toLocaleString()} kcal</b>,
+        and the trend {$body.pace === 'gaining' ? 'went up' : 'stayed flat'}. A body your size burns at least
+        <b>~{stall.floorKcal?.toLocaleString()} kcal</b> a day just living — resting ~{Math.round((stall.floorKcal ?? 0) / 1.2 / 10) * 10} plus
+        getting through the day — before any badminton. So at least <b>~{stall.missingAtLeastKcal} kcal a day</b> isn't
+        reaching the log. That's normal: food logs typically miss 20–40% of what's eaten. It's the method, not you.
+      </div>
+    {:else}
+      <div class="trust-head">The scale says the intake is higher than the log.</div>
+      <div class="trust-body">
+        Your logged days came to a median <b>{stall.medianKcal.toLocaleString()} kcal</b> while the trend
+        {$body.pace === 'gaining' ? 'went up' : 'stayed flat'} — so either some food isn't reaching the log, or the
+        burn is lower than the formula thinks. The places below are where it usually turns out to be the first.
+      </div>
+    {/if}
+    {#if stall.clues.length}
+      <ul class="stall-clues">
+        {#each stall.clues as c}<li><b>{c.title}</b>{c.detail}</li>{/each}
+      </ul>
+    {/if}
+    <div class="trust-foot">
+      One week settles it: log the oil when you cook and weigh the things you eat most, once. If the
+      trend still won't move with an honest log, the target comes down — with real numbers behind it.
     </div>
   </div>
 {/if}
@@ -406,11 +453,17 @@
 <style>
   /* The honesty card. Deliberately the first thing on the screen: it says how
      much weight to put on everything below it. */
-  .trust-card{border-left:3px solid var(--muted)}
-  .trust-card.trust-solid{border-left-color:var(--green,#2ecc71)}
-  .trust-head{font-size:1rem;font-weight:800;color:var(--text);line-height:1.35;margin:2px 0 7px}
-  .trust-body{font-size:0.8125rem;color:var(--text);line-height:1.55}
-  .trust-foot{font-size:0.7188rem;color:var(--muted);line-height:1.5;margin-top:10px;padding-top:9px;border-top:1px solid var(--border)}
+  .trust-card{border-left:3px solid var(--muted);border-radius:var(--r-sm) var(--r-lg) var(--r-lg) var(--r-sm)}
+  .trust-card.trust-solid{border-left-color:var(--led-good)}
+  .trust-head{font-size:1.0625rem;font-weight:800;color:var(--text);line-height:1.35;margin:2px 0 7px}
+  .trust-body{font-size:0.875rem;color:var(--text);line-height:1.55}
+  .trust-foot{font-size:0.8125rem;color:var(--muted);line-height:1.5;margin-top:10px;padding-top:9px;border-top:1px solid var(--border)}
+  /* The diagnosis wears the verdict's colour: it only exists when the plan is
+     ruled out. */
+  .stall-card{border-left:3px solid var(--led-warn);border-radius:var(--r-sm) var(--r-lg) var(--r-lg) var(--r-sm)}
+  .stall-clues{list-style:none;margin:12px 0 0;padding:0;display:flex;flex-direction:column;gap:8px}
+  .stall-clues li{font-size:0.8125rem;line-height:1.5;color:var(--muted);background:var(--bg3);border-radius:var(--r-md);padding:9px 11px}
+  .stall-clues b{display:block;font-size:0.875rem;color:var(--text);margin-bottom:2px}
   .card-sub{font-size:0.7188rem;color:var(--muted);line-height:1.45;margin:-4px 0 10px}
   /* Plain-language meaning, attached to the number it explains rather than
      hidden in a help screen nobody opens. */

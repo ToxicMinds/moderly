@@ -3,15 +3,13 @@
   // narrative verdict plus concrete, prioritised adjustments for next week — the
   // kind of thing a good coach would text you on Sunday night. Pure aggregation
   // lives in $lib/weeklyReview; this component only feeds it live data.
-  import { liveWeights, liveFoodLogs, liveDailyLogs, liveSteps, liveBiometrics, liveWorkoutLogs, liveGoal, liveProfile } from '$lib/stores/live';
+  import { liveWeights, liveSteps, liveBiometrics, liveWorkoutLogs, liveGoal, liveProfile } from '$lib/stores/live';
   import { weeklyReview } from '$lib/weeklyReview';
-  import { adaptiveTdee } from '$lib/adaptiveTdee';
+  import { body } from '$lib/stores/body';
   import { todayYmd } from '$lib/date';
   import { nowTick } from '$lib/stores/refresh';
 
   const _weights = liveWeights();
-  const _foodLogs = liveFoodLogs();
-  const _dailyLogs = liveDailyLogs();
   const _steps = liveSteps();
   const _bio = liveBiometrics();
   const _workoutLogs = liveWorkoutLogs();
@@ -20,22 +18,10 @@
 
   const today = $derived.by(() => { void $nowTick; return todayYmd(); });
   const goalKg = $derived($_goal ?? null);
-  const proteinTargetG = $derived(goalKg ? Math.round(goalKg * 1.8) : 0);
+  const proteinTargetG = $derived(goalKg ? $body.proteinTargetG : 0);
 
-  // Per-day intake (itemised food kcal+protein, quick-log kcal as fallback).
-  const intake = $derived.by(() => {
-    const byDate = new Map<string, { date: string; kcal: number; protein: number }>();
-    for (const f of $_foodLogs as any[]) {
-      const cur = byDate.get(f.date) ?? { date: f.date, kcal: 0, protein: 0 };
-      cur.kcal += f.kcal || 0;
-      cur.protein += f.protein_g || 0;
-      byDate.set(f.date, cur);
-    }
-    for (const l of $_dailyLogs as any[]) {
-      if (!byDate.has(l.date) && (l.kcal || 0) > 0) byDate.set(l.date, { date: l.date, kcal: l.kcal, protein: 0 });
-    }
-    return Array.from(byDate.values());
-  });
+  // Per-day intake: the shared map from stores/body.
+  const intake = $derived(Array.from($body.intake, ([date, d]) => ({ date, kcal: d.kcal, protein: d.protein })));
 
   // Steps: keep only the latest reading per day.
   const steps = $derived.by(() => {
@@ -50,10 +36,7 @@
   const sleep = $derived(($_bio as any[]).map((b) => ({ date: b.date, sleep_hours: b.sleep_hours ?? null })));
   const weights = $derived(($_weights as any[]).map((w) => ({ date: w.date, weight: w.weight })));
 
-  const learnedTdee = $derived.by(() => {
-    const t = adaptiveTdee({ intake: intake.map((i) => ({ date: i.date, kcal: i.kcal })), weights, asOf: today });
-    return t.tdee;
-  });
+  const learnedTdee = $derived($body.learned.tdee);
 
   const review = $derived(weeklyReview({
     today, weights, intake, steps, sleep,

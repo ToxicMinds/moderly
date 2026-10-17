@@ -50,16 +50,17 @@ export function goalDirection(currentWeight: number | null, goalKg: number): Goa
 export interface CoachInput {
   goalKg: number;
   currentWeight: number | null;
-  /** kg/week; positive = losing weight. Regression-smoothed, not point-to-point. */
-  weeklyLossRate: number;
-  weeksToGoal: number | string;
-  /** True when weight has barely moved for weeks while still above goal. */
-  plateau: boolean;
-  /** Roughly how many weeks the plateau has lasted (for the copy). */
-  plateauWeeks: number;
-  /** Days of weigh-in data the trend was fit over — guards against a short,
-   *  noisy window reading a couple of close entries as "dropping fast". */
-  trendSpanDays: number;
+  /** kg/week; positive = losing. The trend's slope (stores/body), never two readings. */
+  rateKgPerWeek: number;
+  /** The trend's verdict against the plan's pace — see paceVsPlan. */
+  pace: import('./insights').Pace;
+  planKgPerWeek: number | null;
+  /** Only while a loss is confirmed; null otherwise. */
+  weeksToGoal: number | null;
+  /** While it's too early to tell: how many more mornings on the scale. */
+  weighInsNeeded: number | null;
+  /** Set only when the trend has ruled out the plan (stalled or gaining). */
+  stall: import('./insights').StallDiagnosis | null;
   /** Total kg lost since the very first logged weigh-in (the real journey). */
   totalLostKg: number | null;
 
@@ -95,18 +96,6 @@ export interface CoachInput {
    *  fat comes off? Paired with weight loss below to tell the real story. */
   strengthTrend?: import('./strength').StrengthTrend | null;
 
-  /** Maintenance LEARNED from the user's own intake + weight trend (see
-   *  adaptiveTdee.ts) — lets the coach self-correct the calorie target from
-   *  real results instead of trusting the Mifflin-St Jeor formula forever.
-   *  null / 'insufficient' means not enough data yet, so no claim is made. */
-  adaptiveTdee?: {
-    tdee: number;
-    confidence: 'high' | 'medium' | 'low';
-    /** Intake to hit a sustainable loss rate at this learned maintenance. */
-    recommendedIntake: number;
-    /** How many logged days the estimate is built on (for honest copy). */
-    loggedDays: number;
-  } | null;
 
   /** Today's watch-recorded workout (badminton, run, strength) if any — lets
    *  the coach CONFIRM the session actually happened instead of nagging. */
@@ -160,59 +149,6 @@ export function waterTargetLitres(weightKg: number | null): number {
   return Math.round(clamped / 0.25) * 0.25; // nearest 250 ml
 }
 
-export interface WeightTrend {
-  /** kg/week; positive = losing. Least-squares slope, robust to daily noise. */
-  rateKgPerWeek: number;
-  /** Sustained near-flat trend over weeks while above goal. */
-  plateau: boolean;
-  plateauWeeks: number;
-  /** Days of data the trend was fit over. */
-  spanDays: number;
-}
-
-/**
- * Robust weight trend from recent weigh-ins. Point-to-point deltas are
- * dominated by day-to-day water fluctuation (a single 110.1 kg morning
- * followed by 112 kg is noise, not a 2 kg loss) — so we fit a least-squares
- * line over the last ~28 days and read its slope. Also flags a genuine
- * plateau (barely moving for weeks) so the coach can help BREAK it, which is
- * the whole point of the app for a stuck user.
- */
-export function weightTrend(
-  points: Array<{ date: string; weight: number }>,
-  goalKg: number,
-  windowDays = 28
-): WeightTrend {
-  const empty: WeightTrend = { rateKgPerWeek: 0, plateau: false, plateauWeeks: 0, spanDays: 0 };
-  if (!points || points.length < 2) return empty;
-  const sorted = [...points].sort((a, b) => a.date.localeCompare(b.date));
-  const lastDate = new Date(sorted[sorted.length - 1].date).getTime();
-  const cutoff = lastDate - windowDays * 86400000;
-  const win = sorted.filter((p) => new Date(p.date).getTime() >= cutoff);
-  if (win.length < 2) return empty;
-
-  const t0 = new Date(win[0].date).getTime();
-  const xs = win.map((p) => (new Date(p.date).getTime() - t0) / 86400000); // days
-  const ys = win.map((p) => p.weight);
-  const spanDays = xs[xs.length - 1];
-  if (spanDays <= 0) return empty;
-
-  const n = xs.length;
-  const mx = xs.reduce((s, x) => s + x, 0) / n;
-  const my = ys.reduce((s, y) => s + y, 0) / n;
-  let num = 0, den = 0;
-  for (let i = 0; i < n; i++) { num += (xs[i] - mx) * (ys[i] - my); den += (xs[i] - mx) ** 2; }
-  const slopePerDay = den === 0 ? 0 : num / den; // kg/day (negative = losing)
-  const rateKgPerWeek = -slopePerDay * 7;
-
-  const currentWeight = ys[ys.length - 1];
-  // Plateau: essentially flat (<0.3 kg/wk either way) over 2+ weeks of data,
-  // while still above goal.
-  const plateau = spanDays >= 14 && Math.abs(rateKgPerWeek) < 0.3 && currentWeight > goalKg;
-  const plateauWeeks = plateau ? Math.round(spanDays / 7) : 0;
-  return { rateKgPerWeek, plateau, plateauWeeks, spanDays };
-}
-
 /**
  * A rotating "movement snack" — something to do RIGHT NOW that changes
  * through the day (keyed by hour). On training/active days it's chair-friendly
@@ -257,84 +193,60 @@ export function buildDailyFocus(i: CoachInput): FocusItem[] {
   const afternoon = i.hour >= 13;
 
   // — 1. Weight trend headline: is the pace right for a keepable body? —
+  // Read off the ONE trend (stores/body): its verdict against the plan, with
+  // the 95% interval behind it. Nothing here is computed from two mornings.
   if (i.currentWeight != null) {
     const w = i.currentWeight;
+    const href = '/progress#body-goals';
+    const lostCtx = i.totalLostKg != null && i.totalLostKg >= 3 ? ` You're ${i.totalLostKg} kg down since you started.` : '';
+    const rate = Math.abs(i.rateKgPerWeek).toFixed(2);
+    const plan = i.planKgPerWeek != null ? `${i.planKgPerWeek.toFixed(1)} kg a week` : 'your plan';
+    // The arithmetic first, the places to look second — never "you under-log".
+    const why = i.stall?.missingAtLeastKcal != null
+      ? ` Your log says ~${i.stall.medianKcal} kcal a day, and a body your size burns at least ~${i.stall.floorKcal} just living — so some of what you eat isn't reaching the log. Progress shows where it most likely is.`
+      : ' Progress shows where to look.';
     if (w <= i.goalKg) {
       items.push({
-        id: 'weight-goal',
-        href: '/progress#body-goals',
-        severity: 'good',
-        icon: '🎯',
-        title: 'Goal weight reached',
+        id: 'weight-goal', href, severity: 'good', icon: '🎯', title: 'Goal weight reached',
         msg: `You're at ${w} kg — you've reached your ${i.goalKg} kg target. Shift the mission to recomp: hold calories near maintenance and let training reshape you.`,
       });
+    } else if (i.pace === 'gaining') {
+      items.push({
+        id: 'weight-up', href: '/progress#why-stalled', severity: 'warn', icon: '📈', title: 'Trending up',
+        msg: `The five-week trend is rising — ${rate} kg a week, more than the scale's day-to-day noise can explain.${why}`,
+        metric: `+${rate} kg/wk`,
+      });
+    } else if (i.pace === 'stalled') {
+      items.push({
+        id: 'weight-plateau', href: '/progress#why-stalled', severity: 'warn', icon: '⚖️', title: `Not losing — holding near ${w} kg`,
+        msg: `Five weeks of weigh-ins rule out ${plan}; the trend is flat.${why}`,
+        metric: `${i.rateKgPerWeek >= 0 ? '−' : '+'}${rate} kg/wk`,
+      });
+    } else if (i.pace === 'slower') {
+      items.push({
+        id: 'weight-slow', href, severity: 'info', icon: '📉', title: 'Losing, slower than planned',
+        msg: `Real loss — ${rate} kg a week — but under ${plan}.${i.weeksToGoal ? ` At this pace: ~${i.weeksToGoal} weeks to ${i.goalKg} kg.` : ''} If that's fine, change nothing; if not, trim ~200 kcal a day.`,
+        metric: `−${rate} kg/wk`,
+      });
+    } else if (i.pace === 'faster') {
+      items.push({
+        id: 'weight-fast', href, severity: 'info', icon: '🔥', title: 'Losing quickly',
+        msg: `${rate} kg a week — well over ${plan}. Keep protein high and keep lifting heavy so what's leaving is fat, not muscle, and ease off if energy or sleep tanks.`,
+        metric: `−${rate} kg/wk`,
+      });
+    } else if (i.pace === 'on-pace') {
+      const wk = i.weeksToGoal ? `~${i.weeksToGoal} weeks to ${i.goalKg} kg` : `heading to ${i.goalKg} kg`;
+      items.push({
+        id: 'weight-ontrack', href, severity: 'good', icon: '📉', title: 'On pace',
+        msg: `${rate} kg a week, on plan.${lostCtx} ${wk}. Keep doing exactly this.`,
+        metric: `−${rate} kg/wk`,
+      });
     } else {
-      const rate = i.weeklyLossRate;
-      // High body-fat individuals can sustain a brisker cut (~1.5%/wk) with
-      // muscle retention than lean athletes (~1%); only flag as genuinely
-      // fast above that AND only when the trend is real, not a 2-point blip.
-      const fast = w * 0.015;
-      const lost = rate > 0;
-      const metric = `${lost ? '−' : '+'}${Math.abs(rate).toFixed(2)} kg/wk`;
-      const enoughSpan = i.trendSpanDays >= 14;
-      const lostCtx =
-        i.totalLostKg != null && i.totalLostKg >= 3
-          ? ` You're down ${i.totalLostKg} kg since you started — that's the trajectory that matters.`
-          : '';
-      if (i.plateau) {
-        const forWk = i.plateauWeeks >= 2 ? `for ~${i.plateauWeeks} weeks` : 'for a while';
-        items.push({
-          id: 'weight-plateau',
-          href: '/progress#body-goals',
-          severity: 'warn',
-          icon: '⚖️',
-          title: 'Plateau — let\'s break it',
-          msg: `You've hovered around ${w} kg ${forWk}.${lostCtx} Judge fat loss by the weekly TREND, not the scale each morning (a 2 kg overnight swing is water, not fat). To move it, change ONE thing for 10–14 days: trim ~200 kcal/day, add ~2,000 steps, or tighten weekend logging — then reassess.`,
-          metric,
-        });
-      } else if (!enoughSpan) {
-        // Not enough recent weigh-ins to trust a rate — never cry "too fast"
-        // off a couple of close entries. Anchor to the real long-term win.
-        items.push({
-          id: 'weight-progress',
-          href: '/progress#body-goals',
-          severity: 'good',
-          icon: '📉',
-          title: 'Keep the weigh-ins coming',
-          msg: `Not enough recent data yet to read a reliable weekly pace.${lostCtx || ' Log your weight most mornings'} — a couple of weeks of dots is what turns the scale's daily noise into a trend you can actually steer.`,
-        });
-      } else if (!lost) {
-        items.push({
-          id: 'weight-up',
-          href: '/progress#body-goals',
-          severity: 'warn',
-          icon: '📈',
-          title: 'Trending up',
-          msg: `The 4-week trend is drifting up, away from ${i.goalKg} kg.${lostCtx} No panic — look at the week, not one weigh-in. Tighten logging and pick the deficit back up; you've done it before.`,
-          metric,
-        });
-      } else if (rate > fast) {
-        items.push({
-          id: 'weight-fast',
-          href: '/progress#body-goals',
-          severity: 'info',
-          icon: '🔥',
-          title: 'Losing quickly',
-          msg: `${metric} — that's brisk. Keep protein high and keep lifting heavy so what's leaving is fat, not muscle, and ease off if energy or sleep tanks.`,
-          metric,
-        });
-      } else {
-        const wk = typeof i.weeksToGoal === 'number' && i.weeksToGoal > 0 ? `~${i.weeksToGoal} wks to ${i.goalKg} kg` : `heading to ${i.goalKg} kg`;
-        items.push({
-          id: 'weight-ontrack',
-          href: '/progress#body-goals',
-          severity: 'good',
-          icon: '📉',
-          title: 'On a sustainable pace',
-          msg: `${metric} is the sweet spot — fast enough to see it, slow enough to keep muscle.${lostCtx} ${wk}. Keep doing exactly this.`,
-          metric,
-        });
-      }
+      const n = i.weighInsNeeded;
+      items.push({
+        id: 'weight-progress', href, severity: 'good', icon: '📉', title: 'Keep the weigh-ins coming',
+        msg: `${n ? `${n} more mornings on the scale` : 'A few more mornings on the scale'} and the trend can tell a real change from water.${lostCtx}`,
+      });
     }
   }
 
@@ -384,7 +296,9 @@ export function buildDailyFocus(i: CoachInput): FocusItem[] {
         metric,
         href: '/recipes',
       });
-    } else {
+    } else if (!i.stall) {
+      // Never praise a log the scale has just contradicted: while the trend
+      // rules out the plan, "on budget" is the wrong lesson.
       items.push({
         id: 'cal-ontrack',
         severity: 'good',
@@ -402,65 +316,6 @@ export function buildDailyFocus(i: CoachInput): FocusItem[] {
       title: 'Set a real calorie target',
       msg: `You're logging weight but chasing no number. Open Body & Goals to get a TDEE-based daily calorie target — then every meal has a purpose.`,
     });
-  }
-
-  // — 2b. Adaptive TDEE: self-correcting calorie target from real results. —
-  // The formula target is only a starting guess. This checks whether the user's
-  // CURRENT intake target actually opens a deficit against the burn LEARNED from
-  // their own intake-vs-weight data — and tells them to adjust the number when
-  // it doesn't. A target sitting at/above real maintenance is exactly why a
-  // plateau happens, and this is the only signal that can catch it.
-  const at = i.adaptiveTdee;
-  if (at && at.tdee > 0) {
-    const strong = at.confidence === 'high' || at.confidence === 'medium';
-    const rec = at.recommendedIntake;
-    const cur = i.calorieTarget;
-    const burnMetric = `~${at.tdee} kcal burn`;
-    if (cur && cur > 0 && strong) {
-      // What deficit does eating exactly `cur` create against the real burn?
-      const impliedDeficit = at.tdee - cur;
-      const impliedRate = +((impliedDeficit * 7) / 7700).toFixed(2); // kg/wk
-      if (impliedDeficit < 150) {
-        items.push({
-          id: 'tdee-adapt',
-          href: '/progress#body-goals',
-          severity: 'warn',
-          icon: '🧠',
-          title: 'Your target barely beats your real burn',
-          msg: `Learned from ${at.loggedDays} days of your OWN logs, you burn ~${at.tdee} kcal/day — but your target is ${cur}, leaving almost no deficit. That's why the scale's stubborn. Drop your daily target to ~${rec} kcal (protein high, keep lifting) to open a real gap. This is your data talking, not a formula.`,
-          metric: burnMetric,
-        });
-      } else if (impliedDeficit > 850) {
-        items.push({
-          id: 'tdee-adapt',
-          href: '/progress#body-goals',
-          severity: 'good',
-          icon: '🧠',
-          title: 'You can eat a little more',
-          msg: `At ${cur} kcal you're ~${impliedDeficit} under your real burn (~${at.tdee} kcal, learned from ${at.loggedDays} days of logs) — that's steep and risks muscle on a cut. You can eat ~${rec} and still lose steadily. Fuel the lifts, don't just crash the calories.`,
-          metric: burnMetric,
-        });
-      } else {
-        items.push({
-          id: 'tdee-adapt',
-          severity: 'good',
-          icon: '🧠',
-          title: 'Target matches your real burn',
-          msg: `Your ${cur} kcal target sits ~${impliedDeficit} kcal under the ~${at.tdee} kcal you actually burn (learned from ${at.loggedDays} days of your data) — a healthy gap that's pacing ~${Math.abs(impliedRate)} kg/wk. The plan's calibrated to reality; just keep logging honestly.`,
-          metric: burnMetric,
-        });
-      }
-    } else if (!cur && strong) {
-      items.push({
-        id: 'tdee-adapt',
-        href: '/progress#body-goals',
-        severity: 'info',
-        icon: '🧠',
-        title: 'Your real burn, learned from your data',
-        msg: `From ${at.loggedDays} days of your logs, your maintenance is ~${at.tdee} kcal/day. Eat ~${rec} kcal to lose steadily toward ${i.goalKg} kg. Set it in Body & Goals so every meal has a target that came from YOUR results.`,
-        metric: burnMetric,
-      });
-    }
   }
 
   // — 3. Protein: the non-negotiable for a body worth keeping. —
@@ -645,7 +500,7 @@ export function buildDailyFocus(i: CoachInput): FocusItem[] {
     const st = i.strengthTrend;
     if (st && st.direction !== 'insufficient') {
       const wks = Math.max(2, Math.round(st.windowDays / 7));
-      const losing = i.weeklyLossRate > 0 || (i.totalLostKg != null && i.totalLostKg > 0);
+      const losing = i.rateKgPerWeek > 0 || (i.totalLostKg != null && i.totalLostKg > 0);
       const mover = st.topMover ? ` (${st.topMover.name} most)` : '';
       if (st.direction === 'down') {
         items.push({

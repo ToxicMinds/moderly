@@ -11,16 +11,18 @@
   // Log. Empty, the box shows your staples, yesterday, and yesterday's meals.
   import { historyFoods, searchLocal, scale, times, sum, estimateLocally, type Candidate, type Macros, type NewFood } from '$lib/food';
   import { searchProducts, lookupBarcode, estimateWithAI, type AiItem } from '$lib/foodSources';
-  import { frequentFoods, repeatDay, groupIntoMeals } from '$lib/quickAdd';
+  import { frequentFoods, proteinFillers, repeatDay, groupIntoMeals } from '$lib/quickAdd';
   import { fileToDownscaledDataUrl } from '$lib/image';
   import { shiftYmd } from '$lib/date';
   import { haptic } from '$lib/haptics';
   import BarcodeScanner from './BarcodeScanner.svelte';
 
-  let { logs, today, onLog }: {
+  let { logs, today, onLog, proteinLeft = 0 }: {
     logs: any[];
     today: string;
     onLog: (foods: NewFood[], what: string) => Promise<void>;
+    /** Grams of protein still to go today; the protein row shows from 15 g. */
+    proteinLeft?: number;
   } = $props();
 
   type Pending =
@@ -44,7 +46,8 @@
   const history = $derived(historyFoods(logs));
   const local = $derived(searchLocal(query, history));
   const yesterday = $derived(shiftYmd(-1, new Date(today + 'T12:00:00')));
-  const staples = $derived(frequentFoods(logs, 8));
+  const fillers = $derived(proteinLeft >= 15 ? proteinFillers(logs, 3) : []);
+  const staples = $derived(frequentFoods(logs, 8).filter((s) => !fillers.some((f) => f.name === s.name)));
   const yesterdayLeft = $derived(repeatDay(logs, yesterday, today));
   const meals = $derived(groupIntoMeals(logs, yesterday));
   const hasQuery = $derived(query.trim().length >= 2);
@@ -353,9 +356,21 @@
       {/if}
       <button class="lg-row lg-manual-row" onclick={manual}><span>✎ Enter the numbers myself</span></button>
     </div>
-  {:else if staples.length || yesterdayLeft.length || meals.length}
+  {:else if fillers.length || staples.length || yesterdayLeft.length || meals.length}
     <!-- Empty box: the taps that replace typing, all from your own history. -->
     <div class="lg-quick">
+      {#if fillers.length}
+        <!-- Protein first: the gap the whole plan hinges on, closed in a tap
+             with food already eaten three times or more. -->
+        <div class="lg-protein"><b>Fastest protein</b> from your usuals</div>
+        <div class="lg-chips">
+          {#each fillers as f (f.name)}
+            <button class="lg-chip lg-chip-p" disabled={saving} onclick={() => quick([f], f.name)}>
+              <b>{f.name}</b><em>{Math.round(f.protein_g)} P · {Math.round(f.kcal)} kcal</em>
+            </button>
+          {/each}
+        </div>
+      {/if}
       {#if staples.length}
         <div class="lg-chips">
           {#each staples as f (f.name)}
@@ -402,6 +417,9 @@
   .lg-miss{display:flex;flex-direction:column;gap:6px;padding-top:10px}
   .lg-miss span{font-size:0.75rem;color:var(--muted)}
 
+  .lg-protein{font-size:0.8125rem;color:var(--muted);padding:8px 8px 2px}
+  .lg-protein b{color:var(--text)}
+  .lg-chip-p em{color:var(--led-good)}
   .lg-results,.lg-quick,.lg-review{margin-top:8px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg,14px);padding:4px;overflow:hidden}
   .lg-sec{font-family:var(--font-display,inherit);font-size:0.75rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);padding:12px 10px 4px}
   .lg-spin{font-family:var(--font-body,inherit);letter-spacing:0;text-transform:none;font-weight:600;color:var(--led-ok,#4da3ff)}

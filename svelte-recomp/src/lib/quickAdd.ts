@@ -81,6 +81,27 @@ export function frequentFoods(logs: FoodRow[], limit = 8): QuickFood[] {
     }));
 }
 
+/**
+ * The fastest way to close today's protein gap, from food you actually eat:
+ * things logged at least three times, ranked by protein per calorie, so the
+ * top tap moves the protein number most for the least of the day's budget.
+ * Deliberately NOT filtered on calories left — a target can be wrong, and
+ * hiding the whey because of it helps no one.
+ */
+export function proteinFillers(logs: FoodRow[], limit = 3): QuickFood[] {
+  return historyFoods(logs)
+    .filter((c) => (c.count ?? 0) >= 3 && (c.portion?.protein_g ?? 0) >= 10 && (c.portion?.kcal ?? 0) > 0)
+    .sort((a, b) => (b.portion!.protein_g / b.portion!.kcal) - (a.portion!.protein_g / a.portion!.kcal) || (b.count ?? 0) - (a.count ?? 0))
+    .slice(0, limit)
+    .map((c) => ({
+      name: c.name,
+      kcal: c.portion!.kcal, protein_g: c.portion!.protein_g,
+      carbs_g: c.portion!.carbs_g ?? 0, fat_g: c.portion!.fat_g ?? 0,
+      grams: c.portion!.grams ?? null,
+      count: c.count ?? 1, lastDate: c.lastDate ?? '',
+    }));
+}
+
 export interface Meal {
   /** Stable within a day — used as a keyed-each key and a "already added" marker. */
   key: string;

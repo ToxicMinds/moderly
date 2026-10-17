@@ -193,6 +193,21 @@ export interface LiveTargetResult {
   basis: TargetBasis;
   maintenance: number | null;
   direction: GoalDirection | null;
+  /** The weekly change this target is built to produce, kg/week, POSITIVE =
+   *  losing (the trend's convention). null when there is no maintenance. */
+  planKgPerWeek: number | null;
+  /** The learned burn was confident but below what a living, moving body can
+   *  run on — so the target ignored it. It means food is missing from the log. */
+  learnedImplausible: boolean;
+}
+
+/**
+ * The least a body can be burning: resting metabolism plus the bare minimum of
+ * daily living (×1.2, the "sedentary" multiplier). A learned burn below this
+ * isn't a slow metabolism — it's intake that never reached the log.
+ */
+export function burnFloor(p: { weightKg: number; heightCm: number; age: number; gender: 'male' | 'female'; bodyFatPct?: number | null }): number {
+  return Math.round(calcBmr(p) * 1.2);
 }
 
 /** Hard floors so a cut can never prescribe a dangerously low intake. */
@@ -200,20 +215,24 @@ const CUT_FLOOR: Record<'male' | 'female', number> = { male: 1500, female: 1200 
 
 export function resolveCalorieTarget(i: LiveTargetInput): LiveTargetResult {
   const haveGoal = i.goalKg != null && i.currentWeightKg != null && i.currentWeightKg > 0;
+  const body = i.profile && haveGoal
+    ? { weightKg: i.currentWeightKg as number, heightCm: i.profile.heightCm, age: i.profile.age, gender: i.profile.gender, bodyFatPct: i.profile.bodyFatPct ?? null }
+    : null;
+  const confident = i.learnedTdee != null && (i.learnedConfidence === 'high' || i.learnedConfidence === 'medium');
+  const learnedImplausible = confident && body != null && (i.learnedTdee as number) < burnFloor(body);
+  const result = (target: number, basis: TargetBasis, maintenance: number, direction: GoalDirection): LiveTargetResult =>
+    ({ target, basis, maintenance, direction, planKgPerWeek: +(((maintenance - target) * 7) / KCAL_PER_KG).toFixed(2), learnedImplausible });
   if (haveGoal) {
-    if (i.learnedTdee != null && (i.learnedConfidence === 'high' || i.learnedConfidence === 'medium')) {
-      const p = projectGoalWithTdee(i.learnedTdee, i.currentWeightKg as number, i.goalKg as number);
-      return { target: floorIfCut(p.targetIntakeKcal, p.direction, i.profile?.gender), basis: 'learned', maintenance: i.learnedTdee, direction: p.direction };
+    if (confident && !learnedImplausible) {
+      const p = projectGoalWithTdee(i.learnedTdee as number, i.currentWeightKg as number, i.goalKg as number);
+      return result(floorIfCut(p.targetIntakeKcal, p.direction, i.profile?.gender), 'learned', i.learnedTdee as number, p.direction);
     }
-    if (i.profile) {
-      const p = projectGoal(
-        { weightKg: i.currentWeightKg as number, heightCm: i.profile.heightCm, age: i.profile.age, gender: i.profile.gender, activityLevel: i.profile.activityLevel, bodyFatPct: i.profile.bodyFatPct ?? null },
-        i.goalKg as number,
-      );
-      return { target: floorIfCut(p.targetIntakeKcal, p.direction, i.profile.gender), basis: 'formula', maintenance: p.tdee, direction: p.direction };
+    if (i.profile && body) {
+      const p = projectGoal({ ...body, activityLevel: i.profile.activityLevel }, i.goalKg as number);
+      return result(floorIfCut(p.targetIntakeKcal, p.direction, i.profile.gender), 'formula', p.tdee, p.direction);
     }
   }
-  return { target: i.storedTarget, basis: i.storedTarget != null ? 'stored' : 'none', maintenance: null, direction: null };
+  return { target: i.storedTarget, basis: i.storedTarget != null ? 'stored' : 'none', maintenance: null, direction: null, planKgPerWeek: null, learnedImplausible };
 }
 
 function floorIfCut(target: number, direction: GoalDirection, gender?: 'male' | 'female'): number {

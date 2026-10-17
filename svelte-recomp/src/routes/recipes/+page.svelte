@@ -1,12 +1,9 @@
 <script lang="ts">
   import { userId } from '$lib/stores/user';
   import { upsertRecord, syncStatus } from '$lib/stores/sync';
-  import { liveFoodLogs, liveWeights, liveGoalReason, liveGoal, liveCustomRecipes, liveTracks, liveDailyLogs } from '$lib/stores/live';
-  import { parseCalorieTarget, goalSummary, goalDirection } from '$lib/coach';
-  import { liveProfile } from '$lib/stores/live';
-  import { proteinTargetG as calcProteinTarget, ageFrom } from '$lib/profile';
-  import { adaptiveTdee } from '$lib/adaptiveTdee';
-  import { resolveCalorieTarget, type ActivityLevel } from '$lib/tdee';
+  import { liveFoodLogs, liveGoalReason, liveCustomRecipes } from '$lib/stores/live';
+  import { goalSummary, goalDirection } from '$lib/coach';
+  import { body } from '$lib/stores/body';
   import Modal from '$lib/components/Modal.svelte';
   import MiniChart from '$lib/components/MiniChart.svelte';
   import { swipeActions } from '$lib/actions/swipe';
@@ -51,53 +48,18 @@
   // saturation ~1.6; ISSN 2017) — enough to protect muscle, without the
   // protein-industry-inflated 2.2–3.1 numbers that apply to lean athletes.
   const _foodLogs = liveFoodLogs();
-  const _weights = liveWeights();
-  const _goal = liveGoal();
   // Re-derived on the clock tick: a page left open past midnight must file the
   // next entry under the new day, not the day it was opened.
   const todayStr = $derived.by(() => { void $nowTick; return todayYmd(); });
 
-  const _profile = liveProfile();
-  const currentWeightKg = $derived.by(() => {
-    const rows = $_weights;
-    return rows.length > 0 ? rows[rows.length - 1].weight : ($_profile?.start_kg ?? null);
-  });
-  const goalKg = $derived($_goal ?? null);
-  // Falls back to current weight when no goal is set, so the target is never 0
-  // (which used to make the progress bar divide by zero and render NaN).
-  const proteinTargetG = $derived(Math.max(1, calcProteinTarget(goalKg, currentWeightKg)));
-
-  // — LIVE calorie target — recomputed from learned burn + current weight, not
-  //   frozen the day the goal was set. See resolveCalorieTarget in tdee.ts.
-  const _tracks = liveTracks();
-  const _dailyLogs = liveDailyLogs();
+  // Weight, targets and the learned burn come from stores/body — the same
+  // numbers Today, Progress and the weekly check-in show.
+  const currentWeightKg = $derived($body.currentKg);
+  const goalKg = $derived($body.goalKg);
+  const proteinTargetG = $derived($body.proteinTargetG);
+  const liveTarget = $derived($body.target);
+  const latestBodyFat = $derived($body.bodyFatPct);
   const _goalReason = liveGoalReason();
-  const latestBodyFat = $derived.by(() => {
-    const bf = ($_tracks as any[]).filter((t) => t.name === 'body_fat' && t.value > 0).sort((a, b) => (a.date || '').localeCompare(b.date || ''));
-    return bf.length ? bf[bf.length - 1].value : null;
-  });
-  const learnedBurn = $derived.by(() => {
-    const intakeByDate = new Map<string, number>();
-    for (const f of $_foodLogs as any[]) intakeByDate.set(f.date, (intakeByDate.get(f.date) ?? 0) + (f.kcal || 0));
-    for (const l of $_dailyLogs as any[]) if (!intakeByDate.has(l.date) && (l.kcal || 0) > 0) intakeByDate.set(l.date, l.kcal);
-    const intake = Array.from(intakeByDate, ([date, kcal]) => ({ date, kcal }));
-    const wts = ($_weights as any[]).map((w) => ({ date: w.date, weight: w.weight }));
-    return adaptiveTdee({ intake, weights: wts });
-  });
-  const profileForTarget = $derived.by(() => {
-    const p = $_profile as any;
-    const age = ageFrom(p?.birth_year);
-    if (!p || !p.height_cm || age == null || (p.sex !== 'male' && p.sex !== 'female') || !p.activity_level) return null;
-    return { heightCm: p.height_cm, age, gender: p.sex as 'male' | 'female', activityLevel: p.activity_level as ActivityLevel, bodyFatPct: latestBodyFat };
-  });
-  const liveTarget = $derived(resolveCalorieTarget({
-    goalKg,
-    currentWeightKg,
-    learnedTdee: learnedBurn.tdee,
-    learnedConfidence: (learnedBurn.confidence === 'high' || learnedBurn.confidence === 'medium' || learnedBurn.confidence === 'low') ? learnedBurn.confidence : null,
-    profile: profileForTarget,
-    storedTarget: parseCalorieTarget($_goalReason),
-  }));
 
   const todayFoods = $derived(
     $_foodLogs
@@ -438,7 +400,8 @@
   <div class="live-target">🎯 Target <b>{liveTarget.target} kcal</b> — from ~{liveTarget.maintenance} kcal maintenance (lean-mass BMR at {latestBodyFat}% bf). Log a couple weeks and it learns your real burn.</div>
 {/if}
 
-<FoodLogger logs={$_foodLogs as any[]} today={todayStr} onLog={logFoods} />
+<FoodLogger logs={$_foodLogs as any[]} today={todayStr} onLog={logFoods}
+  proteinLeft={Math.max(0, proteinTargetG - todayTotals.protein)} />
 
 <div class="card">
   <div class="card-lbl">Today</div>

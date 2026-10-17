@@ -2,13 +2,13 @@
   import { todayYmd } from '$lib/date';
   import { userId } from '$lib/stores/user';
   import { upsertRecord } from '$lib/stores/sync';
-  import { liveWeights, liveGoal, liveLog, liveGoalReason, liveTracks, liveFoodLogs, liveDailyLogs, liveProfile } from '$lib/stores/live';
+  import { liveWeights, liveGoal, liveLog, liveGoalReason, liveTracks, liveProfile } from '$lib/stores/live';
   import { ageFrom } from '$lib/profile';
   import { projectGoal, projectGoalWithTdee, ACTIVITY_LABELS, type ActivityLevel } from '$lib/tdee';
   import { waterTargetLitres } from '$lib/coach';
   import { speak } from '$lib/stores/toast';
   import { haptic } from '$lib/haptics';
-  import { adaptiveTdee } from '$lib/adaptiveTdee';
+  import { body } from '$lib/stores/body';
   import { writeBackToHealth } from '$lib/health/writeBack';
   import db from '$lib/db/dexie';
   import MiniChart from '$lib/components/MiniChart.svelte';
@@ -24,21 +24,10 @@
   const _weights = liveWeights();
   const weights = $derived([...$_weights].sort((a, b) => a.date.localeCompare(b.date)).map((r: any) => ({ date: r.date?.slice(5), weight: r.weight })));
 
-  // Learned (adaptive) maintenance from the user's own intake vs weight trend.
-  const _foodLogs = liveFoodLogs();
-  const _dailyLogs = liveDailyLogs();
-  const learnedBurn = $derived.by(() => {
-    const intakeByDate = new Map<string, number>();
-    for (const f of $_foodLogs as any[]) {
-      intakeByDate.set(f.date, (intakeByDate.get(f.date) ?? 0) + (f.kcal || 0));
-    }
-    for (const l of $_dailyLogs as any[]) {
-      if (!intakeByDate.has(l.date) && (l.kcal || 0) > 0) intakeByDate.set(l.date, l.kcal);
-    }
-    const intake = Array.from(intakeByDate, ([date, kcal]) => ({ date, kcal }));
-    const wts = ($_weights as any[]).map((w) => ({ date: w.date, weight: w.weight }));
-    return adaptiveTdee({ intake, weights: wts });
-  });
+  // Learned maintenance, and whether the live target trusts it, come from
+  // stores/body: confident AND above the floor a living body burns.
+  const learnedBurn = $derived($body.learned);
+  const useLearned = $derived($body.target.basis === 'learned');
   let weightInput = $state('');
   let savingWeight = $state(false);
 
@@ -252,7 +241,6 @@
     if (!goalWeight || !latestWeight || !height || !age) return null;
     const ageNum = parseInt(age);
     if (!ageNum || ageNum < 10 || ageNum > 100) return null;
-    const useLearned = learnedBurn.tdee != null && (learnedBurn.confidence === 'high' || learnedBurn.confidence === 'medium');
     return goalWeight.map((g) => ({
       ...g,
       ...(useLearned
@@ -448,7 +436,7 @@
       Based on {lbm} kg lean mass at {bodyFat}% body fat
       {#if !goalProjections}<br><span style="color:#ffd166">Enter your age above to see TDEE, calorie target, and a realistic timeline for each option.</span>{/if}
     </div>
-    {#if learnedBurn.tdee != null && (learnedBurn.confidence === 'high' || learnedBurn.confidence === 'medium')}
+    {#if useLearned && learnedBurn.tdee != null}
       <div class="note-box" style="margin-bottom:10px">
         🧠 <strong>Learned from your data:</strong> your real maintenance is ~{learnedBurn.tdee} kcal/day
         (from {learnedBurn.loggedDays} logged days{#if learnedBurn.weightRateKgPerWeek !== 0} · {learnedBurn.weightRateKgPerWeek > 0 ? 'losing' : 'gaining'} ~{Math.abs(learnedBurn.weightRateKgPerWeek).toFixed(2)} kg/wk{/if}).

@@ -5,6 +5,7 @@
 // the gaps into concrete, prioritised adjustments. Pure + unit-tested.
 
 import type { StrengthLog, StrengthSet } from './strength';
+import { weightVerdict } from './insights.ts';
 
 export interface WeeklyReviewInput {
   today: string; // YYYY-MM-DD
@@ -86,9 +87,11 @@ export function weeklyReview(input: WeeklyReviewInput): WeeklyReview {
   const inWeek = (d: string) => d >= weekStart && d <= weekEnd;
   const inPrior = (d: string) => d >= priorStart && d < weekStart;
 
-  // — Weight change across the week (first vs last in-window weigh-in) —
-  const wWeek = input.weights.filter((w) => inWeek(w.date)).sort((a, b) => a.date.localeCompare(b.date));
-  const weightChangeKg = wWeek.length >= 2 ? +(wWeek[wWeek.length - 1].weight - wWeek[0].weight).toFixed(1) : null;
+  // — Weight change across the week: the TREND's, as of the week's end. First
+  //   vs last reading of one week is mostly water — it once called a flat
+  //   month's weeks −1.9 and +1.4 kg and listed the first as a win.
+  const trend = weightVerdict(input.weights, new Date(`${weekEnd}T12:00:00`).getTime());
+  const weightChangeKg = trend && trend.state !== 'not-enough' ? +(-trend.rateKgPerWeek).toFixed(1) : null;
 
   // — Intake + protein (only days actually logged) —
   const iWeek = input.intake.filter((i) => inWeek(i.date) && i.kcal > 0);
@@ -117,7 +120,7 @@ export function weeklyReview(input: WeeklyReviewInput): WeeklyReview {
   const wins: string[] = [];
   const adjustments: string[] = [];
 
-  if (weightChangeKg != null && weightChangeKg < -0.1) wins.push(`Down ${Math.abs(weightChangeKg)} kg on the scale this week.`);
+  if (weightChangeKg != null && weightChangeKg < -0.1) wins.push(`Trend down ${Math.abs(weightChangeKg)} kg this week.`);
   if (avgProtein != null && avgProtein >= input.proteinTargetG * 0.9) wins.push(`Protein averaged ${avgProtein} g/day — right on target.`);
   if (tonnageDeltaPct != null && tonnageDeltaPct >= 3) wins.push(`Training volume up ${tonnageDeltaPct}% vs last week — progressive overload is working.`);
   if (avgSteps != null && avgSteps >= 8000) wins.push(`${avgSteps.toLocaleString()} steps/day average — strong NEAT.`);
@@ -130,9 +133,9 @@ export function weeklyReview(input: WeeklyReviewInput): WeeklyReview {
   if (avgProtein != null && avgProtein < input.proteinTargetG * 0.9) {
     adjustments.push(`Raise protein: averaged ${avgProtein} g vs a ${input.proteinTargetG} g target. Add a protein source to the meal you most often skip it at.`);
   }
-  if (weightChangeKg != null && weightChangeKg > 0.2 && (input.goalKg == null || (wWeek.at(-1)?.weight ?? 0) > input.goalKg)) {
-    adjustments.push('Scale ticked up this week. Judge by the multi-week trend, but if it holds, trim ~200 kcal/day or tighten weekend logging.');
-  } else if (weightChangeKg != null && Math.abs(weightChangeKg) <= 0.1 && (input.goalKg == null || (wWeek.at(-1)?.weight ?? 0) > input.goalKg)) {
+  if (weightChangeKg != null && weightChangeKg > 0.2 && (input.goalKg == null || (trend?.trendKg ?? trend?.latestKg ?? 0) > input.goalKg)) {
+    adjustments.push('The trend ticked up this week. If it holds, trim ~200 kcal/day or tighten weekend logging.');
+  } else if (weightChangeKg != null && Math.abs(weightChangeKg) <= 0.1 && (input.goalKg == null || (trend?.trendKg ?? trend?.latestKg ?? 0) > input.goalKg)) {
     adjustments.push('Weight was flat — if you are still above goal, change one lever for 10-14 days: −200 kcal/day or +2,000 steps.');
   }
   if (tonnageDeltaPct != null && tonnageDeltaPct <= -10) {

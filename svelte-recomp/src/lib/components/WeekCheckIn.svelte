@@ -8,10 +8,8 @@
   // answers on daily_logs (see the 20260811120000 migration).
   import { userId } from '$lib/stores/user';
   import { upsertRecord } from '$lib/stores/sync';
-  import { liveWeights, liveFoodLogs, liveDailyLogs, liveBiometrics, liveWorkoutLogs, liveGoal, liveProfile } from '$lib/stores/live';
-  import { adaptiveTdee } from '$lib/adaptiveTdee';
-  import { projectGoalWithTdee } from '$lib/tdee';
-  import { ageFrom } from '$lib/profile';
+  import { liveFoodLogs, liveDailyLogs, liveBiometrics, liveWorkoutLogs } from '$lib/stores/live';
+  import { body } from '$lib/stores/body';
   import { todayYmd } from '$lib/date';
   import { nowTick } from '$lib/stores/refresh';
   import { haptic } from '$lib/haptics';
@@ -23,13 +21,10 @@
   let uid = $state('');
   userId.subscribe((v) => { if (v) uid = v; });
 
-  const _weights = liveWeights();
   const _foodLogs = liveFoodLogs();
   const _dailyLogs = liveDailyLogs();
   const _bio = liveBiometrics();
   const _workoutLogs = liveWorkoutLogs();
-  const _goal = liveGoal();
-  const _profile = liveProfile();
 
   const today = $derived.by(() => { void $nowTick; return todayYmd(); });
   const weekStart = $derived(reviewWeekStart(today));
@@ -52,18 +47,20 @@
   const due = $derived(shouldAskCheckIn(today, answeredWeeks, daysLogged));
 
   // ── What was measured, for interpreting the answers against ───────────────
-  const weights = $derived(($_weights as any[]).map((w) => ({ date: w.date, weight: w.weight })).sort((a, b) => a.date.localeCompare(b.date)));
-  const goalKg = $derived(($_goal as number | null) ?? null);
-  const proteinTargetG = $derived(goalKg ? Math.round(goalKg * 1.8) : null);
+  // Weight, targets and protein come from stores/body — the same numbers the
+  // Food page and Today show, so an adjustment is made against a target the
+  // user has actually seen.
+  const goalKg = $derived($body.goalKg);
+  const proteinTargetG = $derived(goalKg ? $body.proteinTargetG : null);
 
   const ctx = $derived.by(() => {
     const inWeek = <T extends { date: string }>(rows: T[]) => rows.filter((r) => r.date >= weekStart && r.date <= weekEnd);
 
-    const weekWeights = inWeek(weights);
-    const weightChangeKg = weekWeights.length >= 2
-      ? Math.round((weekWeights[weekWeights.length - 1].weight - weekWeights[0].weight) * 10) / 10
-      : null;
-    const currentWeightKg = weights.length ? weights[weights.length - 1].weight : null;
+    // The week's change is the TREND's — first-vs-last reading of one week is
+    // mostly water and would read a flat week as a 1.5 kg swing.
+    const w = $body.weight;
+    const weightChangeKg = w && w.state !== 'not-enough' ? Math.round(-w.rateKgPerWeek * 10) / 10 : null;
+    const currentWeightKg = $body.currentKg;
 
     const proteinByDate = new Map<string, number>();
     for (const f of $_foodLogs as any[]) {
@@ -79,24 +76,7 @@
 
     const sessions = new Set(inWeek(($_workoutLogs as any[]).map((w) => ({ date: w.date }))).map((w) => w.date)).size;
 
-    // The live calorie target: learned maintenance where we have one, otherwise
-    // the formula from the profile — the same number the Fuel page shows.
-    const intake = Array.from(
-      ($_foodLogs as any[]).reduce((m: Map<string, number>, f: any) => m.set(f.date, (m.get(f.date) ?? 0) + (f.kcal || 0)), new Map<string, number>()),
-      ([date, kcal]) => ({ date, kcal: kcal as number })
-    );
-    const learned = adaptiveTdee({ intake, weights, asOf: today }).tdee;
-    const p = $_profile as any;
-    const age = ageFrom(p?.birth_year);
-    let targetKcal: number | null = null;
-    if (learned && currentWeightKg && goalKg) {
-      targetKcal = projectGoalWithTdee(learned, currentWeightKg, goalKg).targetIntakeKcal;
-    } else if (age && p?.height_cm && p?.sex && currentWeightKg && goalKg) {
-      // No learned maintenance yet — fall back to the formula rather than showing
-      // an adjustment against a target the user has never seen.
-      const bmr = 10 * currentWeightKg + 6.25 * p.height_cm - 5 * age + (p.sex === 'male' ? 5 : -161);
-      targetKcal = projectGoalWithTdee(Math.round(bmr * 1.55), currentWeightKg, goalKg).targetIntakeKcal;
-    }
+    const targetKcal = $body.target.target;
 
     return { weightChangeKg, currentWeightKg, targetKcal, avgProteinG, proteinTargetG, avgSleepH, sessions, goalKg };
   });

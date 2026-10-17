@@ -50,7 +50,7 @@ const { pickOriginByDay, percentile } = await import('../src/lib/health/dedupe.t
 const { preferredSource: guessWatchOrigin } = await import('../src/lib/health/watches.ts');
 const { ymd, todayYmd, mondayOf, shiftYmd } = await import('../src/lib/date.ts');
 const { foldDailyFocus, goalDirection } = await import('../src/lib/coach.ts');
-const { weightVerdict, tCritical, proteinByTrainingDay, watchAgreement, recoveryCost, ledgerGap } = await import('../src/lib/insights.ts');
+const { weightVerdict, tCritical, proteinByTrainingDay, watchAgreement, recoveryCost, paceVsPlan, fitWeightLine, diagnoseStall } = await import('../src/lib/insights.ts');
 const { EXERCISE_TYPES, ACTIVITY_MUSCLE_LOAD, QUICK_ACTIVITIES } = await import('../src/lib/health/exercise.ts');
 
 const { sessionMuscleLoad, sessionRpe, activityLoadAU, buildActivitySessions, isSameSessionAsLogged } =
@@ -60,7 +60,7 @@ const { adaptiveTdee, targetIntakeForLoss, KCAL_PER_KG } = await import('../src/
 const { computeReadiness, recoveryState, acuteChronicRatio, sessionLoad, exerciseModifier } =
   await import('../src/lib/readiness.ts');
 const { estOneRM, bestE1RM, strengthTrend } = await import('../src/lib/strength.ts');
-const { weightTrend, parseCalorieTarget, waterTargetLitres } = await import('../src/lib/coach.ts');
+const { parseCalorieTarget, waterTargetLitres } = await import('../src/lib/coach.ts');
 const { inferEquipment, nextGymWeight, roundToGymWeight } = await import('../src/lib/nextWeight.ts');
 const { evaluateFood } = await import('../src/lib/foodCoach.ts');
 const { PATTERNS, toneHaptic } = await import('../src/lib/haptics.ts');
@@ -335,7 +335,7 @@ check('the day-one plan is wired into the hero, and only while insufficient', as
 
 console.log('\nquick add — the taps that replace typing');
 
-const { frequentFoods, groupIntoMeals, repeatDay } = await import('../src/lib/quickAdd.ts');
+const { frequentFoods, proteinFillers, groupIntoMeals, repeatDay } = await import('../src/lib/quickAdd.ts');
 
 const FOOD = [
   { name: 'Skyr', date: '2026-08-09', kcal: 120, protein_g: 20, carbs_g: 7, fat_g: 0, created_at: '2026-08-09T07:10:00Z' },
@@ -359,6 +359,17 @@ check('the chips carry the macros from the LATEST time you logged that food', ()
 check('a one-off AI photo estimate never becomes a staple chip', () => {
   const withAi = [...FOOD, { name: 'Pasta bowl (AI estimate, low confidence)', date: '2026-08-10', kcal: 700, protein_g: 20, created_at: '2026-08-10T19:00:00Z' }];
   assert.ok(!frequentFoods(withAi, 8).some((f) => /AI estimate/.test(f.name)));
+});
+
+check('protein fillers: your own repeat foods, most protein per calorie first', () => {
+  const day = (d, rows) => rows.map(([name, kcal, p]) => ({ name, date: d, kcal, protein_g: p, carbs_g: 0, fat_g: 0, created_at: `${d}T08:00:00Z` }));
+  const logs = ['2026-08-01', '2026-08-02', '2026-08-03'].flatMap((d) => day(d, [
+    ['Whey 2 scoops', 240, 48], ['Tvaroh 250 g', 170, 30], ['Rice', 300, 6], ['Chicken thigh', 400, 40],
+  ])).concat(day('2026-08-04', [['Protein bar', 200, 20]]));
+  const f = proteinFillers(logs, 3);
+  assert.deepEqual(f.map((x) => x.name), ['Whey 2 scoops', 'Tvaroh 250 g', 'Chicken thigh'], '0.20, 0.18, 0.10 g per kcal');
+  assert.ok(!f.some((x) => x.name === 'Protein bar'), 'logged once is not yet a habit');
+  assert.ok(!f.some((x) => x.name === 'Rice'), 'six grams of protein closes nothing');
 });
 
 check('entries logged together become one re-loggable meal', () => {
@@ -1321,13 +1332,6 @@ check('recovery cost requires the watch to have been worn overnight', () => {
     'resting HR with no sleep beside it is not proof the watch was worn');
 });
 
-check('ledger gap refuses to speak on low-confidence TDEE', () => {
-  assert.equal(ledgerGap(2600, 'low', 2200), null,
-    'a learned TDEE the module itself distrusts cannot accuse a formula');
-  assert.equal(ledgerGap(2300, 'high', 2250), null, 'a 50 kcal gap is noise');
-  const g = ledgerGap(2600, 'high', 2200);
-  assert.equal(g.gapKcal, 400);
-});
 
 console.log('\ndedupe — cross-source de-duplication');
 
@@ -1894,38 +1898,6 @@ check('a lift trained in only one window is not comparable', () => {
 
 console.log('\ncoach — trend reading and targets');
 
-check('weight trend uses regression, not first-vs-last', () => {
-  // Steady 0.5 kg/week loss with heavy daily water noise. A point-to-point
-  // read would be dominated by the noise; the slope must see through it.
-  const pts = [];
-  for (let i = 27; i >= 0; i--) {
-    const noise = (i % 3) - 1; // ±1 kg of water swing
-    pts.push({ date: dayAgo(i), weight: +(100 - (0.5 * (27 - i)) / 7 + noise).toFixed(1) });
-  }
-  const t = weightTrend(pts, 90);
-  assert.ok(Math.abs(t.rateKgPerWeek - 0.5) < 0.25, `expected ~0.5, got ${t.rateKgPerWeek}`);
-  assert.ok(t.spanDays >= 27);
-});
-
-check('a flat month above goal is called a plateau', () => {
-  const pts = [];
-  for (let i = 27; i >= 0; i--) pts.push({ date: dayAgo(i), weight: 100 + ((i % 2) * 0.1) });
-  const t = weightTrend(pts, 90);
-  assert.equal(t.plateau, true);
-  assert.ok(t.plateauWeeks >= 2);
-});
-
-check('two weigh-ins are never called a plateau', () => {
-  const t = weightTrend([{ date: dayAgo(1), weight: 100 }, { date: dayAgo(0), weight: 100 }], 90);
-  assert.equal(t.plateau, false, 'a 1-day span cannot establish a plateau');
-});
-
-check('losing weight is a positive rate', () => {
-  const pts = [];
-  for (let i = 27; i >= 0; i--) pts.push({ date: dayAgo(i), weight: 100 - (27 - i) * 0.1 });
-  assert.ok(weightTrend(pts, 90).rateKgPerWeek > 0, 'sign convention: positive = losing');
-});
-
 check('calorie target is parsed back out of the goal narrative', () => {
   assert.equal(parseCalorieTarget('Cut to 90kg — target intake ~2100 kcal/day, high protein.'), 2100);
   assert.equal(parseCalorieTarget('no numbers here'), null);
@@ -2432,7 +2404,8 @@ check('a clean deficit week reports fat loss and a positive win', () => {
     const d = new Date('2026-03-15T00:00:00'); d.setDate(d.getDate() - n);
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   };
-  const weights = [{ date: days(6), weight: 90.5 }, { date: days(0), weight: 89.8 }];
+  // Two weeks of mornings, 0.1 kg a day down: a trend, not two readings.
+  const weights = Array.from({ length: 14 }, (_, i) => ({ date: days(13 - i), weight: +(91.3 - 0.1 * i).toFixed(1) }));
   const intake = [0, 1, 2, 3, 4, 5, 6].map((n) => ({ date: days(n), kcal: 2000, protein: 180 }));
   const r = weeklyReview({
     today: '2026-03-15', weights, intake,
@@ -2441,6 +2414,10 @@ check('a clean deficit week reports fat loss and a positive win', () => {
     workouts: [], learnedTdee: 2500, proteinTargetG: 160, goalKg: 80,
   });
   assert.ok(r.weightChangeKg < 0, 'should register weight loss');
+  assert.ok(Math.abs(r.weightChangeKg + 0.7) < 0.15, `the trend's week, got ${r.weightChangeKg}`);
+  const two = weeklyReview({ today: '2026-03-15', weights: [{ date: days(6), weight: 90.5 }, { date: days(0), weight: 89.8 }], intake,
+    steps: [], sleep: [], workouts: [], learnedTdee: null, proteinTargetG: 160, goalKg: 80 });
+  assert.equal(two.weightChangeKg, null, 'two mornings are water, not a week of change');
   assert.equal(r.intakeDays, 7);
   assert.ok(r.energyBalance < 0, 'intake below learned maintenance => deficit');
   assert.ok(r.wins.length >= 1);
@@ -2465,11 +2442,12 @@ check('low protein and a rising scale surface concrete adjustments', () => {
   };
   const r = weeklyReview({
     today: '2026-03-15',
-    weights: [{ date: days(6), weight: 89 }, { date: days(0), weight: 89.6 }],
+    weights: Array.from({ length: 12 }, (_, i) => ({ date: days(11 - i), weight: +(89 + 0.08 * i).toFixed(2) })),
     intake: [0, 1, 2, 3, 4].map((n) => ({ date: days(n), kcal: 2800, protein: 90 })),
     steps: [], sleep: [], workouts: [], learnedTdee: 2500, proteinTargetG: 160, goalKg: 80,
   });
   assert.ok(r.adjustments.some((a) => /protein/i.test(a)), 'should flag low protein');
+  assert.ok(r.adjustments.some((a) => /trend ticked up/i.test(a)), 'a rising trend above goal asks for one lever');
 });
 
 // --- Gym-real next weight (no "18 after 17.5") ----------------------------
@@ -2916,6 +2894,23 @@ check('every program exercise but the walks comes with a video', () => {
   assert.ok(rebuild.PHASES.every((p) => p.sessions.length === 3));
 });
 
+check('6+ on five of seven mornings stops offering to wait: see a physio', () => {
+  const days = ['2026-10-14', '2026-10-15', '2026-10-16', '2026-10-17', '2026-10-18'];
+  const bad = prog.painAdvice(days.map((date) => ({ date, back_pain: 7 })), '2026-10-18');
+  assert.equal(bad.physio, true);
+  assert.match(bad.title, /physio/);
+  const once = prog.painAdvice([{ date: '2026-10-18', back_pain: 7 }], '2026-10-18');
+  assert.equal(once.tone, 'bad');
+  assert.equal(once.physio, false, 'one bad morning is "back off", not "see someone"');
+});
+
+check('red before day one offers “Start a week later”, from the saved start', async () => {
+  const { readFileSync } = await import('node:fs');
+  const c = readFileSync('src/lib/components/BackRebuild.svelte', 'utf8');
+  assert.match(c, /offerLater = \$derived\(week === 0 && advice\.tone === 'bad' && advice\.ratedToday && !advice\.physio\)/);
+  assert.match(c, /program\?\.start && week === 0 \? program\.start : nextMonday\(today\)/, 'the label shows the real start date');
+});
+
 check('a program session can never be saved over the user’s own plan', async () => {
   const { readFileSync } = await import('node:fs');
   const page = readFileSync('src/routes/workouts/+page.svelte', 'utf8');
@@ -2929,6 +2924,111 @@ check('while a program runs, Train names the day after the program’s session',
   assert.match(page, /return s\?\.program \? s\.name : day\.label;/);
   assert.match(page, /if \(w\.session_key\) return dayLabel\(w\);/, 'the hero’s “Next:” line');
   assert.match(page, /\{dayLabel\(day\)\}/, 'the day cards');
+});
+
+// --- One body engine: trend, pace, learned burn, target --------------------
+
+console.log('\nbody — one trend, one pace, one target');
+
+// A deterministic ±1 kg scale: the shape of a real stalled month, synthetic
+// (the repo is public — real readings never go in here).
+const NOISE = [0.9, -0.7, 0.4, -1.1, 0.8, -0.2, 1.0, -0.9, 0.3, -0.5, 1.1, -0.8, 0.6, -0.4, 0.2, -1.0, 0.7, -0.3, 0.9, -0.6];
+const BODY_NOW = Date.parse('2026-10-17T12:00:00');
+const mornings = (n, startKg, perDay, noise = []) => Array.from({ length: n }, (_, i) => ({
+  date: shiftYmd(-(n - 1 - i) * 1.75 | 0, new Date('2026-10-17T12:00:00')),
+  weight: +(startKg + perDay * i + (noise[i % noise.length] ?? 0)).toFixed(1),
+})).filter((p, i, a) => a.findIndex((q) => q.date === p.date) === i);
+
+check('a flat, noisy month rules out the plan: stalled, not “too noisy to say”', () => {
+  const v = weightVerdict(mornings(20, 113, 0, NOISE), BODY_NOW);
+  assert.equal(paceVsPlan(v, 0.6), 'stalled');
+  assert.ok(v.trendKg > 112 && v.trendKg < 114, `trend weight sits in the middle of the noise, got ${v.trendKg}`);
+});
+
+check('pace is judged against the plan, only where the interval allows', () => {
+  // Mornings are 1.75 days apart, so kg/week = −perMorning × 4.
+  assert.equal(paceVsPlan(weightVerdict(mornings(20, 110, 0.06), BODY_NOW), 0.6), 'gaining');
+  assert.equal(paceVsPlan(weightVerdict(mornings(20, 113, -0.15, NOISE.map((x) => x / 4)), BODY_NOW), 0.6), 'on-pace');
+  assert.equal(paceVsPlan(weightVerdict(mornings(20, 113, -0.3), BODY_NOW), 0.6), 'faster');
+  assert.equal(paceVsPlan(weightVerdict(mornings(20, 113, -0.075, NOISE.map((x) => x / 10)), BODY_NOW), 0.6), 'slower');
+  assert.equal(paceVsPlan(weightVerdict(mornings(4, 113, 0), BODY_NOW), 0.6), 'too-early', 'four mornings say nothing');
+});
+
+check('correlated mornings widen the interval instead of faking certainty', () => {
+  const runs = Array.from({ length: 20 }, (_, i) => (Math.floor(i / 4) % 2 ? 0.8 : -0.8)); // water that lingers for days
+  const lumpy = fitWeightLine(mornings(20, 113, 0, runs), BODY_NOW);
+  const iid = fitWeightLine(mornings(20, 113, 0, NOISE.map((x) => x * 0.95)), BODY_NOW);
+  assert.ok(lumpy.halfWidthPerDay > iid.halfWidthPerDay, 'carry-over between mornings must cost confidence');
+});
+
+check('learned burn is only “high” when the weight slope is tight, not just long', () => {
+  const intake = Array.from({ length: 30 }, (_, i) => ({ date: shiftYmd(-i, new Date('2026-10-17T12:00:00')), kcal: 2100 }));
+  const noisy = adaptiveTdee({ intake, weights: mornings(20, 113, 0, NOISE), asOf: '2026-10-17' });
+  assert.notEqual(noisy.confidence, 'high', `±1 kg mornings cannot give a high-confidence burn (±${noisy.uncertaintyKcal})`);
+  assert.ok(noisy.uncertaintyKcal > 150, `±${noisy.uncertaintyKcal} kcal is not a number to steer by`);
+  const clean = adaptiveTdee({ intake, weights: mornings(20, 113, -0.1), asOf: '2026-10-17' });
+  assert.equal(clean.confidence, 'high');
+});
+
+check('a confident learned burn below what a living body burns never sets the target', () => {
+  const profile = { heightCm: 187, age: 41, gender: 'male', activityLevel: 'moderate' };
+  const r = resolveCalorieTarget({ goalKg: 96, currentWeightKg: 113, learnedTdee: 1750, learnedConfidence: 'high', profile, storedTarget: null });
+  assert.equal(r.basis, 'formula', 'a 1,750 kcal burn for a 113 kg man is missing food, not a slow metabolism');
+  assert.equal(r.learnedImplausible, true);
+  assert.ok(r.planKgPerWeek > 0.4 && r.planKgPerWeek < 0.8, `plan pace comes with the target, got ${r.planKgPerWeek}`);
+  const ok = resolveCalorieTarget({ goalKg: 96, currentWeightKg: 113, learnedTdee: 3000, learnedConfidence: 'high', profile, storedTarget: null });
+  assert.equal(ok.basis, 'learned');
+});
+
+check('the stall diagnosis leads with arithmetic and only speaks when the plan is ruled out', () => {
+  const intake = new Map();
+  const foods = [];
+  for (let i = 0; i < 30; i++) {
+    const date = shiftYmd(-i, new Date('2026-10-17T12:00:00'));
+    intake.set(date, { kcal: 2100, items: 5 });
+    foods.push({ date, name: 'Chicken tikka masala', kcal: 520 }, { date, name: 'Plain white rice (cooked)', kcal: 300 });
+  }
+  const d = diagnoseStall({ pace: 'stalled', intake, foods, floorKcal: 2520, today: '2026-10-17' });
+  assert.equal(d.medianKcal, 2100);
+  assert.equal(d.missingAtLeastKcal, 420, 'floor − median: a lower bound, never a guess at the full gap');
+  assert.deepEqual(d.clues.map((c) => c.id).sort(), ['cooking-fat', 'same-portion']);
+  assert.equal(diagnoseStall({ pace: 'on-pace', intake, foods, floorKcal: 2520, today: '2026-10-17' }), null);
+  foods.push({ date: '2026-10-16', name: 'Bread s maslom', kcal: 250 });
+  assert.ok(diagnoseStall({ pace: 'stalled', intake, foods, floorKcal: 2520, today: '2026-10-17' }).clues.some((c) => c.id === 'cooking-fat'),
+    'one buttered roll does not account for thirty days of curry');
+  for (let i = 0; i < 25; i++) foods.push({ date: shiftYmd(-i, new Date('2026-10-17T12:00:00')), name: 'Olive oil', kcal: 120 });
+  assert.ok(!diagnoseStall({ pace: 'stalled', intake, foods, floorKcal: 2520, today: '2026-10-17' }).clues.some((c) => c.id === 'cooking-fat'),
+    'oil logged on most cooking days: nothing to ask');
+});
+
+check('a stalled trend leads the coach, and the log it contradicts is not praised', async () => {
+  const { buildDailyFocus } = await import('../src/lib/coach.ts');
+  const stall = { medianKcal: 2060, loggedDays: 27, floorKcal: 2520, missingAtLeastKcal: 460, clues: [] };
+  const input = {
+    goalKg: 96, currentWeight: 113.1, rateKgPerWeek: 0.04, pace: 'stalled', planKgPerWeek: 0.59, weeksToGoal: null,
+    weighInsNeeded: null, stall, totalLostKg: null, calorieTarget: 2604, todayKcal: 1500, weekKcalSoFar: 2100 * 6,
+    daysElapsedThisWeek: 6, proteinTarget: 173, todayProtein: 120, sleepHours: 7.5, sleepQuality: null, stepsToday: 8000,
+    stepsWeekAvg: 9000, waterToday: 2, waterTarget: 3.3, dayKind: 'rest', activityLabel: 'Rest', workoutDoneToday: false,
+    strengthTrend: null, watchActivityToday: null, hour: 9,
+  };
+  const ids = buildDailyFocus(input).map((f) => f.id);
+  assert.ok(ids.includes('weight-plateau'));
+  assert.ok(!ids.includes('cal-ontrack'), 'no "stay boring" while the scale says the log is short');
+  assert.ok(buildDailyFocus({ ...input, pace: 'on-pace', stall: null, rateKgPerWeek: 0.6 }).some((f) => f.id === 'cal-ontrack'));
+  assert.ok(!buildDailyFocus(input).some((f) => /tdee-adapt/.test(f.id)), 'the learned-burn nag is gone');
+});
+
+check('weight rate, learned burn and targets are computed in one place', async () => {
+  const { readFileSync, readdirSync } = await import('node:fs');
+  const files = [
+    ...readdirSync('src/lib', { recursive: true }).map((f) => `src/lib/${f}`),
+    ...readdirSync('src/routes', { recursive: true }).map((f) => `src/routes/${f}`),
+  ].filter((f) => /\.(ts|svelte)$/.test(f));
+  const offenders = (re, allowed) => files.filter((f) => !allowed.includes(f) && re.test(readFileSync(f, 'utf8')));
+  assert.deepEqual(offenders(/sxy|\(xs\[i\] - mx\)|weeklyLoss\(/, ['src/lib/insights.ts']), [], 'one least-squares weight slope');
+  assert.deepEqual(offenders(/adaptiveTdee\(\{/, ['src/lib/stores/body.ts']), [], 'one learned burn');
+  assert.deepEqual(offenders(/resolveCalorieTarget\(\{/, ['src/lib/stores/body.ts']), [], 'one calorie target');
+  assert.deepEqual(offenders(/goalKg \* 1\.8|GOAL_KG \* 1\.8/, []), [], 'one protein target (profile.proteinTargetG)');
 });
 
 // --- Design system: the scoreboard, one vocabulary, both themes -------------
