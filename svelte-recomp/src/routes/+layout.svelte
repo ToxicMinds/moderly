@@ -24,6 +24,10 @@
   import { liveProfile, liveProfileLoaded, liveAlarms, liveFoodLogs, liveWeights, liveWorkoutLogs, liveGoal, liveSchedule } from '$lib/stores/live';
   import { scheduleNativeAlarms, scheduleNudges, isNativeApp, momentsSupport, armMoments, disarmMoments, type AlarmRow } from '$lib/nativeAlarms';
   import { moments, momentSetting, refreshForecast } from '$lib/stores/moments';
+  import { saveMomentInputs, confirmWeight, answerWeight, type MomentContext } from '$lib/momentActions';
+  import { onMomentsInput } from '$lib/nativeAlarms';
+  import { offTrend } from '$lib/scale';
+  import { untrack } from 'svelte';
   import { situationalNudges, minutesOfDay } from '$lib/situational';
   import { todayYmd } from '$lib/date';
   import { isComplete } from '$lib/profile';
@@ -233,6 +237,30 @@
     armMoments($moments);
   });
 
+  // What was entered on the briefing's buttons (a weight, a back rating, the
+  // usual breakfast) is saved here: once after the first sync, the moment a
+  // button is pressed while the app runs, and whenever the app comes back.
+  const momentCtx = (): MomentContext => ({
+    uid: $user?.id ?? '', weights: ($_nudgeWeights as any[]).map((w) => ({ date: w.date, weight: +w.weight })),
+    goalKg: $body.goalKg, trendKg: $body.currentKg, food: $_nudgeFood as any[],
+    startKg: ($_profile as any)?.start_kg != null ? +($_profile as any).start_kg : null,
+  });
+  let inputsChecked = false;
+  $effect(() => {
+    if (!$user || support !== 'all' || $syncStatus !== 'synced' || inputsChecked) return;
+    inputsChecked = true;
+    untrack(() => saveMomentInputs(momentCtx()));
+  });
+  $effect(() => {
+    if (!$user || support !== 'all') return;
+    let off = () => {};
+    onMomentsInput(() => saveMomentInputs(untrack(momentCtx))).then((f) => (off = f));
+    const back = () => { if (document.visibilityState === 'visible') saveMomentInputs(untrack(momentCtx)); };
+    document.addEventListener('visibilitychange', back);
+    return () => { off(); document.removeEventListener('visibilitychange', back); };
+  });
+  const confirmOff = $derived($confirmWeight ? offTrend($confirmWeight.kg, $body.currentKg) : null);
+
   $effect(() => {
     if (!$user || !isNativeApp()) return;
     const now = new Date($nowTick);
@@ -441,6 +469,22 @@
     </div>
   </div>
 
+  <!-- A weight typed into the notification that's far off the trend: asked
+       here, once, before it bends five weeks of numbers. Closing it asks again
+       next time; only the buttons decide. -->
+  <Modal open={!!$confirmWeight} onclose={() => confirmWeight.set(null)}>
+    {#if $confirmWeight}
+      <div class="cw-h">{$confirmWeight.kg} kg?</div>
+      <p class="cw-p">
+        You typed it on the notification{$confirmWeight.date !== $body.today ? ` on ${$confirmWeight.date}` : ''}. It's
+        {confirmOff != null ? `${Math.abs(confirmOff).toFixed(1)} kg ${confirmOff > 0 ? 'above' : 'below'}` : 'far from'} your trend
+        {$body.currentKg != null ? `of ${$body.currentKg.toFixed(1)} kg` : ''}. Scales misread and fingers slip.
+      </p>
+      <button class="btn bp bfl" onclick={() => answerWeight(untrack(momentCtx), true)}>Save {$confirmWeight.kg} kg</button>
+      <button class="btn bg_ bfl cw-no" onclick={() => answerWeight(untrack(momentCtx), false)}>It was a typo: don't save it</button>
+    {/if}
+  </Modal>
+
   <Modal open={menuOpen} onclose={() => (menuOpen = false)}>
     <div class="menu-h">Settings</div>
     <div class="menu-row">
@@ -524,6 +568,9 @@
 </div>
 
 <style>
+  .cw-h{font-family:var(--font-display);font-size:1.75rem;font-weight:800;color:var(--text);margin-bottom:8px}
+  .cw-p{font-size:0.875rem;line-height:1.5;color:var(--text);margin:0 0 14px}
+  .cw-no{margin-top:8px}
 #topbar{background:var(--bg);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:calc(var(--st) + 10px) 18px 12px;min-height:calc(var(--st) + var(--top-h));z-index:50;flex-shrink:0}
 #topbar-title{font-family:var(--font-display);font-size:22px;font-weight:900;text-transform:uppercase;letter-spacing:.04em;line-height:1;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   /* The topbar is chrome, so it is pinned in px and does NOT follow --ui-scale.

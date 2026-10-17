@@ -82,6 +82,9 @@ export interface BriefingInput {
   plans: Plans | null;
   /** The day's share of the week's food (body.week / body.tomorrow). */
   week: { share: number; budget: number; before: number; daysLeft: number } | null;
+  /** The breakfast eaten most mornings (quickAdd.usualBreakfast): what the
+   *  notification's "Log usual breakfast" button logs. */
+  usual?: { names: string[]; kcal: number } | null;
 }
 
 export interface Briefing { date: string; title: string; body: string }
@@ -112,6 +115,11 @@ export function composeBriefing(i: BriefingInput): Briefing {
     lines.push(w.daysLeft === 7 && w.before === 0 ? `New week: ${kcal(w.share)} a day.`
       : w.daysLeft === 1 ? `Food: ${kcal(w.share)} today, the week's last day.`
       : `Food: ${kcal(w.share)} today, ${kcal(w.budget - w.before)} for the ${w.daysLeft} days left.`);
+  }
+
+  if (i.usual?.names.length) {
+    const names = i.usual.names.length > 3 ? [...i.usual.names.slice(0, 3), '…'] : i.usual.names;
+    lines.push(`Usual breakfast: ${names.join(', ')} · ${kcal(i.usual.kcal)} kcal`);
   }
 
   // The day's own plan: Friday's is the one that decides the weekend, so it

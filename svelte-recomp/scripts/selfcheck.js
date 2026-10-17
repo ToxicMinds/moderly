@@ -3582,6 +3582,53 @@ check('refresh writes in batches: no save per day, no unpaged pull', async () =>
   assert.match(sync, /if \(lastPulled\.get\(table\) === seen\) return;/, 'an unchanged table is not rewritten');
 });
 
+// ── Briefing buttons ─────────────────────────────────────────────────────────
+const { usualBreakfast, notYetLogged } = await import('../src/lib/quickAdd.ts');
+const breakfastDays = (n, items, hour = '06:40') => Array.from({ length: n }, (_, i) => {
+  const d = new Date('2026-10-18T12:00:00'); d.setDate(d.getDate() - 1 - i);
+  const ymd = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  return items(i).map((it, j) => ({ date: ymd, created_at: new Date(`${ymd}T${hour}:0${j}`).toISOString(), ...it }));
+}).flat();
+const TVAROH = { name: 'Tvaroh 250 g', kcal: 240, protein_g: 30, carbs_g: 10, fat_g: 4 };
+const WHEY = { name: '2 scoops whey protein', kcal: 240, protein_g: 48, carbs_g: 6, fat_g: 3 };
+
+check('the usual breakfast is the one eaten most mornings, at its latest portion', () => {
+  const logs = breakfastDays(9, (i) => (i % 3 === 2 ? [{ name: 'Croissant', kcal: 400 }] : [TVAROH, { ...WHEY, kcal: i === 0 ? 250 : 240 }]));
+  const u = usualBreakfast(logs, '2026-10-18');
+  assert.deepEqual(u.items.map((x) => x.name), ['Tvaroh 250 g', '2 scoops whey protein']);
+  assert.equal(u.kcal, 490, 'yesterday’s portion, not the oldest');
+  assert.equal(usualBreakfast(breakfastDays(4, () => [TVAROH, WHEY]), '2026-10-18'), null, 'four mornings isn’t a usual yet');
+  const varied = breakfastDays(14, (i) => [{ name: `Breakfast ${i % 4}`, kcal: 300 }]);
+  assert.equal(usualBreakfast(varied, '2026-10-18'), null, 'breakfast varies: no button that would guess');
+  assert.equal(usualBreakfast(breakfastDays(9, () => [TVAROH]), '2026-10-18', 14, 5)?.label, 'Breakfast');
+  assert.equal(usualBreakfast(breakfastDays(9, () => [TVAROH], '13:10'), '2026-10-18'), null, 'a lunch isn’t a breakfast');
+});
+
+check('the usual breakfast is never logged twice', () => {
+  const items = [{ ...TVAROH, count: 1, lastDate: '' }, { ...WHEY, count: 1, lastDate: '' }];
+  assert.equal(notYetLogged([], items, '2026-10-18').length, 2);
+  assert.deepEqual(notYetLogged([{ date: '2026-10-18', name: 'Tvaroh 250 g' }], items, '2026-10-18').map((x) => x.name), ['2 scoops whey protein'],
+    'logged in the app already: only the rest');
+  assert.equal(notYetLogged([{ date: '2026-10-18', name: 'Tvaroh 250 g' }, { date: '2026-10-18', name: '2 scoops whey protein' }], items, '2026-10-18').length, 0,
+    'a second press adds nothing');
+  assert.equal(notYetLogged([{ date: '2026-10-17', name: 'Tvaroh 250 g' }], items, '2026-10-18').length, 2, 'yesterday’s doesn’t count');
+});
+
+check('the briefing names what its breakfast button logs', () => {
+  const b = composeBriefing({ ...SAT_IN, usual: { names: ['Tvaroh 250 g', '2 scoops whey protein'], kcal: 480 } });
+  assert.match(b.body, /^Usual breakfast: Tvaroh 250 g, 2 scoops whey protein · 480 kcal$/m);
+  assert.ok(!composeBriefing(SAT_IN).body.includes('Usual breakfast'), 'no usual, no line (and no button)');
+});
+
+check('food is saved in one place, so the notification logs it the way the app does', async () => {
+  const { readFileSync } = await import('node:fs');
+  const files = await srcFiles();
+  assert.deepEqual(files.filter((f) => /upsertRecords?\('food_logs'/.test(readFileSync(f, 'utf8'))), ['src/lib/foodLog.ts']);
+  const actions = readFileSync('src/lib/momentActions.ts', 'utf8');
+  assert.match(actions, /saveWeighIn\(/, 'a weight from the watch goes through the one weigh-in path, typo guard included');
+  assert.match(actions, /saveFoods\(/);
+});
+
 // Nothing may be reported until the async checks have actually settled.
 await Promise.all(pending);
 

@@ -8,6 +8,7 @@
   import { holdAfter } from '$lib/hold';
   import { locationRefused } from '$lib/weather';
   import { todayDate } from '$lib/stores/refresh';
+  import { updateState } from '$lib/stores/nativeUpdate';
 
   const native = isNativeApp();
   let support = $state<'all' | 'morning' | null | undefined>(undefined);
@@ -22,6 +23,8 @@
   });
 
   const s = $derived<MomentSetting>($momentSetting ?? { on: false, after: '06:00', hold: false });
+  /** Build 8 put buttons on the briefing; older builds show it without. */
+  const buttons = $derived(($updateState.installedBuild ?? 0) >= 8);
   const tomorrow = $derived($briefings[1] ?? null);
   const tonight = $derived($holds[0] ?? null);
   const startsAt = (dow: number) => { const m = holdAfter(dow); return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`; };
@@ -55,13 +58,21 @@
   const keys = (fn: () => void) => (e: KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fn(); } };
 </script>
 
-{#snippet preview(label: string, n: { title: string; body: string })}
+{#snippet preview(label: string, n: { title: string; body: string; actions?: { weigh: boolean; back: boolean; meal: unknown } })}
   <div class="mb-tag">{label}</div>
   <div class="mb-note-card">
     <div class="mb-app">RecompOS</div>
     <div class="mb-title">{n.title}</div>
     {#each n.body.split('\n') as line}<div class="mb-line">{line}</div>{/each}
+    {#if n.actions && buttons}
+      <div class="mb-acts">
+        {#if n.actions.weigh}<span>Log weight</span>{/if}
+        {#if n.actions.back}<span>Rate back</span>{/if}
+        {#if n.actions.meal}<span>Log usual breakfast</span>{/if}
+      </div>
+    {/if}
   </div>
+  {#if n.actions && !buttons}<div class="mb-meta">The update adds buttons to it: log your weight, rate your back and log your usual breakfast, from the watch too.</div>{/if}
 {/snippet}
 
 <div class="acard mb">
@@ -144,6 +155,8 @@
   .mb-line{font-size:0.8125rem;line-height:1.45;color:var(--text)}
   .mb-line + .mb-line{margin-top:2px}
   .mb-meta{font-size:0.75rem;line-height:1.5;color:var(--muted);margin-top:8px}
+  .mb-acts{display:flex;flex-wrap:wrap;gap:14px;margin-top:9px;padding-top:8px;border-top:1px solid var(--border2)}
+  .mb-acts span{font-size:0.75rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--text)}
   .mb-link{background:none;border:none;padding:0;font:inherit;font-weight:700;color:var(--text);cursor:pointer;
     text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--border2)}
   .mb-err{font-size:0.8125rem;color:var(--led-bad);margin-top:8px}

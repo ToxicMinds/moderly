@@ -172,29 +172,60 @@ export function groupIntoMeals(logs: FoodRow[], dayYmd: string): Meal[] {
 }
 
 /**
- * Everything eaten on `fromYmd` that has NOT already been logged on `toYmd`, so
- * "repeat yesterday" is safe to tap twice — the second tap adds nothing rather
- * than silently doubling the day's calories. Matching is by name: the same food
- * logged twice yesterday and once today still has one serving left to add.
+ * Of `items`, the ones not already logged on `date`, so a re-log is safe to tap
+ * twice: the second tap adds nothing rather than silently doubling the day's
+ * calories. Matching is by name: the same food logged twice in `items` and
+ * once on `date` still has one serving left to add.
  */
-export function repeatDay(logs: FoodRow[], fromYmd: string, toYmd: string): QuickFood[] {
+export function notYetLogged(logs: FoodRow[], items: QuickFood[], date: string): QuickFood[] {
   const remaining = new Map<string, number>();
   for (const f of logs) {
-    if (f.date !== toYmd) continue;
+    if (f.date !== date) continue;
     const n = f.name?.trim() ? foodKey(f.name) : '';
     if (n) remaining.set(n, (remaining.get(n) ?? 0) + 1);
   }
-
-  const out: QuickFood[] = [];
-  for (const f of logs.filter((x) => x.date === fromYmd).sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''))) {
-    if (!f.name?.trim()) continue;
-    const key = foodKey(f.name);
+  return items.filter((it) => {
+    const key = foodKey(it.name);
     const already = remaining.get(key) ?? 0;
-    if (already > 0) { remaining.set(key, already - 1); continue; }
-    out.push({
-      name: cleanName(f.name), kcal: num(f.kcal), protein_g: num(f.protein_g), carbs_g: num(f.carbs_g),
+    if (already > 0) { remaining.set(key, already - 1); return false; }
+    return true;
+  });
+}
+
+/** Everything eaten on `fromYmd` that has NOT already been logged on `toYmd`. */
+export function repeatDay(logs: FoodRow[], fromYmd: string, toYmd: string): QuickFood[] {
+  const from = logs
+    .filter((x) => x.date === fromYmd && x.name?.trim())
+    .sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''))
+    .map((f) => ({
+      name: cleanName(f.name!), kcal: num(f.kcal), protein_g: num(f.protein_g), carbs_g: num(f.carbs_g),
       fat_g: num(f.fat_g), grams: num(f.grams) || null, count: 1, lastDate: f.date || fromYmd,
-    });
+    }));
+  return notYetLogged(logs, from, toYmd);
+}
+
+/**
+ * The breakfast you eat most mornings, if there is one: the same foods (by
+ * name) as the day's first meal before 11:00 on at least `minDays` of the
+ * `days` days before `date`, with the portions from the latest of them. Null
+ * when breakfast varies: a one-tap "log the usual" is only honest when there
+ * is a usual.
+ */
+export function usualBreakfast(logs: FoodRow[], date: string, days = 14, minDays = 5): Meal | null {
+  const seen = new Map<string, { count: number; latest: Meal }>();
+  const at = new Date(`${date}T12:00:00`);
+  for (let i = 1; i <= days; i++) {
+    const d = new Date(at);
+    d.setDate(d.getDate() - i);
+    const ymd = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const first = groupIntoMeals(logs, ymd)[0];
+    if (!first || first.label !== 'Breakfast') continue;
+    const key = [...new Set(first.items.map((x) => foodKey(x.name)))].sort().join('|');
+    const had = seen.get(key);
+    // Days run newest first, so the first one met is the latest portion.
+    seen.set(key, { count: (had?.count ?? 0) + 1, latest: had?.latest ?? first });
   }
-  return out;
+  let best: { count: number; latest: Meal } | null = null;
+  for (const v of seen.values()) if (!best || v.count > best.count) best = v;
+  return best && best.count >= minDays ? best.latest : null;
 }

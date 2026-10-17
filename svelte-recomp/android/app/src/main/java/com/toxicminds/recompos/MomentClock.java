@@ -69,6 +69,25 @@ final class MomentClock {
         return next != null ? new Next(AT, next) : new Next(NONE, null);
     }
 
+    /** A weight typed or spoken into the notification: "112.3", "112,3",
+     *  "112.3 kg". Null when it isn't a plausible weight. */
+    static Double parseKg(CharSequence input) {
+        if (input == null) return null;
+        String t = input.toString().trim().replace(',', '.').replaceAll("(?i)\\s*kg$", "");
+        if (!t.matches("\\d{2,3}(\\.\\d+)?")) return null;
+        double kg = Math.round(Double.parseDouble(t) * 10) / 10.0;
+        return kg >= 30 && kg <= 400 ? kg : null;
+    }
+
+    /** A back rating, 0 to 10. Null for anything else. */
+    static Integer parseRating(CharSequence input) {
+        if (input == null) return null;
+        String t = input.toString().trim().replaceAll("\\s*/\\s*10$", "");
+        if (!t.matches("\\d{1,2}")) return null;
+        int n = Integer.parseInt(t);
+        return n <= 10 ? n : null;
+    }
+
     public static void main(String[] args) {
         String sat = "2026-10-17", sun = "2026-10-18";
         List<Moment> day = new ArrayList<>();
@@ -100,6 +119,11 @@ final class MomentClock {
         n = decide(sat, 720, missed, true, false);
         check(n.action == AT && n.moment.date.equals(sun), "first unlock after noon: that morning's is old news");
         check(decide(sun, 800, missed, true, false).action == NONE, "nothing written ahead: wait for the app");
+        check(parseKg("112.3") == 112.3 && parseKg(" 112,3 ") == 112.3 && parseKg("112.3 kg") == 112.3 && parseKg("98") == 98.0, "a weight, however it's typed");
+        check(parseKg("1123") == null && parseKg("11.2") == null && parseKg("abc") == null && parseKg("") == null && parseKg(null) == null, "not a weight: ask again");
+        check(parseKg("112.34") == 112.3, "to a tenth, like the scale");
+        check(parseRating("3") == 3 && parseRating("10") == 10 && parseRating("0") == 0 && parseRating("4/10") == 4, "a rating");
+        check(parseRating("11") == null && parseRating("-1") == null && parseRating("three") == null, "not a rating");
         System.out.println("MomentClock: ok");
     }
 

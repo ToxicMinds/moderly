@@ -10,6 +10,13 @@ import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 
+import org.json.JSONArray;
+import org.json.JSONObject;
+
+import java.lang.ref.WeakReference;
+import java.util.HashSet;
+import java.util.Set;
+
 /**
  * The web app's side of the morning briefing and the evening hold. Whenever
  * the app is open it writes the coming moments here (src/lib/nativeAlarms.ts);
@@ -18,6 +25,59 @@ import com.getcapacitor.annotation.CapacitorPlugin;
  */
 @CapacitorPlugin(name = "Moments")
 public class MomentsPlugin extends Plugin {
+    /** The running app, if there is one, so a button pressed on the
+     *  notification reaches it at once. Weak: never keep a closed app alive. */
+    private static WeakReference<MomentsPlugin> running = new WeakReference<>(null);
+
+    @Override
+    public void load() {
+        running = new WeakReference<>(this);
+    }
+
+    /** Hand a button press to the app if it's running; otherwise it waits in
+     *  the queue for pending(). */
+    static void emit(JSONObject item) {
+        MomentsPlugin plugin = running.get();
+        if (plugin == null) return;
+        try {
+            plugin.notifyListeners("pending", JSObject.fromJSONObject(item));
+        } catch (Exception ignored) {
+            // The queue still has it.
+        }
+    }
+
+    /** What was entered on the notification and not yet saved by the app. */
+    @PluginMethod
+    public void pending(PluginCall call) {
+        JSObject o = new JSObject();
+        try {
+            o.put("items", new JSArray(prefs().getString("pending", "[]")));
+        } catch (Exception e) {
+            o.put("items", new JSArray());
+        }
+        call.resolve(o);
+    }
+
+    /** { ids }: saved by the app, so off the queue. */
+    @PluginMethod
+    public void ack(PluginCall call) {
+        Set<String> done = new HashSet<>();
+        JSArray ids = call.getArray("ids");
+        try {
+            for (int i = 0; ids != null && i < ids.length(); i++) done.add(ids.getString(i));
+            synchronized (MomentReceiver.QUEUE) {
+                JSONArray queue = new JSONArray(prefs().getString("pending", "[]")), left = new JSONArray();
+                for (int i = 0; i < queue.length(); i++) {
+                    JSONObject item = queue.getJSONObject(i);
+                    if (!done.contains(item.optString("id"))) left.put(item);
+                }
+                prefs().edit().putString("pending", left.toString()).commit();
+            }
+            call.resolve();
+        } catch (Exception e) {
+            call.reject("Could not clear the queue: " + e.getMessage());
+        }
+    }
 
     /** { moments: [{ date, key, after, until, title, body }] }, minutes from midnight. */
     @PluginMethod

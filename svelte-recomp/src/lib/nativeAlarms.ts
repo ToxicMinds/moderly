@@ -216,7 +216,11 @@ export async function scheduleNudges(nudges: Nudge[], now: Date = new Date()): P
 // morning-only one ("Morning"), still fed here until it's updated. Older
 // builds have neither: every call is a no-op and the card asks for the update.
 
-export interface MomentPayload { date: string; key: 'morning' | 'evening'; after: number; until: number; title: string; body: string }
+export interface MomentPayload {
+  date: string; key: 'morning' | 'evening'; after: number; until: number; title: string; body: string;
+  /** The briefing's buttons (build 8+; older builds ignore them). */
+  actions?: { weigh: boolean; back: boolean; meal: { label: string; kcal: number; items: unknown[] } | null };
+}
 export interface MomentsState { on: boolean; morning?: { shown?: string; postedAt?: number }; evening?: { shown?: string; postedAt?: number } }
 
 // Wrapped in { P } for the same reason as readyPlugin(): a bare plugin proxy
@@ -281,3 +285,38 @@ export async function momentsStatus(): Promise<MomentsState | null> {
     return null;
   }
 }
+
+// ── What was entered on the notification ──────────────────────────────────────
+// A weight, a back rating or the usual breakfast, from the briefing's buttons
+// (build 8+). Android keeps each until the app saves it and says so (ack), so
+// nothing is lost to an app that was closed, offline or killed mid-save.
+
+export type MomentInput =
+  | { id: string; date: string; at: string; type: 'weight'; kg: number }
+  | { id: string; date: string; at: string; type: 'back'; value: number }
+  | { id: string; date: string; at: string; type: 'meal'; items: Array<{ name: string; kcal: number; protein_g: number; carbs_g: number; fat_g: number; grams?: number | null }> };
+
+export async function momentsPending(): Promise<MomentInput[]> {
+  const p = await momentsPlugin();
+  if (!p || p.name !== 'Moments') return [];
+  try { return ((await p.P.pending())?.items ?? []) as MomentInput[]; } catch { return []; } // build 7: no queue
+}
+
+export async function momentsAck(ids: string[]): Promise<void> {
+  const p = await momentsPlugin();
+  if (!p || p.name !== 'Moments' || !ids.length) return;
+  await p.P.ack({ ids });
+}
+
+/** Called the moment a button is pressed while the app is running. */
+export async function onMomentsInput(cb: () => void): Promise<() => void> {
+  const p = await momentsPlugin();
+  if (!p || p.name !== 'Moments') return () => {};
+  try {
+    const handle = await p.P.addListener('pending', cb);
+    return () => handle?.remove?.();
+  } catch {
+    return () => {};
+  }
+}
+

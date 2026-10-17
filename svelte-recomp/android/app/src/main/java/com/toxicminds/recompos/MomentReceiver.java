@@ -16,6 +16,9 @@ import android.os.PowerManager;
 
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
+import androidx.core.app.RemoteInput;
+
+import android.os.Bundle;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -39,9 +42,23 @@ import java.util.List;
 public class MomentReceiver extends BroadcastReceiver {
     static final String PREFS = "recompos.moments";
     static final String ACTION_CHECK = "com.toxicminds.recompos.MOMENT_CHECK";
+    /** The morning briefing's buttons: weigh in, rate the back, log the usual
+     *  breakfast, all without opening the app (and from the watch). */
+    static final String ACT_WEIGHT = "com.toxicminds.recompos.MOMENT_WEIGHT";
+    static final String ACT_BACK = "com.toxicminds.recompos.MOMENT_BACK";
+    static final String ACT_MEAL = "com.toxicminds.recompos.MOMENT_MEAL";
+    static final String INPUT = "value";
+    /** The queue is appended here (main thread) and trimmed by the plugin (its
+     *  own thread): one lock, or a press during a trim could vanish. */
+    static final Object QUEUE = new Object();
 
     @Override
     public void onReceive(Context context, Intent intent) {
+        String a = intent.getAction();
+        if (ACT_WEIGHT.equals(a) || ACT_BACK.equals(a) || ACT_MEAL.equals(a)) {
+            act(context, intent);
+            return;
+        }
         // Our own alarm, a reboot (alarms don't survive one) or an app update.
         check(context);
     }
@@ -89,6 +106,107 @@ public class MomentReceiver extends BroadcastReceiver {
                 break;
             default:
                 cancel(ctx);
+        }
+    }
+
+    /**
+     * A button on the briefing: keep what was entered for the app to save (it
+     * owns the one weigh-in path, the typo guard and the food log), tell the app
+     * at once if it's running, and show it was taken.
+     */
+    private static void act(Context ctx, Intent intent) {
+        SharedPreferences p = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+        String date = intent.getStringExtra("date"), key = intent.getStringExtra("key");
+        if (date == null || key == null) return;
+        Bundle in = RemoteInput.getResultsFromIntent(intent);
+        CharSequence typed = in != null ? in.getCharSequence(INPUT) : null;
+        JSONObject moment = momentJson(p, date, key);
+        String noteKey = "note:" + date + ":" + key, actedKey = "acted:" + date + ":" + key;
+        JSONObject acted = json(p.getString(actedKey, "{}"));
+        try {
+            JSONObject item = new JSONObject().put("id", System.currentTimeMillis() + "-" + intent.getAction().hashCode())
+                .put("date", date).put("at", java.time.Instant.now().toString());
+            String a = intent.getAction();
+            if (ACT_WEIGHT.equals(a)) {
+                Double kg = MomentClock.parseKg(typed);
+                if (kg == null) {
+                    p.edit().putString(noteKey, "“" + typed + "” isn’t a weight. Try again, like 112.4.").commit();
+                    repost(ctx, p, date, key);
+                    return;
+                }
+                item.put("type", "weight").put("kg", kg);
+                acted.put("weight", kg + " kg");
+            } else if (ACT_BACK.equals(a)) {
+                Integer n = MomentClock.parseRating(typed);
+                if (n == null) {
+                    p.edit().putString(noteKey, "“" + typed + "” isn’t 0 to 10. Try again.").commit();
+                    repost(ctx, p, date, key);
+                    return;
+                }
+                item.put("type", "back").put("value", n);
+                acted.put("back", "back " + n + "/10");
+            } else {
+                JSONObject meal = moment.optJSONObject("actions") != null ? moment.optJSONObject("actions").optJSONObject("meal") : null;
+                if (meal == null) return;
+                item.put("type", "meal").put("items", meal.optJSONArray("items"));
+                acted.put("meal", meal.optString("label", "breakfast").toLowerCase());
+            }
+            synchronized (QUEUE) {
+                JSONArray queue = new JSONArray(p.getString("pending", "[]"));
+                queue.put(item);
+                p.edit().putString("pending", queue.toString()).putString(actedKey, acted.toString()).remove(noteKey).commit();
+            }
+            MomentsPlugin.emit(item);
+        } catch (Exception e) {
+            p.edit().putString(noteKey, "That didn’t save. Open the app to log it.").commit();
+        }
+        repost(ctx, p, date, key);
+    }
+
+    /** Show the notification again with what's been done (and without its button). */
+    private static void repost(Context ctx, SharedPreferences p, String date, String key) {
+        for (MomentClock.Moment m : read(p)) {
+            if (m.date.equals(date) && m.key.equals(key)) {
+                post(ctx, m);
+                return;
+            }
+        }
+    }
+
+    private static NotificationCompat.Action inputAction(Context ctx, String action, MomentClock.Moment m,
+                                                         String title, String label, String[] choices) {
+        RemoteInput.Builder in = new RemoteInput.Builder(INPUT).setLabel(label);
+        if (choices != null) in.setChoices(choices);
+        Intent i = new Intent(ctx, MomentReceiver.class).setAction(action).putExtra("date", m.date).putExtra("key", m.key);
+        // Mutable, so Android can add what was typed (explicit, so that's
+        // allowed); the flag only exists from Android 12.
+        int mutable = Build.VERSION.SDK_INT >= 31 ? PendingIntent.FLAG_MUTABLE : 0;
+        PendingIntent pi = PendingIntent.getBroadcast(ctx, ACT_WEIGHT.equals(action) ? 1 : 2, i,
+            mutable | PendingIntent.FLAG_UPDATE_CURRENT);
+        return new NotificationCompat.Action.Builder(0, title, pi)
+            .addRemoteInput(in.build())
+            .setAllowGeneratedReplies(false)
+            .build();
+    }
+
+    private static JSONObject momentJson(SharedPreferences p, String date, String key) {
+        try {
+            JSONArray all = new JSONArray(p.getString("moments", "[]"));
+            for (int i = 0; i < all.length(); i++) {
+                JSONObject m = all.getJSONObject(i);
+                if (date.equals(m.optString("date")) && key.equals(m.optString("key"))) return m;
+            }
+        } catch (Exception ignored) {
+            // Unreadable: no actions.
+        }
+        return new JSONObject();
+    }
+
+    private static JSONObject json(String s) {
+        try {
+            return new JSONObject(s);
+        } catch (Exception e) {
+            return new JSONObject();
         }
     }
 
@@ -168,18 +286,50 @@ public class MomentReceiver extends BroadcastReceiver {
         ch.enableVibration(true);
         nm.createNotificationChannel(ch);
 
-        int nl = m.body.indexOf('\n');
+        // What was already done from this notification, and what was said back.
+        SharedPreferences p = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+        JSONObject acted = json(p.getString("acted:" + m.date + ":" + m.key, "{}"));
+        String note = p.getString("note:" + m.date + ":" + m.key, "");
+        StringBuilder text = new StringBuilder(m.body);
+        StringBuilder done = new StringBuilder();
+        for (String k : new String[] { "weight", "back", "meal" }) {
+            if (acted.has(k)) done.append(done.length() > 0 ? " · " : "").append(acted.optString(k));
+        }
+        if (done.length() > 0) text.append("\nLogged: ").append(done);
+        if (!note.isEmpty()) text.append("\n").append(note);
+        String body = text.toString();
+
+        int nl = body.indexOf('\n');
         Intent open = ctx.getPackageManager().getLaunchIntentForPackage(ctx.getPackageName());
         NotificationCompat.Builder n = new NotificationCompat.Builder(ctx, channel)
             .setSmallIcon(evening ? R.drawable.ic_stat_evening : R.drawable.ic_stat_morning)
             .setContentTitle(m.title)
-            .setContentText(nl > 0 ? m.body.substring(0, nl) : m.body)
-            .setStyle(new NotificationCompat.BigTextStyle().bigText(m.body))
+            .setContentText(nl > 0 ? body.substring(0, nl) : body)
+            .setStyle(new NotificationCompat.BigTextStyle().bigText(body))
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
+            // Pops up once; a button pressed later updates it in silence.
+            .setOnlyAlertOnce(true)
             .setAutoCancel(true);
         if (open != null) {
             n.setContentIntent(PendingIntent.getActivity(ctx, 0, open, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT));
+        }
+        JSONObject actions = momentJson(p, m.date, m.key).optJSONObject("actions");
+        if (actions != null) {
+            if (actions.optBoolean("weigh") && !acted.has("weight")) {
+                n.addAction(inputAction(ctx, ACT_WEIGHT, m, "Log weight", "Weight in kg", null));
+            }
+            if (actions.optBoolean("back") && !acted.has("back")) {
+                n.addAction(inputAction(ctx, ACT_BACK, m, "Rate back",
+                    "Back today, 0 to 10", new String[] { "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" }));
+            }
+            JSONObject meal = actions.optJSONObject("meal");
+            if (meal != null && !acted.has("meal")) {
+                Intent i = new Intent(ctx, MomentReceiver.class).setAction(ACT_MEAL)
+                    .putExtra("date", m.date).putExtra("key", m.key);
+                n.addAction(new NotificationCompat.Action.Builder(0, "Log " + meal.optString("label", "breakfast").toLowerCase(),
+                    PendingIntent.getBroadcast(ctx, 3, i, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT)).build());
+            }
         }
         try {
             NotificationManagerCompat.from(ctx).notify(evening ? 7002 : 7001, n.build());

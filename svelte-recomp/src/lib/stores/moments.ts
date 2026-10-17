@@ -5,7 +5,7 @@
 // window; the Alarms card shows them, so what arrives is never a surprise.
 import { derived, get, writable, type Readable } from 'svelte/store';
 import { body } from './body';
-import { liveOwnSessions, liveProfile, liveSchedule } from './live';
+import { liveFoodLogs, liveOwnSessions, liveProfile, liveSchedule } from './live';
 import { upsertRecord } from './sync';
 import { userId } from './user';
 import { composeBriefing, type Briefing, type DayForecast } from '$lib/briefing';
@@ -13,6 +13,7 @@ import { composeHold, holdAfter, HOLD_UNTIL } from '$lib/hold';
 import { overlaySessions, programWeek } from '$lib/program';
 import { WEEKS } from '$lib/data/backRebuild';
 import { cleanPlans } from '$lib/plans';
+import { usualBreakfast, type QuickFood } from '$lib/quickAdd';
 import { shiftYmd } from '$lib/date';
 import { forecastHere } from '$lib/weather';
 
@@ -34,10 +35,14 @@ export async function refreshForecast(ask = false): Promise<void> {
   if (f && JSON.stringify(f) !== JSON.stringify(get(forecast))) forecast.set(f);
 }
 
-/** The morning briefing written for today and tomorrow. */
-export const briefings: Readable<Briefing[]> = derived(
-  [body, liveSchedule(), liveOwnSessions(), liveProfile(), forecast],
-  ([$body, $schedule, $sessions, $profile, $forecast]) => {
+/** What the morning briefing's buttons do: weigh in, rate the back while a
+ *  program runs, log the usual breakfast when there is one. */
+export interface MomentActions { weigh: boolean; back: boolean; meal: { label: string; kcal: number; items: QuickFood[] } | null }
+
+/** The morning briefing written for today and tomorrow, with its buttons. */
+export const briefings: Readable<Array<Briefing & { actions: MomentActions }>> = derived(
+  [body, liveSchedule(), liveOwnSessions(), liveProfile(), forecast, liveFoodLogs()],
+  ([$body, $schedule, $sessions, $profile, $forecast, $food]) => {
     const sched = ($schedule as any[]) ?? [];
     const program = ($profile as any)?.program;
     const plans = cleanPlans(($profile as any)?.plans);
@@ -46,11 +51,17 @@ export const briefings: Readable<Briefing[]> = derived(
       // That day's session, program and all: what Today will show then.
       const session = day?.session_key ? overlaySessions($sessions, sched, program, date).get(day.session_key) ?? null : null;
       const week = programWeek(program, date);
-      return composeBriefing({
-        date, forecast: $forecast?.find((f) => f.date === date) ?? null,
-        day, session, rateBack: week >= 1 && week <= WEEKS, plans,
-        week: i === 0 ? $body.week : $body.tomorrow,
-      });
+      const rateBack = week >= 1 && week <= WEEKS;
+      const usual = usualBreakfast($food as any[], date);
+      return {
+        ...composeBriefing({
+          date, forecast: $forecast?.find((f) => f.date === date) ?? null,
+          day, session, rateBack, plans,
+          week: i === 0 ? $body.week : $body.tomorrow,
+          usual: usual ? { names: usual.items.map((x) => x.name), kcal: usual.kcal } : null,
+        }),
+        actions: { weigh: true, back: rateBack, meal: usual ? { label: 'Usual breakfast', kcal: usual.kcal, items: usual.items } : null },
+      };
     });
   },
 );
@@ -76,7 +87,7 @@ export const holds: Readable<Briefing[]> = derived(
   },
 );
 
-export interface Moment { date: string; key: 'morning' | 'evening'; after: number; until: number; title: string; body: string }
+export interface Moment { date: string; key: 'morning' | 'evening'; after: number; until: number; title: string; body: string; actions?: MomentActions }
 
 /** Everything Android should hold, with each one's window. */
 export const moments: Readable<Moment[]> = derived([momentSetting, briefings, holds], ([$s, $b, $h]) => {

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { userId } from '$lib/stores/user';
-  import { upsertRecord, upsertRecords, syncStatus } from '$lib/stores/sync';
+  import { upsertRecord, syncStatus } from '$lib/stores/sync';
   import { liveFoodLogs, liveGoalReason, liveCustomRecipes } from '$lib/stores/live';
   import { goalSummary, goalDirection } from '$lib/coach';
   import { body } from '$lib/stores/body';
@@ -10,6 +10,7 @@
   import FoodLogger from '$lib/components/FoodLogger.svelte';
   import NutritionInsights from '$lib/components/NutritionInsights.svelte';
   import { cleanName, sourceOf, type NewFood } from '$lib/food';
+  import { saveFoods } from '$lib/foodLog';
   import { evaluateFood } from '$lib/foodCoach';
   import { speak } from '$lib/stores/toast';
   import { haptic } from '$lib/haptics';
@@ -138,21 +139,14 @@
   const SOURCE_TAG: Record<string, string> = { ai: 'AI', offline: 'estimate', label: 'label' };
   const sourceLabel = (f: any) => SOURCE_TAG[sourceOf(f) ?? ''] ?? '';
 
-  /** The ONE write path for food: FoodLogger (search, scan, photo, AI, quick
-   *  add) and re-logging all land here. One request for the whole meal: all of
-   *  it is saved or none, so a failure shows in the logger with the meal still
-   *  in the review card, and tapping Log again can't double the items that had
-   *  already gone through. */
+  /** Food logged on this page: FoodLogger (search, scan, photo, AI, quick
+   *  add) and re-logging all land here and save through saveFoods, one
+   *  request for the whole meal. A failure shows in the logger with the meal
+   *  still in the review card, and tapping Log again can't double the items
+   *  that had already gone through. */
   async function logFoods(foods: NewFood[], _what: string) {
-    if (!uid) throw new Error('Not signed in — sign back in.');
     const before = { kcal: todayTotals.kcal, protein: todayTotals.protein };
-    const at = new Date().toISOString();
-    await upsertRecords('food_logs', foods.map((f) => ({
-      id: crypto.randomUUID(), user_id: uid, date: todayStr, name: f.name,
-      kcal: f.kcal, protein_g: f.protein_g, carbs_g: f.carbs_g, fat_g: f.fat_g,
-      grams: f.grams ?? null, barcode: f.barcode ?? null, source: f.source,
-      created_at: at,
-    })));
+    await saveFoods(uid, todayStr, foods);
     announceFood(before, {
       kcal: foods.reduce((s, f) => s + f.kcal, 0),
       protein: foods.reduce((s, f) => s + f.protein_g, 0),
@@ -337,12 +331,7 @@
     loggingRecipe = true;
     try {
       const before = { kcal: todayTotals.kcal, protein: todayTotals.protein };
-      await upsertRecord('food_logs', {
-        id: crypto.randomUUID(), user_id: uid, date: todayStr,
-        name: `${r.name} (1 portion)`,
-        kcal: r.k, protein_g: r.p, carbs_g: r.c, fat_g: r.f,
-        created_at: new Date().toISOString()
-      });
+      await saveFoods(uid, todayStr, [{ name: `${r.name} (1 portion)`, kcal: r.k, protein_g: r.p, carbs_g: r.c, fat_g: r.f, source: 'recipe' }]);
       announceFood(before, { kcal: r.k, protein: r.p });
       selected = null;
     } catch (e: any) {
