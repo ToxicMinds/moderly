@@ -7,7 +7,8 @@
   import ExerciseMedia from '$lib/components/ExerciseMedia.svelte';
   import { userId } from '$lib/stores/user';
   import { upsertRecord, upsertRecords, syncStatus } from '$lib/stores/sync';
-  import { liveSchedule, liveWorkoutSessions, liveWorkoutLogs, liveSessionCompletions, liveGoalReason, liveActivitySessions } from '$lib/stores/live';
+  import { liveSchedule, liveWorkoutSessions, liveWorkoutLogs, liveSessionCompletions, liveGoalReason, liveActivitySessions, liveProfile } from '$lib/stores/live';
+  import { programActive, programEnd } from '$lib/program';
   import type { WorkoutSet } from '$lib/db/dexie';
   import db from '$lib/db/dexie';
   import MiniChart from '$lib/components/MiniChart.svelte';
@@ -22,7 +23,7 @@
   import type { RecoveryStatus } from '$lib/readiness';
   import { sessionMuscleLoad, activityLoadAU, isSameSessionAsLogged } from '$lib/health/exercise';
   import { todayYmd, mondayOf } from '$lib/date';
-  import { nowTick } from '$lib/stores/refresh';
+  import { nowTick, todayDate } from '$lib/stores/refresh';
   import { syncAutoAlarms } from '$lib/autoAlarms';
   import { logManualActivity, QUICK_ACTIVITIES } from '$lib/health/logActivity';
   import { EXERCISE_TYPES } from '$lib/health/exercise';
@@ -31,6 +32,16 @@
   const DAY_NAMES = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 
   let sessionKey = $state<string | null>(null);
+
+  // While a rehab program runs, the analytics that measure you against your old
+  // heavy training (volume, load balance, muscle recovery, PRs, "neglected")
+  // are parked: light loads are the plan, and "volume down 40%" would read as
+  // failing at exactly what you're meant to be doing. One tap still shows them.
+  const _gymProfile = liveProfile();
+  const gymProgram = $derived(($_gymProfile as any)?.program ?? null);
+  const inProgram = $derived(programActive(gymProgram, $todayDate));
+  let showParked = $state(false);
+  const analytics = $derived(!inProgram || showParked);
   let builderMode = $state(false);
   let selectedGroup = $state<string | null>(null);
   // UPCOMING = what to do next. HISTORY = what actually happened.
@@ -1067,7 +1078,7 @@
     </div>
   {/if}
 
-  {#if trainingLoad.zone !== 'no-data'}
+  {#if analytics && trainingLoad.zone !== 'no-data'}
     <div class="card">
       <div class="flex jb ac">
         <div class="card-lbl" style="margin-bottom:0">Training Load Balance</div>
@@ -1100,7 +1111,7 @@
     </div>
   {/if}
 
-  {#if historyInsights}
+  {#if analytics && historyInsights}
     <div class="card">
       <div class="flex jb ac">
         <div class="card-lbl" style="margin-bottom:0">Insights from your history</div>
@@ -1369,6 +1380,7 @@
   <div class="note-box warn">🏋️ Set a goal in <strong>Progress → Body &amp; Goals</strong>.</div>
 {/if}
 
+{#if analytics}
 <div class="flip-viewport" style="height:{recoveryFlipped ? recBackH : recFrontH}px">
   <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
   <div class="flip-inner" class:flipped={recoveryFlipped}>
@@ -1430,9 +1442,26 @@
   </div>
 </div>
 
-<WorkoutInsights />
+{/if}
+
+{#if analytics}
+  <WorkoutInsights />
+{:else}
+  <button type="button" class="card parked" onclick={() => (showParked = true)}>
+    <span class="card-lbl">Analytics are parked</span>
+    <span class="parked-msg">
+      Volume, load balance and muscle recovery measure you against your old heavy training. In Back Rebuild light
+      loads are the plan, so they wait until it ends{gymProgram ? ` on ${new Date(programEnd(gymProgram) + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}` : ''}.
+    </span>
+    <span class="parked-go">Show them anyway</span>
+  </button>
+{/if}
 
 <style>
+  .parked{display:block;width:100%;text-align:left;font:inherit;color:inherit;cursor:pointer}
+  .parked .card-lbl{display:block}
+  .parked-msg{display:block;font-size:0.8125rem;line-height:1.5;color:var(--muted)}
+  .parked-go{display:block;margin-top:8px;font-size:0.8125rem;font-weight:700;color:var(--text);text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--border2)}
   .mlog{margin-top:12px}
   .mlog-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(78px,1fr));gap:6px;margin-bottom:12px}
   .mlog-act{display:flex;flex-direction:column;align-items:center;gap:3px;background:var(--bg3);border:1px solid var(--border);border-radius:11px;padding:9px 4px;cursor:pointer;font-family:inherit;transition:border-color .15s var(--ease)}

@@ -95,6 +95,8 @@ export interface CoachInput {
   /** Muscle-retention read from the lift log: is strength holding while the
    *  fat comes off? Paired with weight loss below to tell the real story. */
   strengthTrend?: import('./strength').StrengthTrend | null;
+  /** A rehab program (Back Rebuild) sets the loads: no strength verdicts. */
+  inProgram?: boolean;
 
 
   /** Today's watch-recorded workout (badminton, run, strength) if any — lets
@@ -500,7 +502,9 @@ export function buildDailyFocus(i: CoachInput): FocusItem[] {
   // lift-log strength trend with weight loss to answer "am I keeping muscle?" —
   {
     const st = i.strengthTrend;
-    if (st && st.direction !== 'insufficient') {
+    // During a rehab program light loads are the plan: "strength slipping,
+    // keep the load heavy" would be exactly the wrong advice for a hurt back.
+    if (st && st.direction !== 'insufficient' && !i.inProgram) {
       const wks = Math.max(2, Math.round(st.windowDays / 7));
       const losing = i.rateKgPerWeek > 0 || (i.totalLostKg != null && i.totalLostKg > 0);
       const mover = st.topMover ? ` (${st.topMover.name} most)` : '';

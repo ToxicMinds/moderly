@@ -25,6 +25,7 @@
   import WeekCheckIn from '$lib/components/WeekCheckIn.svelte';
   import BackRebuild from '$lib/components/BackRebuild.svelte';
   import { shiftYmd } from '$lib/date';
+  import { programActive } from '$lib/program';
   import { nowTick, todayDate } from '$lib/stores/refresh';
 
   const dayIdx = $derived(new Date($nowTick).getDay());
@@ -263,6 +264,7 @@
       activityLabel: dayInfo.label,
       workoutDoneToday: todaySessionDone,
       strengthTrend: strengthRead,
+      inProgram: programActive(($_profile as any)?.program, today),
       watchActivityToday: watchToday,
       hour: nowHour,
     })

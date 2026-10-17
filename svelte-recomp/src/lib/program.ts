@@ -23,6 +23,21 @@ export function programWeek(p: ProgramState, today: string): number {
   return Math.min(WEEKS + 1, Math.floor(days / 7) + 1);
 }
 
+/**
+ * The program is in charge: from the week before it starts (when its first
+ * sessions are already shown; see overlaySessions) until it ends. While it is,
+ * loads are set by the morning back rating, so nothing should judge them
+ * against the old heavy training: no "strength slipping", no "volume down".
+ */
+export function programActive(p: ProgramState, today: string): boolean {
+  if (!p?.start) return false;
+  const week = programWeek(p, today);
+  return (week >= 1 && week <= WEEKS) || (week === 0 && dayNum(p.start) - dayNum(today) <= 7);
+}
+
+/** The last day of the program, YYYY-MM-DD. */
+export const programEnd = (p: NonNullable<ProgramState>) => shiftStart(p.start, WEEKS * 7 - 1);
+
 export function phaseFor(week: number): ProgramPhase | null {
   return PHASES.find((ph) => week >= ph.weeks[0] && week <= ph.weeks[1]) ?? null;
 }

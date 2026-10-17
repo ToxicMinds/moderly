@@ -3647,6 +3647,28 @@ check('Today stays calm: one card for the day, no cards that said a little each'
   assert.match(today, /class="card td"/, 'the day in one card');
 });
 
+check('during Back Rebuild nothing judges the light loads', async () => {
+  const { programActive, programEnd } = await import('../src/lib/program.ts');
+  const p = { id: 'back-rebuild', start: '2026-10-19' };
+  assert.equal(programActive(p, '2026-10-11'), false, 'over a week out: business as usual');
+  assert.equal(programActive(p, '2026-10-17'), true, 'the week before: its sessions are already shown');
+  assert.equal(programActive(p, '2026-11-29'), true, 'the last day');
+  assert.equal(programActive(p, '2026-11-30'), false, 'over: the analytics come back');
+  assert.equal(programEnd(p), '2026-11-29');
+  assert.equal(programActive(null, '2026-10-20'), false);
+  const { buildDailyFocus } = await import('../src/lib/coach.ts');
+  const base = {
+    goalKg: 92, currentWeight: 110, rateKgPerWeek: 0.4, pace: 'on-pace', planKgPerWeek: 0.5, weeksToGoal: 40, weighInsNeeded: null,
+    stall: null, totalLostKg: 3, calorieTarget: 2000, todayKcal: 1200, weekKcalSoFar: 6000, daysElapsedThisWeek: 3, proteinTarget: 160,
+    todayProtein: 120, sleepHours: 7.5, sleepQuality: null, stepsToday: 9000, stepsWeekAvg: 9000, waterToday: 2, waterTarget: 3,
+    dayKind: 'gym', activityLabel: 'Rebuild A', workoutDoneToday: true, watchActivityToday: null, hour: 12,
+    strengthTrend: { direction: 'down', avgPct: -30, liftsUp: 0, liftsDown: 3, comparableLifts: 3, topMover: null, windowDays: 21 },
+  };
+  assert.ok(buildDailyFocus(base).some((f) => f.id === 'strength-down'), 'outside a program the slide is worth saying');
+  assert.ok(!buildDailyFocus({ ...base, inProgram: true }).some((f) => f.id.startsWith('strength-')),
+    'in rehab, "keep the load heavy" is the wrong advice for a hurt back');
+});
+
 // Nothing may be reported until the async checks have actually settled.
 await Promise.all(pending);
 
