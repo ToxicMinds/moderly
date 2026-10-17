@@ -254,7 +254,6 @@
   let recipeAsk = $state('');
   let generating = $state(false);
   let genMsg = $state('');
-  let showGenerator = $state(false);
 
   const IDEAS = [
     'high-protein, 20 minutes, one pan',
@@ -422,10 +421,10 @@
   });
 </script>
 
-<PageHero title="Fuel" sub="Protein-first fuel"
+<PageHero title="Food" sub="Today so far"
   tone={fuelTone} pct={fuelPct}
-  orbValue={`${Math.round(todayTotals.protein)}g`}
-  orbLabel={proteinTargetG ? `of ${proteinTargetG}g protein` : 'protein today'}
+  value={`${Math.round(todayTotals.protein)}g`}
+  caption={proteinTargetG ? `of ${proteinTargetG}g protein` : 'protein today'}
   story={fuelStory}
   stats={[
     { v: Math.round(todayTotals.kcal), l: todayCalTarget ? `of ${todayCalTarget} kcal` : 'kcal today' },
@@ -493,7 +492,7 @@
 {#if kcalTrend.length >= 2}
   <div class="card">
     <div class="flex jb ac">
-      <div class="card-lbl" style="margin-bottom:0">📈 Intake Trend</div>
+      <div class="card-lbl" style="margin-bottom:0">Intake Trend</div>
       <div class="flex gap2">
         <button class="tab {trendMetric === 'kcal' ? 'on' : ''}" style="padding:3px 10px;font-size:0.6875rem" onclick={() => trendMetric = 'kcal'}>kcal</button>
         <button class="tab {trendMetric === 'protein' ? 'on' : ''}" style="padding:3px 10px;font-size:0.6875rem" onclick={() => trendMetric = 'protein'}>protein</button>
@@ -513,7 +512,7 @@
 {#if historyByDay.length > 0}
   <div class="card">
     <div class="flex jb ac" style="cursor:pointer" onclick={() => showHistory = !showHistory} role="button" tabindex="0" onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); showHistory = !showHistory; } }}>
-      <div class="card-lbl" style="margin-bottom:0">🗓️ Food History ({historyByDay.length} days)</div>
+      <div class="card-lbl" style="margin-bottom:0">Food History ({historyByDay.length} days)</div>
       <span style="color:var(--muted);font-size:0.8125rem">{showHistory ? '▲' : '▼'}</span>
     </div>
     {#if showHistory}
@@ -521,7 +520,7 @@
         {#each historyByDay as day}
           <div class="hist-day">
             <div class="flex jb ac">
-              <div style="font-size:0.8125rem;font-weight:700;color:#fff">{new Date(day.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</div>
+              <div style="font-size:0.8125rem;font-weight:700;color:var(--text)">{new Date(day.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</div>
               <div style="font-size:0.6875rem;color:var(--amber);font-weight:600">{Math.round(day.totals.kcal)} kcal &middot; P{Math.round(day.totals.protein)}</div>
             </div>
             {#each day.foods as f}
@@ -546,7 +545,7 @@
 <div class="page-sub">Ask for anything &middot; written around today's remaining macros</div>
 
 <div class="card gen-card">
-  <div class="card-lbl">🧑‍🍳 Cook something new</div>
+  <div class="card-lbl">Cook something new</div>
   <div class="gen-sub">
     Describe what you feel like — ingredients, cuisine, time, equipment, who's eating.
     It's written around the
@@ -572,7 +571,7 @@
     <div class="rcard" onclick={() => selected = r} role="button" tabindex="0" onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selected = r; } }}>
       <div class="flex jb ac">
         <div style="min-width:0">
-          <div style="font-weight:700;color:#fff;font-size:0.9375rem">{r.e} {r.name}</div>
+          <div style="font-weight:700;color:var(--text);font-size:0.9375rem">{r.e} {r.name}</div>
           <div style="font-size:0.6875rem;color:var(--muted);margin-top:2px">{r.desc}</div>
         </div>
         <div style="text-align:right;font-size:0.75rem;flex-shrink:0">
@@ -590,30 +589,20 @@
   {/each}
 {:else}
   <!-- The 19 built-ins used to carry a new user through this space. With them
-       gone the area under the generator is blank, so the empty state has to do
-       their whole job: say what happens, and start it in one tap. -->
+       gone the area under the generator is blank, so the empty state says what
+       happens; the idea chips one card up start it in one tap. -->
   <div class="rcard rcard-empty">
-    <div style="font-weight:700;color:#fff;font-size:0.9375rem">No recipes yet</div>
+    <div style="font-weight:700;color:var(--text);font-size:0.9375rem">No recipes yet</div>
     <div style="font-size:0.75rem;color:var(--muted);margin-top:4px">
-      Describe a meal above and it gets written around your remaining macros for
-      today — then saved here for one-tap logging. Or start from one of these:
-    </div>
-    <div class="flex gap2" style="flex-wrap:wrap;margin-top:10px">
-      {#each IDEAS as idea}
-        <button
-          type="button"
-          class="gen-chip"
-          disabled={generating}
-          onclick={() => { recipeAsk = idea; showGenerator = true; generateRecipe(); }}
-        >{idea}</button>
-      {/each}
+      Describe a meal above, or tap one of the ideas, and it gets written around
+      your remaining macros for today — then saved here for one-tap logging.
     </div>
   </div>
 {/if}
 
 <Modal open={selected !== null} onclose={() => selected = null}>
   {#if selected}
-    <div style="font-size:1.25rem;font-weight:700;color:#fff;margin-bottom:4px">{selected.e} {selected.name}</div>
+    <div style="font-size:1.25rem;font-weight:700;color:var(--text);margin-bottom:4px">{selected.e} {selected.name}</div>
     <div style="font-size:0.75rem;color:var(--muted);margin-bottom:8px">
       {selected.k} kcal &middot; {selected.p}g protein &middot; {selected.c}g carbs &middot; {selected.f}g fat &middot; {selected.t} min
       {#if selected.batch}&middot; makes {selected.batch}{/if}
@@ -663,7 +652,7 @@
 
 <style>
   .live-target{font-size:0.75rem;color:var(--amber2);line-height:1.5;background:var(--glass-2);border:1px solid var(--glass-brd);border-radius:11px;padding:9px 11px;margin-bottom:12px}
-  .live-target b{color:#fff}
+  .live-target b{color:var(--text)}
   .fi-src{margin-left:6px;font-size:0.6875rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);border:1px solid var(--border);border-radius:4px;padding:0 4px;vertical-align:1px}
   .gen-card{border:1px solid color-mix(in srgb, var(--amber) 45%, transparent)}
   .gen-sub{font-size:0.6875rem;color:var(--muted);line-height:1.45;margin-bottom:8px}
@@ -684,6 +673,6 @@
   .coach-bad{--coach:#ff6b6b}
   .coach-hd{display:flex;align-items:center;gap:8px;margin-bottom:6px}
   .coach-dot{width:8px;height:8px;border-radius:50%;background:var(--coach);flex-shrink:0;box-shadow:0 0 10px var(--coach)}
-  .coach-title{font-size:0.8125rem;font-weight:800;color:#fff}
+  .coach-title{font-size:0.8125rem;font-weight:800;color:var(--text)}
   .coach-body{font-size:0.75rem;color:var(--text);line-height:1.5}
 </style>

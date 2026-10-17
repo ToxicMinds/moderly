@@ -193,10 +193,10 @@
   );
 </script>
 
-<PageHero title="Journey" sub="Is the weight coming off fat, or muscle?"
+<PageHero title="Progress" sub="Is the weight coming off fat, or muscle?"
   tone={journeyTone} pct={journeyPct}
-  orbValue={currentWeight != null ? currentWeight.toFixed(1) : '—'}
-  orbLabel={goalKg != null ? `kg → ${goalKg} goal` : 'kg'}
+  value={currentWeight != null ? currentWeight.toFixed(1) : '—'}
+  caption={goalKg != null ? `kg → ${goalKg} goal` : 'kg'}
   story={verdict.headline}
   stats={[
     { v: changeToDate != null ? `${changeToDate >= 0 ? '−' : '+'}${Math.abs(changeToDate).toFixed(1)}` : '—', l: 'kg to date' },
@@ -335,7 +335,7 @@
 <!-- Secondary detail, folded so the page stays trimmed to the essentials. -->
 <div class="card" style="margin-top:14px;cursor:pointer" onclick={() => showMore = !showMore} role="button" tabindex="0" onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); showMore = !showMore; } }}>
   <div class="flex jb ac">
-    <div class="card-lbl" style="margin-bottom:0">🔎 More detail</div>
+    <div class="card-lbl" style="margin-bottom:0">More detail</div>
     <span style="color:var(--muted);font-size:0.8125rem">{showMore ? 'Hide ▲' : 'Weekly review, the evidence, charts ▼'}</span>
   </div>
 </div>
@@ -366,7 +366,7 @@
 
   {#if proteinSplit}
     <div class="card">
-      <div class="card-lbl">🍗 Protein drops on the days you train</div>
+      <div class="card-lbl">Protein drops on the days you train</div>
       <div class="trust-body">
         Across your <b>{proteinSplit.liftDays}</b> logged gym days you averaged
         <b>{proteinSplit.liftAvgG} g</b> of protein — <b>{proteinSplit.gapG} g less</b>
@@ -378,7 +378,7 @@
 
   {#if watchCheck && watchCheck.handLoggedDays > 0}
     <div class="card">
-      <div class="card-lbl">⌚ Does your watch agree?</div>
+      <div class="card-lbl">Does your watch agree?</div>
       <div class="trust-body">
         The verdict above rests on <b>{watchCheck.handLoggedDays}</b> lifting
         {watchCheck.handLoggedDays === 1 ? 'day' : 'days'} you logged in the last 28.
@@ -395,7 +395,7 @@
 
 <div class="card" id="body-goals" style="margin-top:14px;scroll-margin-top:12px">
   <div class="flex jb ac" style="cursor:pointer" onclick={() => showBodyGoals = !showBodyGoals} role="button" tabindex="0" onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); showBodyGoals = !showBodyGoals; } }}>
-    <div class="card-lbl" style="margin-bottom:0">📊 Body &amp; Goals</div>
+    <div class="card-lbl" style="margin-bottom:0">Body &amp; Goals</div>
     <span style="color:var(--muted);font-size:0.8125rem">{showBodyGoals ? 'Hide ▲' : 'Log weight, goals, projections ▼'}</span>
   </div>
 </div>
@@ -408,7 +408,7 @@
      much weight to put on everything below it. */
   .trust-card{border-left:3px solid var(--muted)}
   .trust-card.trust-solid{border-left-color:var(--green,#2ecc71)}
-  .trust-head{font-size:1rem;font-weight:800;color:#fff;line-height:1.35;margin:2px 0 7px}
+  .trust-head{font-size:1rem;font-weight:800;color:var(--text);line-height:1.35;margin:2px 0 7px}
   .trust-body{font-size:0.8125rem;color:var(--text);line-height:1.55}
   .trust-foot{font-size:0.7188rem;color:var(--muted);line-height:1.5;margin-top:10px;padding-top:9px;border-top:1px solid var(--border)}
   .card-sub{font-size:0.7188rem;color:var(--muted);line-height:1.45;margin:-4px 0 10px}
@@ -423,7 +423,7 @@
   .verdict-warn .verdict-tone-bar{background:var(--amber)}
   .verdict-bad .verdict-tone-bar{background:var(--red)}
   .verdict-neutral .verdict-tone-bar{background:var(--border2)}
-  .verdict-head{font-size:1.1875rem;font-weight:800;color:#fff;line-height:1.25;margin-bottom:8px;padding-left:10px}
+  .verdict-head{font-size:1.1875rem;font-weight:800;color:var(--text);line-height:1.25;margin-bottom:8px;padding-left:10px}
   .verdict-detail{font-size:0.8125rem;color:var(--text);line-height:1.55;padding-left:10px}
   .verdict-conf{font-size:0.6875rem;color:var(--muted);margin-top:10px;padding-left:10px;text-transform:lowercase}
 

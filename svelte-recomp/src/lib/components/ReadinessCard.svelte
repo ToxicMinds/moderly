@@ -245,13 +245,13 @@
 <style>
   .edit-link{font-size:0.75rem;font-weight:700;color:var(--amber);cursor:pointer}
   .ready-row{display:flex;align-items:center;gap:14px}
-  .ready-ring{width:64px;height:64px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:1.25rem;font-weight:800;color:#fff;background:conic-gradient(var(--ring-color,#888) calc(var(--pct) * 1%), var(--bg3) 0)}
+  .ready-ring{width:64px;height:64px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:1.25rem;font-weight:800;color:var(--text);background:conic-gradient(var(--ring-color,#888) calc(var(--pct) * 1%), var(--bg3) 0)}
   .ready-ring span{background:var(--bg2);width:50px;height:50px;border-radius:50%;display:flex;align-items:center;justify-content:center}
   .ready-ring.great{--ring-color:#2ecc71}
   .ready-ring.good{--ring-color:#60a5fa}
   .ready-ring.fair{--ring-color:#ffd166}
   .ready-ring.low{--ring-color:#ff6b6b}
-  .ready-label{font-size:0.9375rem;font-weight:800;color:#fff;margin-bottom:2px}
+  .ready-label{font-size:0.9375rem;font-weight:800;color:var(--text);margin-bottom:2px}
   .ready-factor{font-size:0.6875rem;color:var(--muted)}
   .sleep-fresh{font-size:0.6875rem;color:#ffd166;background:rgba(255,209,102,.08);border:1px solid rgba(255,209,102,.2);border-radius:8px;padding:6px 9px;margin-top:8px;line-height:1.4}
   .sleep-fresh.missing{color:var(--muted);background:var(--bg3);border-color:var(--border)}

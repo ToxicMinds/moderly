@@ -60,7 +60,7 @@
 
 {#if volume.totalSets > 0}
   <div class="card">
-    <div class="card-lbl">💪 Weekly muscle volume</div>
+    <div class="card-lbl">Weekly muscle volume</div>
     {#if volume.headline}<div class="ins-head">{volume.headline}</div>{/if}
     <div class="mv-grid">
       {#each volume.perMuscle as m}
@@ -81,7 +81,7 @@
 
 {#if stalls.lifts.length > 0}
   <div class="card">
-    <div class="card-lbl">🏋️ Lift progress &amp; stalls</div>
+    <div class="card-lbl">Lift progress &amp; stalls</div>
     {#if stalls.headline}<div class="ins-head">{stalls.headline}</div>{/if}
     {#each stalls.lifts.slice(0, 6) as l}
       <div class="lift-row" class:stalled={l.stalled} class:good={l.progressing}>
@@ -97,7 +97,7 @@
 
 {#if heat.daysTrained > 0}
   <div class="card">
-    <div class="card-lbl">🔥 Training consistency</div>
+    <div class="card-lbl">Training consistency</div>
     <div class="ins-head">{heat.daysTrained} training days in the last {heat.windowWeeks} weeks · {heat.activeWeeks} active weeks.</div>
     <div class="heat-scroll">
       <div class="heat-grid">
@@ -116,7 +116,7 @@
 
 {#if sleepPerf.headline}
   <div class="card">
-    <div class="card-lbl">😴 Sleep → performance</div>
+    <div class="card-lbl">Sleep → performance</div>
     <div class="ins-head">{sleepPerf.headline}</div>
     {#if sleepPerf.avgTonnageGoodSleep != null && sleepPerf.avgTonnagePoorSleep != null}
       <div class="sp-split">
@@ -129,7 +129,7 @@
 {/if}
 
 <style>
-  .ins-head{font-size:0.8125rem;color:#fff;font-weight:600;line-height:1.45;margin-bottom:10px}
+  .ins-head{font-size:0.8125rem;color:var(--text);font-weight:600;line-height:1.45;margin-bottom:10px}
   .ins-foot{font-size:0.6875rem;color:var(--muted);line-height:1.4;margin-top:10px}
   .mv-grid{display:flex;flex-direction:column;gap:7px}
   .mv-row{display:grid;grid-template-columns:64px 1fr 26px;align-items:center;gap:8px}
@@ -142,13 +142,13 @@
   .mv-key .sw{width:12px;height:8px;border-radius:2px;display:inline-block}
   .mv-key .sw.lift{background:var(--green,#2ecc71)}
   .mv-key .sw.sport{background:repeating-linear-gradient(45deg,var(--blue,#4a9eff),var(--blue,#4a9eff) 3px,transparent 3px,transparent 6px)}
-  .mv-sets{font-size:0.75rem;font-weight:800;color:#fff;text-align:right}
+  .mv-sets{font-size:0.75rem;font-weight:800;color:var(--text);text-align:right}
   .mv-sets.low{color:var(--amber)}
   .mv-sets.high{color:var(--red)}
   .lift-row{padding:8px 0;border-top:1px solid var(--border)}
   .lift-row:first-of-type{border-top:none}
   .lift-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
-  .lift-name{font-size:0.8125rem;font-weight:700;color:#fff}
+  .lift-name{font-size:0.8125rem;font-weight:700;color:var(--text)}
   .lift-tag{font-size:0.6875rem;font-weight:700;color:var(--muted)}
   .lift-row.stalled .lift-tag{color:var(--red)}
   .lift-row.good .lift-tag{color:var(--green,#2ecc71)}
@@ -161,7 +161,7 @@
   .heat-legend .heat-cell{width:10px;height:10px}
   .sp-split{display:flex;gap:10px;margin-top:6px}
   .sp-box{flex:1;background:var(--glass-2);border:1px solid var(--glass-brd);border-radius:11px;padding:10px;text-align:center}
-  .sp-v{font-size:1.125rem;font-weight:800;color:#fff}
+  .sp-v{font-size:1.125rem;font-weight:800;color:var(--text)}
   .sp-v.good{color:var(--green,#2ecc71)}
   .sp-l{font-size:0.6875rem;color:var(--muted);margin-top:2px}
 </style>

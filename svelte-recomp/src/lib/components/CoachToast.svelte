@@ -112,30 +112,29 @@
 
 <style>
   .toast-wrap{position:fixed;left:12px;right:12px;bottom:calc(var(--nav-h) + var(--sb) + 12px);z-index:120;display:flex;flex-direction:column;gap:8px;pointer-events:none}
-  .toast{--tc:var(--blue,#60a5fa);position:relative;overflow:hidden;pointer-events:auto;width:100%;text-align:left;font-family:inherit;display:flex;align-items:flex-start;gap:11px;padding:12px 13px;border-radius:14px;cursor:pointer;touch-action:pan-y;
-    background:color-mix(in srgb, var(--tc) 14%, var(--bg2));
-    border:1px solid color-mix(in srgb, var(--tc) 45%, transparent);
-    box-shadow:0 10px 30px rgba(0,0,0,.38), 0 0 0 1px rgba(255,255,255,.02) inset;
-    backdrop-filter:blur(16px) saturate(150%);-webkit-backdrop-filter:blur(16px) saturate(150%);
+  .toast{--tc:var(--led-ok);position:relative;overflow:hidden;pointer-events:auto;width:100%;text-align:left;font-family:inherit;display:flex;align-items:flex-start;gap:11px;padding:12px 13px;border-radius:var(--r-md);cursor:pointer;touch-action:pan-y;
+    background:color-mix(in srgb, var(--tc) 8%, var(--bg2));
+    border:1px solid var(--border2);border-left:3px solid var(--tc);
+    box-shadow:0 10px 30px rgba(0,0,0,.45);
     animation:toast-in .32s cubic-bezier(.2,.9,.25,1);
     transition:transform .18s var(--ease), opacity .18s var(--ease)}
   /* While a finger is down, follow it 1:1 with no transition; on release the
      inline transform animates back (snap) or out (fling) via the ease above. */
   .toast.swiping{transition:none}
   .toast:active{filter:brightness(1.04)}
-  .toast-good{--tc:var(--green,#2ecc71)}
-  .toast-ok{--tc:var(--blue,#60a5fa)}
-  .toast-warn{--tc:var(--amber,#f5a623)}
-  .toast-bad{--tc:#ff6b6b}
-  .toast-icon{font-size:1.25rem;line-height:1.2;flex-shrink:0;filter:drop-shadow(0 0 8px color-mix(in srgb,var(--tc) 60%,transparent))}
+  .toast-good{--tc:var(--led-good)}
+  .toast-ok{--tc:var(--led-ok)}
+  .toast-warn{--tc:var(--led-warn)}
+  .toast-bad{--tc:var(--led-bad)}
+  .toast-icon{font-size:1.25rem;line-height:1.2;flex-shrink:0}
   .toast-text{flex:1;min-width:0;display:flex;flex-direction:column}
-  .toast-title{font-size:0.8125rem;font-weight:800;color:#fff;line-height:1.35}
-  .toast-body{font-size:0.72rem;color:var(--text);line-height:1.45;margin-top:2px;opacity:.92}
+  .toast-title{font-size:0.875rem;font-weight:800;color:var(--text);line-height:1.35}
+  .toast-body{font-size:0.8125rem;color:var(--muted);line-height:1.45;margin-top:2px}
   .toast-x{flex-shrink:0;color:var(--muted);font-size:1.2rem;line-height:1;opacity:.7}
   /* The draining timer bar — sits on the bottom edge, tone-coloured, shrinks
      from full width to nothing over exactly the toast's lifetime. */
   .toast-bar{position:absolute;left:0;bottom:0;height:2.5px;width:100%;transform-origin:left;
-    background:linear-gradient(90deg, color-mix(in srgb,var(--tc) 70%,transparent), var(--tc));
+    background:var(--tc);
     animation:toast-drain linear forwards}
   @keyframes toast-in{from{opacity:0;transform:translateY(14px) scale(.96)}to{opacity:1;transform:translateY(0) scale(1)}}
   @keyframes toast-drain{from{transform:scaleX(1)}to{transform:scaleX(0)}}

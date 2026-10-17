@@ -37,7 +37,7 @@
 </Modal>
 
 <style>
-  .rb-btn{position:relative;width:36px;height:36px;flex-shrink:0;border-radius:50%;border:1px solid var(--glass-brd);background:var(--glass-2);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1rem;font-weight:800;transition:all .2s var(--ease)}
+  .rb-btn{position:relative;width:36px;height:36px;flex-shrink:0;border-radius:var(--r-sm);border:1px solid var(--border2);background:var(--bg2);color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1rem;font-weight:800;transition:all .2s var(--ease)}
   .rb-btn:active{transform:scale(.9)}
   .rb-score{font-size:0.8125rem;font-weight:800;font-variant-numeric:tabular-nums}
   .rb-btn.great{color:#34d399;border-color:rgba(52,211,153,.5)}

@@ -34,11 +34,11 @@
 </nav>
 
 <style>
-  #bottom-nav{background:color-mix(in srgb,var(--bg2) 55%,transparent);backdrop-filter:blur(22px) saturate(160%);-webkit-backdrop-filter:blur(22px) saturate(160%);border-top:1px solid var(--glass-brd);display:flex;align-items:flex-start;height:calc(var(--nav-h) + var(--sb));padding:6px 6px var(--sb);flex-shrink:0;z-index:50;box-shadow:0 -8px 30px rgba(0,0,0,.28)}
-  .nb{flex:1;height:calc(var(--nav-h) - 6px);border:none;background:none;color:var(--muted);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:0.6875rem;font-weight:700;letter-spacing:.2px;transition:color .2s var(--ease),transform .2s var(--ease);text-decoration:none;border-radius:12px;position:relative}
+  #bottom-nav{background:var(--bg);border-top:1px solid var(--border);display:flex;align-items:flex-start;height:calc(var(--nav-h) + var(--sb));padding:0 6px var(--sb);flex-shrink:0;z-index:50}
+  .nb{flex:1;height:var(--nav-h);border:none;background:none;color:var(--muted);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-family:var(--font-display);font-size:0.8125rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;transition:color .2s var(--ease),transform .2s var(--ease);text-decoration:none;position:relative}
   .nb:active{transform:scale(.92)}
-  .nb svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;transition:transform .2s var(--ease)}
-  .nb.active{color:var(--amber2)}
-  .nb.active svg{transform:translateY(-1px) scale(1.12);filter:drop-shadow(0 3px 8px color-mix(in srgb,var(--amber) 60%,transparent))}
-  .nb.active::before{content:'';position:absolute;top:2px;width:38px;height:34px;border-radius:12px;background:radial-gradient(closest-side,color-mix(in srgb,var(--amber) 30%,transparent),transparent);z-index:-1}
+  .nb svg{width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .nb.active{color:var(--text)}
+  /* The current tab is a lit segment on the top edge, not a glow. */
+  .nb.active::before{content:'';position:absolute;top:-1px;width:30px;height:3px;border-radius:0 0 2px 2px;background:var(--text)}
 </style>

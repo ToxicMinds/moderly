@@ -30,7 +30,7 @@
 
 {#if pat.daysLogged >= 5}
   <div class="card">
-    <div class="card-lbl">📊 Your eating patterns</div>
+    <div class="card-lbl">Your eating patterns</div>
     <div class="np-stats">
       <div class="np-stat">
         <div class="np-v" class:warn={pat.proteinHitPct != null && pat.proteinHitPct < 50}>{pat.proteinHitPct ?? '—'}%</div>
@@ -61,11 +61,11 @@
 <style>
   .np-stats{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:10px}
   .np-stat{background:var(--glass-2);border:1px solid var(--glass-brd);border-radius:11px;padding:9px 6px;text-align:center}
-  .np-v{font-size:1.0625rem;font-weight:800;color:#fff}
+  .np-v{font-size:1.0625rem;font-weight:800;color:var(--text)}
   .np-v.warn{color:var(--amber)}
   .np-sub{font-size:0.6875rem;font-weight:600;color:var(--muted)}
   .np-l{font-size:0.6875rem;color:var(--muted);margin-top:2px;line-height:1.2}
   .np-insights{display:flex;flex-direction:column;gap:6px}
-  .np-ins{font-size:0.75rem;color:#fff;line-height:1.45}
+  .np-ins{font-size:0.75rem;color:var(--text);line-height:1.45}
   .np-foot{font-size:0.6875rem;color:var(--muted);margin-top:10px}
 </style>

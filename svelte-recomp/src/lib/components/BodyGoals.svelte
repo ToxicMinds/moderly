@@ -459,7 +459,7 @@
       <div class="gi" style="border-color:var(--border);flex-direction:column;align-items:stretch;gap:6px">
         <div class="flex jb ac">
           <div style="flex:1">
-            <div style="font-weight:700;color:#fff;font-size:0.875rem">{g.label} — {g.weight} kg</div>
+            <div style="font-weight:700;color:var(--text);font-size:0.875rem">{g.label} — {g.weight} kg</div>
             <div style="font-size:0.6875rem;color:var(--muted)">{g.desc} ({g.bf}% BF)</div>
           </div>
           <div style="text-align:right">

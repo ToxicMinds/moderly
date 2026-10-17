@@ -756,7 +756,7 @@ const TOPIC_OF: Record<string, FocusTopic> = {
 };
 
 const TOPIC_META: Record<FocusTopic, { label: string; emoji: string }> = {
-  fuel: { label: 'Fuel', emoji: '🍽️' },
+  fuel: { label: 'Food', emoji: '🍽️' },
   train: { label: 'Train', emoji: '🏋️' },
   recover: { label: 'Recover', emoji: '😴' },
 };

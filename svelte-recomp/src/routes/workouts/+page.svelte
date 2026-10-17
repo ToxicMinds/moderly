@@ -195,6 +195,15 @@
 
   const weekDays = $derived(getWeekDates(14, schedule));
 
+  // A day's name as shown. While a program runs its session replaces the gym
+  // day's, so the day is named after it — never after the heavy session the
+  // program is standing in for. The schedule row itself keeps its own label
+  // (the day editor reads and saves that), so nothing here is ever persisted.
+  function dayLabel(day: { label: string; session_key?: string | null }): string {
+    const s = day.session_key ? sessions.get(day.session_key) : undefined;
+    return s?.program ? s.name : day.label;
+  }
+
   function closeModal() { sessionKey = null; }
   const modalOpen = $derived(sessionKey !== null);
 
@@ -841,7 +850,7 @@
   // human name (e.g. "Badminton") lives at the head of the note.
   function sessionDisplayName(w: any): string {
     if (!w) return '';
-    if (w.session_key) return w.label;
+    if (w.session_key) return dayLabel(w);
     const first = (w.note || '').split('—')[0].trim();
     return first || w.label;
   }
@@ -889,9 +898,9 @@
   });
 </script>
 
-<PageHero title="Drive" sub="This week · recovery · history"
+<PageHero title="Train" sub="This week"
   tone={gymTone} pct={gymPct}
-  orbValue={gymSessions7} orbLabel={`of ${weeklyTarget} this week`}
+  value={gymSessions7} caption={`of ${weeklyTarget} this week`}
   story={gymStory}
   stats={[
     { v: gymSessions7, l: 'done' },
@@ -910,7 +919,7 @@
   <div class="card">
     <div class="flex jb ac">
       <div>
-        <div style="font-size:0.8125rem;font-weight:700;color:#fff">Training alarms</div>
+        <div style="font-size:0.8125rem;font-weight:700;color:var(--text)">Training alarms</div>
         <div style="font-size:0.6875rem;color:var(--muted);margin-top:2px">
           {#if alarmSyncMsg}{alarmSyncMsg}{:else}Set prep alarms from your schedule.{/if}
         </div>
@@ -953,7 +962,7 @@
           onclick={() => sessionKey = day.session_key}
           onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); sessionKey = day.session_key; } }}>
           <div class="f1">
-            <div style="font-size:0.8125rem;font-weight:600;color:var(--amber);margin-bottom:2px">{day.label}</div>
+            <div style="font-size:0.8125rem;font-weight:600;color:var(--amber);margin-bottom:2px">{dayLabel(day)}</div>
             <div style="font-size:0.6875rem;color:var(--muted)">{sessions.get(day.session_key)?.duration} &middot; {sessions.get(day.session_key)?.focus}</div>
             {#if day.note}<div style="font-size:0.6875rem;color:var(--muted);margin-top:2px">{day.note}</div>{/if}
           </div>
@@ -1051,7 +1060,7 @@
   {:else}
     <div class="card" style="text-align:center;padding:22px 16px">
       <div style="font-size:1.625rem;margin-bottom:6px">&#128214;</div>
-      <div style="font-weight:700;color:#fff;font-size:0.875rem">Nothing logged yet</div>
+      <div style="font-weight:700;color:var(--text);font-size:0.875rem">Nothing logged yet</div>
       <div style="font-size:0.75rem;color:var(--muted);margin-top:5px">
         Log from <b>Upcoming</b> or wear your watch.
       </div>
@@ -1094,7 +1103,7 @@
   {#if historyInsights}
     <div class="card">
       <div class="flex jb ac">
-        <div class="card-lbl" style="margin-bottom:0">📈 Insights from your history</div>
+        <div class="card-lbl" style="margin-bottom:0">Insights from your history</div>
         <button class="flip-btn" onclick={() => showInsights = !showInsights}>{showInsights ? 'Less ▲' : 'More ▾'}</button>
       </div>
 
@@ -1160,9 +1169,9 @@
       <div class="flex jb ac" style="margin-bottom:4px">
         {#if editingSession}
           <input value={sess.name} onchange={(e) => saveSessionField(sessionKey, 'name', (e.target as HTMLInputElement).value)}
-            style="font-size:1rem;font-weight:700;background:transparent;border:1px solid var(--border2);border-radius:6px;color:#fff;padding:4px 6px;flex:1">
+            style="font-size:1rem;font-weight:700;background:transparent;border:1px solid var(--border2);border-radius:6px;color:var(--text);padding:4px 6px;flex:1">
         {:else}
-          <div style="font-size:1.125rem;font-weight:700;color:#fff">{sess.name}</div>
+          <div style="font-size:1.125rem;font-weight:700;color:var(--text)">{sess.name}</div>
         {/if}
         {#if sess.program}
           <span class="prog-tag">{sess.program.name} · wk {sess.program.week}</span>
@@ -1188,11 +1197,11 @@
             <div class="f1">
               {#if editingSession}
                 <input value={ex.name} onchange={(e) => saveExerciseField(sessionKey, i, 'name', (e.target as HTMLInputElement).value)}
-                  style="font-size:0.875rem;font-weight:700;background:transparent;border:1px solid var(--border2);border-radius:6px;color:#fff;padding:3px 5px;width:100%;margin-bottom:3px">
+                  style="font-size:0.875rem;font-weight:700;background:transparent;border:1px solid var(--border2);border-radius:6px;color:var(--text);padding:3px 5px;width:100%;margin-bottom:3px">
                 <input value={ex.muscle} onchange={(e) => saveExerciseField(sessionKey, i, 'muscle', (e.target as HTMLInputElement).value)}
                   style="font-size:0.6875rem;background:transparent;border:1px solid var(--border2);border-radius:6px;color:var(--muted);padding:3px 5px;width:100%;margin-bottom:6px">
               {:else}
-                <div style="font-size:0.875rem;font-weight:700;color:#fff;margin-bottom:2px">{ex.name}</div>
+                <div style="font-size:0.875rem;font-weight:700;color:var(--text);margin-bottom:2px">{ex.name}</div>
                 <div style="font-size:0.6875rem;color:var(--muted);margin-bottom:6px">{ex.muscle}</div>
               {/if}
               <div class="ex-sets-row">
@@ -1315,7 +1324,7 @@
 <div class="card">
   <div class="flex jb ac">
     <div style="min-width:0">
-      <div style="font-size:0.8125rem;font-weight:700;color:#fff">Played something?</div>
+      <div style="font-size:0.8125rem;font-weight:700;color:var(--text)">Played something?</div>
       <div style="font-size:0.6875rem;color:var(--muted);margin-top:2px">
         {#if logActMsg}{logActMsg}{:else}Watch missed one? Add it here.{/if}
       </div>
@@ -1448,15 +1457,15 @@
   .muscle-btn:active{border-color:var(--amber)}
   .muscle-btn.on{border-color:var(--green);background:var(--gb)}
   .muscle-icon{font-size:2rem}
-  .muscle-name{font-size:0.875rem;font-weight:700;color:#fff}
+  .muscle-name{font-size:0.875rem;font-weight:700;color:var(--text)}
   .muscle-count{font-size:0.6875rem;color:var(--muted)}
 
   .day-edit{display:flex;flex-direction:column;gap:2px;margin-top:4px}
-  .day-edit input,.day-edit select{background:var(--bg3);border:1px solid var(--border2);border-radius:8px;color:#fff;padding:6px 8px;font-size:1rem;margin-bottom:6px}
+  .day-edit input,.day-edit select{background:var(--bg3);border:1px solid var(--border2);border-radius:8px;color:var(--text);padding:6px 8px;font-size:1rem;margin-bottom:6px}
 
   .phase-hd{font-size:0.6875rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--amber);margin:14px 0 6px 2px}
 
-  .value-input{width:100%;text-align:center;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:#fff;font-size:1rem;font-weight:700;padding:3px}
+  .value-input{width:100%;text-align:center;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:1rem;font-weight:700;padding:3px}
   .tip-input{width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:1rem;padding:6px 8px;margin-top:8px;resize:vertical}
 
   .vol-badge{font-size:0.75rem;color:var(--green,#2ecc71);background:var(--gb,rgba(46,204,113,.1));border-radius:8px;padding:6px 10px;margin-bottom:10px}
@@ -1470,7 +1479,7 @@
   .log-form{margin-top:8px;padding:8px;background:var(--bg3);border-radius:8px}
   .log-set-row{display:flex;align-items:center;gap:6px;margin-bottom:6px}
   .log-set-row .set-idx{font-size:0.6875rem;color:var(--muted);width:44px;flex-shrink:0}
-  .log-set-row input{width:100%;background:var(--bg2);border:1px solid var(--border2);border-radius:6px;color:#fff;font-size:1rem;padding:4px 6px;text-align:center}
+  .log-set-row input{width:100%;background:var(--bg2);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:1rem;padding:4px 6px;text-align:center}
   .log-set-row .x{color:var(--muted);font-size:0.6875rem}
   .log-set-row .rm-set{color:var(--muted);cursor:pointer;font-size:0.75rem;padding:0 2px}
   .log-msg{font-size:0.6875rem;color:var(--green,#2ecc71);margin-top:6px}
@@ -1497,7 +1506,7 @@
   .muscle-cell.recovering{background:rgba(255,209,102,.12);border-color:rgba(255,209,102,.3)}
   .muscle-cell.fatigued{background:rgba(255,107,107,.12);border-color:rgba(255,107,107,.3)}
   .muscle-cell.none{opacity:.5}
-  .mc-name{font-size:0.75rem;font-weight:700;color:#fff}
+  .mc-name{font-size:0.75rem;font-weight:700;color:var(--text)}
   .mc-status{font-size:0.6875rem;color:var(--muted);margin-top:2px}
   .muscle-cell.ready .mc-status{color:var(--green,#2ecc71)}
   .muscle-cell.recovering .mc-status{color:#ffd166}
@@ -1520,7 +1529,7 @@
   .mrd-group{padding:8px 0;border-bottom:1px solid var(--border)}
   .mrd-group:last-child{border-bottom:none}
   .mrd-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
-  .mrd-name{font-size:0.8125rem;font-weight:700;color:#fff}
+  .mrd-name{font-size:0.8125rem;font-weight:700;color:var(--text)}
   .mrd-status{font-size:0.6875rem;color:var(--muted);text-align:right}
   .mrd-status.ready{color:var(--green,#2ecc71)}
   .mrd-status.recovering{color:#ffd166}
@@ -1537,7 +1546,7 @@
   .load-fill.sweet{background:var(--green,#2ecc71)}
   .load-fill.caution{background:#ffd166}
   .load-fill.risk{background:#ff6b6b}
-  .load-ratio{font-size:1rem;font-weight:800;color:#fff;min-width:40px;text-align:right}
+  .load-ratio{font-size:1rem;font-weight:800;color:var(--text);min-width:40px;text-align:right}
   .load-scale{display:flex;justify-content:space-between;font-size:0.6875rem;color:var(--muted);margin-top:3px;padding-right:50px}
   .load-label{font-size:0.6875rem;color:var(--muted);margin-top:8px;line-height:1.45}
   .load-reason{font-size:0.6875rem;color:var(--muted);margin-top:6px}

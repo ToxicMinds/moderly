@@ -87,7 +87,7 @@
 
 <div class="card wr">
   <div class="flex jb ac">
-    <div class="card-lbl" style="margin-bottom:0">📋 Weekly Review</div>
+    <div class="card-lbl" style="margin-bottom:0">Weekly Review</div>
     <!-- Accountability without a sharing platform: the text goes to the OS share
          sheet, the user picks who gets it, and no account ever reads another's
          rows. Weight is opt-in and off by default. -->
@@ -159,10 +159,10 @@
   .wr-share:active{transform:scale(.94)}
   .wr-share:disabled{opacity:.5}
   .wr-share-msg{font-size:0.6875rem;font-weight:700;color:var(--green);margin-bottom:6px}
-  .wr-headline{font-size:0.8125rem;font-weight:700;color:#fff;line-height:1.45;margin-bottom:12px}
+  .wr-headline{font-size:0.8125rem;font-weight:700;color:var(--text);line-height:1.45;margin-bottom:12px}
   .wr-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px}
   .wr-stat{display:flex;flex-direction:column;align-items:center;text-align:center;background:var(--bg3);border-radius:10px;padding:8px 4px}
-  .wr-val{font-size:1rem;font-weight:800;color:#fff}
+  .wr-val{font-size:1rem;font-weight:800;color:var(--text)}
   .wr-val.good{color:#2ecc71}
   .wr-val.bad{color:#ff6b6b}
   .wr-lbl{font-size:0.6875rem;color:var(--muted);margin-top:2px;line-height:1.2}

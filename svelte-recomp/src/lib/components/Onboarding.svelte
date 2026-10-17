@@ -543,7 +543,7 @@
   .ob-progress{display:flex;gap:6px;margin-bottom:24px}
   .ob-dot{flex:1;height:3px;border-radius:2px;background:var(--bg3);transition:background .3s var(--ease)}
   .ob-dot.on{background:var(--amber)}
-  .ob-h{font-size:1.375rem;font-weight:800;color:#fff;margin:0 0 8px;line-height:1.25}
+  .ob-h{font-size:1.375rem;font-weight:800;color:var(--text);margin:0 0 8px;line-height:1.25}
   .ob-p{font-size:0.8125rem;color:var(--muted);line-height:1.55;margin:0 0 20px}
   .ob-hint{font-size:0.6875rem;color:var(--muted);line-height:1.45;margin:-2px 0 6px}
   .ob-opt{color:var(--muted);font-weight:400}
@@ -554,7 +554,7 @@
   .ob-tpls{display:flex;flex-direction:column;gap:8px;margin-bottom:6px}
   .ob-tpl{text-align:left;background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:11px 12px;cursor:pointer;font-family:inherit;transition:border-color .2s var(--ease)}
   .ob-tpl.on{border-color:var(--amber)}
-  .ob-tpl-n{font-size:0.8438rem;font-weight:700;color:#fff;margin-bottom:3px}
+  .ob-tpl-n{font-size:0.8438rem;font-weight:700;color:var(--text);margin-bottom:3px}
   .ob-tpl.on .ob-tpl-n{color:var(--amber)}
   .ob-tpl-b{font-size:0.6875rem;color:var(--muted);line-height:1.45}
   .ob-days{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:4px}

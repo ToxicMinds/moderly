@@ -1,34 +1,37 @@
 <script lang="ts">
-  // The living hero, generalised for every page. Same DNA as Today's Pulse:
-  // a breathing orb (the page's ONE metric), a colour-coded verdict, one
-  // narrated sentence, and a tight stat trio — so each tab opens with a single
-  // glanceable story instead of a wall of cards.
-  import PulseOrb from './PulseOrb.svelte';
+  // Every tab opens the same way: its name, the scoreboard readout for the
+  // page's ONE number, one sentence saying what that number means, and a short
+  // row of supporting numbers. Then it gets out of the way of the page's
+  // action. Today passes extra content (the score's ingredients, the first-week
+  // steps) as children, and its streak as `aside`.
+  import type { Snippet } from 'svelte';
+  import Readout from './Readout.svelte';
 
   type Tone = 'good' | 'ok' | 'warn' | 'bad' | 'na';
   let {
-    title, sub = '', badge = '', tone = 'na', pct = 0,
-    orbValue = '', orbLabel = '', story = '', breath = '5s',
-    stats = []
+    title, sub = '', tone = 'na', pct = null, value = '', unit = '', caption = '',
+    story = '', stats = [], aside, children
   } = $props<{
-    title: string; sub?: string; badge?: string; tone?: Tone; pct?: number;
-    orbValue?: string | number; orbLabel?: string; story?: string; breath?: string;
-    stats?: Array<{ v: string | number; l: string }>;
+    title: string; sub?: string; tone?: Tone; pct?: number | null;
+    value?: string | number; unit?: string; caption?: string; story?: string;
+    stats?: Array<{ v: string | number; l: string }>; aside?: Snippet; children?: Snippet;
   }>();
 </script>
 
-<section class="phero glass tone-{tone}">
+<section class="phero">
   <header class="phero-top">
     <div>
-      <div class="phero-title">{title}</div>
+      <h1 class="page-hd">{title}</h1>
       {#if sub}<div class="phero-sub">{sub}</div>{/if}
     </div>
-    {#if badge}<div class="phero-badge">{badge}</div>{/if}
+    {@render aside?.()}
   </header>
 
-  <div class="phero-orb"><PulseOrb {pct} value={orbValue} label={orbLabel} {breath} /></div>
+  <Readout {value} {unit} {caption} {pct} {tone} />
 
   {#if story}<p class="phero-story">{story}</p>{/if}
+
+  {@render children?.()}
 
   {#if stats.length}
     <div class="phero-stats">
@@ -40,30 +43,18 @@
 </section>
 
 <style>
-  .phero{position:relative;border-radius:26px;padding:20px 20px 18px;margin-bottom:14px;overflow:hidden}
-  .phero::after{
-    content:'';position:absolute;top:-28%;left:50%;transform:translateX(-50%);
-    width:120%;height:130%;pointer-events:none;z-index:0;
-    background:radial-gradient(closest-side, color-mix(in srgb,var(--band) 32%,transparent), transparent 72%);
-    filter:blur(6px);
-  }
-  .phero-top,.phero-orb,.phero-story,.phero-stats{position:relative;z-index:1}
-
-  .phero-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:4px}
-  .phero-title{font-size:1.5rem;font-weight:900;letter-spacing:-.6px;line-height:1.05;
-    background:linear-gradient(120deg,var(--text),var(--band2));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
-  .phero-sub{font-size:0.72rem;color:var(--muted);margin-top:2px}
-  .phero-badge{flex-shrink:0;font-size:0.7rem;font-weight:800;color:var(--band2);
-    background:color-mix(in srgb,var(--band) 16%,transparent);
-    border:1px solid color-mix(in srgb,var(--band) 40%,transparent);
-    padding:5px 10px;border-radius:999px;white-space:nowrap}
-
-  .phero-orb{display:flex;justify-content:center;padding:8px 0 2px}
-  .phero-story{text-align:center;font-size:0.94rem;font-weight:650;line-height:1.42;color:var(--text);margin:12px 6px 4px;text-wrap:balance}
-
-  .phero-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px}
-  .phero-stats>div{display:flex;flex-direction:column;align-items:center;gap:1px;
-    background:var(--glass-2);border:1px solid var(--glass-brd);border-radius:14px;padding:9px 4px}
-  .phero-stats b{font-size:1.1rem;font-weight:900;letter-spacing:-.4px;color:var(--text)}
-  .phero-stats span{font-size:0.6875rem;font-weight:700;letter-spacing:.3px;text-transform:uppercase;color:var(--muted);text-align:center}
+  .phero{margin-bottom:16px}
+  .phero-top{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:10px}
+  .phero-top .page-hd{margin:0}
+  .phero-sub{font-size:0.8125rem;color:var(--muted);margin-top:3px}
+  .phero-story{font-size:1rem;font-weight:700;line-height:1.4;color:var(--text);margin:10px 2px 0;text-wrap:pretty}
+  .phero-stats{display:grid;grid-template-columns:repeat(3,1fr);margin-top:12px;
+    border-top:1px solid var(--border);border-bottom:1px solid var(--border);padding:9px 0}
+  .phero-stats>div{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+    border-left:1px solid var(--border);padding:0 4px;min-width:0}
+  .phero-stats>div:first-child{border-left:none}
+  .phero-stats b{font-family:var(--font-display);font-size:1.5rem;font-weight:800;line-height:1;
+    color:var(--text);font-variant-numeric:tabular-nums;white-space:nowrap}
+  .phero-stats span{font-size:0.6875rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--muted);text-align:center;line-height:1.2}
 </style>

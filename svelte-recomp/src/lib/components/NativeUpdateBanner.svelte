@@ -103,21 +103,18 @@
     display:flex;align-items:center;gap:12px;
     width:100%;max-width:440px;
     padding:12px 12px 12px 14px;
-    background:color-mix(in srgb,var(--bg2) 78%,transparent);
-    backdrop-filter:blur(20px) saturate(150%);
-    -webkit-backdrop-filter:blur(20px) saturate(150%);
-    border:1px solid var(--glass-brd);
-    border-radius:16px;
-    box-shadow:0 10px 34px rgba(0,0,0,.45), var(--shadow-glow);
+    background:var(--bg2);
+    border:1px solid var(--border2);
+    border-radius:var(--r-lg);
+    box-shadow:0 10px 34px rgba(0,0,0,.45);
   }
   .nu-card.migrate{border-color:color-mix(in srgb,var(--amber) 55%,transparent)}
   .nu-ico{
     flex-shrink:0;
-    width:34px;height:34px;border-radius:11px;
+    width:34px;height:34px;border-radius:var(--r-sm);
     display:flex;align-items:center;justify-content:center;
-    font-size:1.1rem;font-weight:800;color:#1a1200;
-    background:var(--grad-amber);
-    box-shadow:var(--shadow-glow);
+    font-size:1.1rem;font-weight:800;color:var(--bg);
+    background:var(--text);
     animation:nuBob 1.8s ease-in-out infinite;
   }
   .nu-body{flex:1;min-width:0}
@@ -127,11 +124,10 @@
   .nu-actions{flex-shrink:0;display:flex;align-items:center;gap:6px}
   .nu-btn{
     border:none;cursor:pointer;font-family:inherit;font-weight:800;
-    font-size:0.8125rem;color:#1a1200;text-decoration:none;
+    font-size:0.8125rem;color:var(--bg);text-decoration:none;
     display:inline-flex;align-items:center;justify-content:center;
-    background:var(--grad-amber);
-    border-radius:11px;padding:9px 14px;min-height:40px;
-    box-shadow:var(--shadow-glow);
+    background:var(--text);
+    border-radius:var(--r-sm);padding:9px 14px;min-height:40px;
     transition:transform .12s;
   }
   .nu-btn:active{transform:scale(.94)}

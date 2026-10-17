@@ -2923,6 +2923,49 @@ check('a program session can never be saved over the user’s own plan', async (
   assert.equal((page.match(/upsertRecord\('workout_sessions_custom'/g) ?? []).length, 2, 'seed + the one guarded save');
 });
 
+check('while a program runs, Train names the day after the program’s session', async () => {
+  const { readFileSync } = await import('node:fs');
+  const page = readFileSync('src/routes/workouts/+page.svelte', 'utf8');
+  assert.match(page, /return s\?\.program \? s\.name : day\.label;/);
+  assert.match(page, /if \(w\.session_key\) return dayLabel\(w\);/, 'the hero’s “Next:” line');
+  assert.match(page, /\{dayLabel\(day\)\}/, 'the day cards');
+});
+
+// --- Design system: the scoreboard, one vocabulary, both themes -------------
+
+console.log('\ndesign — one hero, one vocabulary, both themes');
+
+check('every tab opens on the same scoreboard hero', async () => {
+  const { readFileSync, existsSync } = await import('node:fs');
+  assert.match(readFileSync('src/lib/components/PageHero.svelte', 'utf8'), /<Readout /);
+  assert.match(readFileSync('src/lib/components/TodayPulse.svelte', 'utf8'), /<PageHero /, 'Today is a PageHero too, not a copy of one');
+  assert.ok(!existsSync('src/lib/components/PulseOrb.svelte'));
+});
+
+check('a page is called what its tab is called', async () => {
+  const { readFileSync } = await import('node:fs');
+  const nav = readFileSync('src/lib/components/BottomNav.svelte', 'utf8');
+  for (const [route, file] of [['/recipes', 'recipes'], ['/workouts', 'workouts'], ['/progress', 'progress']]) {
+    const tab = nav.match(new RegExp(`id: '${route}', label: '([^']+)'`))?.[1];
+    assert.ok(tab, `nav has ${route}`);
+    assert.match(readFileSync(`src/routes/${file}/+page.svelte`, 'utf8'), new RegExp(`<PageHero title="${tab}"`), `${route} is titled “${tab}”`);
+  }
+});
+
+check('no hard-coded white text: it vanishes in the light theme', async () => {
+  const { readFileSync, readdirSync } = await import('node:fs');
+  const files = [
+    ...readdirSync('src/lib/components').map((f) => `src/lib/components/${f}`),
+    ...readdirSync('src/routes', { recursive: true }).filter((f) => f.endsWith('.svelte')).map((f) => `src/routes/${f}`),
+  ].filter((f) => f.endsWith('.svelte'));
+  // White is right only on a surface that is dark in both themes.
+  const darkSurface = /background:\s*(var\(--(red|led-bad)[,)]|rgba\(0,\s*0,\s*0)|crash-toast|swipe-delete|video/;
+  const offenders = files.flatMap((f) => readFileSync(f, 'utf8').split('\n')
+    .filter((l) => /color:\s?#fff(fff)?\b/.test(l) && !darkSurface.test(l))
+    .map((l) => `${f}: ${l.trim().slice(0, 80)}`));
+  assert.deepEqual(offenders, []);
+});
+
 // Nothing may be reported until the async checks have actually settled.
 await Promise.all(pending);
 

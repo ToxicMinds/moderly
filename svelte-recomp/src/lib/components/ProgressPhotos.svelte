@@ -487,7 +487,7 @@
   .phys-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
   .phys-cell{background:var(--glass-2);border:1px solid var(--glass-brd);border-radius:11px;padding:9px 10px}
   .phys-top{display:flex;align-items:center;justify-content:space-between;gap:6px}
-  .phys-lbl{font-size:0.75rem;font-weight:700;color:#fff}
+  .phys-lbl{font-size:0.75rem;font-weight:700;color:var(--text)}
   .phys-delta{font-size:0.6875rem;font-weight:800}
   .phys-delta.up{color:var(--green)}
   .phys-delta.down{color:var(--red)}
@@ -499,12 +499,12 @@
   .phys-cmp-row.good{background:color-mix(in srgb,var(--green) 12%,transparent)}
   .phys-cmp-row.focus{background:color-mix(in srgb,var(--amber) 12%,transparent)}
   .phys-cmp-tag{font-size:0.6875rem;font-weight:800;color:var(--muted)}
-  .phys-cmp-val{font-size:0.875rem;font-weight:800;color:#fff}
+  .phys-cmp-val{font-size:0.875rem;font-weight:800;color:var(--text)}
   .phys-cmp-val em{font-style:normal;font-weight:700;font-size:0.75rem;color:var(--muted)}
   .phys-cmp-meta{font-size:0.6875rem;color:var(--muted);text-align:center;margin-top:8px}
   .phys-trend{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)}
   .phys-trend-lbl{font-size:0.6875rem;font-weight:700;color:var(--muted)}
-  .phys-trend-val{font-size:0.8125rem;font-weight:800;color:#fff}
+  .phys-trend-val{font-size:0.8125rem;font-weight:800;color:var(--text)}
   .phys-trend-val.down{color:var(--green)}
   .phys-trend-val.up{color:var(--red)}
   .phys-trend-val em{font-style:normal;font-weight:600;font-size:0.6875rem;color:var(--muted)}

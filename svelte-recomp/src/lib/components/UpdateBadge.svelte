@@ -53,7 +53,7 @@
   .upd-ok::after{content:'';position:absolute;inset:-14px}
   .upd-ok:active{opacity:1}
   .upd-ok.checking .upd-ico{animation:updspin .8s linear infinite}
-  .upd-new{font-size:0.6875rem;color:#1a1200;background:var(--grad-amber);border-radius:8px;padding:4px 8px;box-shadow:var(--shadow-glow);animation:updpulse 1.6s ease-in-out infinite}
+  .upd-new{font-size:0.6875rem;color:var(--bg);background:var(--text);border-radius:var(--r-sm);padding:4px 8px;animation:updpulse 1.6s ease-in-out infinite}
   .upd-new:active{transform:scale(.94)}
   .upd-ico{font-size:0.6875rem;line-height:1}
   .upd-toast{position:absolute;top:calc(100% + 6px);right:0;white-space:nowrap;background:var(--bg2,#1b2028);color:var(--text,#e8edf2);border:1px solid var(--border2,#2a3038);border-radius:7px;padding:4px 8px;font-size:0.6875rem;font-weight:600;box-shadow:0 4px 14px rgba(0,0,0,.35);z-index:50;animation:updfade .15s ease-out}

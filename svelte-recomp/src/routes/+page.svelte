@@ -440,7 +440,7 @@
 
 <div class="card">
   <div class="flex jb ac" style="margin-bottom:8px">
-    <div class="card-lbl" style="margin-bottom:0">💧 Water</div>
+    <div class="card-lbl" style="margin-bottom:0">Water</div>
     <div style="font-size:0.8125rem;font-weight:700;color:var(--blue)">{(todayWater * 0.25).toFixed(2)} <span style="opacity:.6;font-weight:400">/ {waterGoalL.toFixed(1)} L</span></div>
   </div>
   <div class="flex gap2 ac">
@@ -481,7 +481,7 @@
 
 <div class="card" use:cardNav={`${base}/workouts`}>
   <div class="flex jb ac">
-    <div class="card-lbl" style="margin-bottom:0">🏋️ Today's Gym Session</div>
+    <div class="card-lbl" style="margin-bottom:0">Today's Gym Session</div>
     <span class="card-link">Gym →</span>
   </div>
   {#if todaySession}

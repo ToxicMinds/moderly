@@ -47,9 +47,9 @@
 
 <style>
   #auth-gate{display:flex;align-items:center;justify-content:center;min-height:100dvh;padding:calc(var(--st) + 24px) 24px calc(var(--sb) + 24px)}
-  .auth-box{width:100%;max-width:340px;background:var(--bg2);border:1px solid var(--border);border-radius:20px;padding:28px 22px;box-shadow:var(--shadow-sm)}
-  .auth-logo{font-size:1.5rem;font-weight:800;letter-spacing:-.5px;background:var(--grad-amber);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;text-align:center;margin-bottom:6px}
-  .auth-sub{font-size:0.75rem;color:var(--muted);text-align:center;margin-bottom:20px}
-  .auth-err{background:var(--rb);color:var(--red);font-size:0.75rem;font-weight:600;padding:8px 10px;border-radius:10px;margin-bottom:12px}
-  .auth-switch{display:block;width:100%;text-align:center;background:none;border:none;color:var(--amber);font-size:0.75rem;font-weight:600;margin-top:14px;cursor:pointer}
+  .auth-box{width:100%;max-width:340px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);padding:28px 22px}
+  .auth-logo{font-family:var(--font-display);font-size:2.75rem;font-weight:900;text-transform:uppercase;letter-spacing:.02em;line-height:.9;color:var(--text);text-align:center;margin-bottom:8px}
+  .auth-sub{font-size:0.8125rem;color:var(--muted);text-align:center;margin-bottom:20px}
+  .auth-err{background:var(--rb);color:var(--led-bad);font-size:0.8125rem;font-weight:600;padding:8px 10px;border-radius:var(--r-sm);margin-bottom:12px}
+  .auth-switch{display:block;width:100%;text-align:center;background:none;border:none;color:var(--text);text-decoration:underline;text-underline-offset:3px;font-family:inherit;font-size:0.8125rem;font-weight:600;margin-top:14px;cursor:pointer}
 </style>

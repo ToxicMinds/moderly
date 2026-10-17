@@ -200,7 +200,7 @@
 <button class="btn bp bfl" style="margin-top:4px" onclick={openNew}>+ Add Alarm</button>
 
 <Modal open={showModal} onclose={() => showModal = false}>
-  <div style="font-size:1.125rem;font-weight:700;color:#fff;margin-bottom:12px">{editing ? 'Edit Alarm' : 'New Alarm'}</div>
+  <div style="font-size:1.125rem;font-weight:700;color:var(--text);margin-bottom:12px">{editing ? 'Edit Alarm' : 'New Alarm'}</div>
 
   <label class="flbl" for="alarm-title">Title</label>
   <input id="alarm-title" type="text" bind:value={formTitle} placeholder="e.g. Morning weigh-in" style="margin-bottom:12px">

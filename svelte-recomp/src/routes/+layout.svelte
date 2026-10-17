@@ -36,18 +36,18 @@
   let menuOpen = $state(false);
   let syncStarted = false;
 
-  // — Verdict aura —
-  // Tie the whole-screen background glow to how the recomposition is actually
-  // going. On a dialed-in day the app subtly breathes green; when it's off
-  // track it warms to red. The verdict is shared (see stores/verdict), so this
+  // — Verdict light —
+  // Tie a faint wash from the top edge to how the recomposition is actually
+  // going, like the spill from a scoreboard: green on a dialed-in day, red
+  // when it's off track. The verdict is shared (see stores/verdict), so this
   // colour follows you across every page, not just Today. Kept low-alpha so it
   // reads as atmosphere, never as chrome.
   $effect(() => {
     const tone = $todayVerdict.tone;
-    const aura = tone === 'good' ? 'rgba(52,211,153,.22)'
-      : tone === 'ok' ? 'rgba(96,165,250,.18)'
-      : tone === 'warn' ? 'rgba(251,191,36,.18)'
-      : tone === 'bad' ? 'rgba(251,113,133,.20)'
+    const aura = tone === 'good' ? 'rgba(49,242,138,.10)'
+      : tone === 'ok' ? 'rgba(77,163,255,.09)'
+      : tone === 'warn' ? 'rgba(255,176,32,.09)'
+      : tone === 'bad' ? 'rgba(255,59,71,.10)'
       : 'transparent';
     document.documentElement.style.setProperty('--aura', aura);
   });
@@ -414,7 +414,7 @@
            and no hint that one is a WEIGHTED INPUT to the other. It now appears
            as the "Recovery" row inside the Pulse breakdown, which is what it
            actually is. Full sleep/heart-rate detail is one tap further in. -->
-      <a class="icn-btn" href="{base}/alarms" title="Alarms & reminders" aria-label="Alarms and reminders">🔔</a>
+      <a class="icn-btn" href="{base}/alarms" title="Alarms & reminders" aria-label="Alarms and reminders"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 8a6 6 0 0112 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 003.4 0"/></svg></a>
       <Diagnostics />
       <button class="icn-btn" onclick={() => (menuOpen = true)} title="More" aria-label="More options">⋯</button>
     </div>
@@ -473,7 +473,7 @@
       {#snippet failed(error, reset)}
         <div class="crash-box">
           <div style="font-size:2rem;margin-bottom:8px">⚠️</div>
-          <div style="font-weight:700;color:#fff;margin-bottom:6px">Something broke on this screen</div>
+          <div style="font-weight:700;color:var(--text);margin-bottom:6px">Something broke on this screen</div>
           <div style="font-size:0.75rem;color:var(--muted);margin-bottom:14px;word-break:break-word">{String((error as any)?.message || error)}</div>
           <button class="btn bp bfl" onclick={() => { crashMsg = null; reset(); }}>Try again</button>
           <button class="btn bg_ bfl" style="margin-top:8px" onclick={() => location.assign('/')}>Go to Today</button>
@@ -503,21 +503,22 @@
 </div>
 
 <style>
-#topbar{background:color-mix(in srgb,var(--bg2) 55%,transparent);backdrop-filter:blur(20px) saturate(150%);-webkit-backdrop-filter:blur(20px) saturate(150%);border-bottom:1px solid var(--glass-brd);display:flex;align-items:center;justify-content:space-between;padding:calc(var(--st) + 10px) 18px 12px;min-height:calc(var(--st) + var(--top-h));z-index:50;flex-shrink:0}
-#topbar-title{font-size:18px;font-weight:800;letter-spacing:-.4px;background:var(--grad-amber);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#topbar{background:var(--bg);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:calc(var(--st) + 10px) 18px 12px;min-height:calc(var(--st) + var(--top-h));z-index:50;flex-shrink:0}
+#topbar-title{font-family:var(--font-display);font-size:22px;font-weight:900;text-transform:uppercase;letter-spacing:.04em;line-height:1;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   /* The topbar is chrome, so it is pinned in px and does NOT follow --ui-scale.
      At the largest text size a scaled brand mark plus the buttons is wider than
      a 360px phone, and what gets pushed off the edge is Sign out and the
      text-size control itself — i.e. you could make the text big enough that you
      could no longer make it small again. Pin the topbar and let buttons shrink. */
-  .icn-btn{width:36px;height:36px;flex-shrink:0;border-radius:50%;border:1px solid var(--glass-brd);background:var(--glass-2);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s var(--ease);font-size:16px;text-decoration:none}
-.icn-btn:active{transform:scale(.9);border-color:var(--amber)}
-  .menu-h{font-size:1.125rem;font-weight:800;color:var(--text);margin-bottom:14px;letter-spacing:-.3px}
+  .icn-btn{width:36px;height:36px;flex-shrink:0;border-radius:var(--r-sm);border:1px solid var(--border2);background:var(--bg2);color:var(--text);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s var(--ease);font-size:16px;text-decoration:none}
+.icn-btn:active{transform:scale(.9);border-color:var(--text)}
+  .icn-btn svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .menu-h{font-family:var(--font-display);font-size:1.5rem;font-weight:800;text-transform:uppercase;color:var(--text);margin-bottom:14px;letter-spacing:.01em}
   .menu-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)}
   .menu-lbl{font-size:0.9375rem;font-weight:700;color:var(--text)}
   .menu-sizes{display:flex;gap:6px}
-  .menu-size{width:42px;height:36px;border-radius:11px;border:1px solid var(--glass-brd);background:var(--glass-2);color:var(--muted);font-weight:800;cursor:pointer;font-family:inherit}
-  .menu-size.on{background:var(--grad-amber);color:#fff;border-color:transparent;box-shadow:var(--shadow-glow)}
+  .menu-size{width:42px;height:36px;border-radius:var(--r-sm);border:1px solid var(--border2);background:var(--bg3);color:var(--muted);font-weight:800;cursor:pointer;font-family:inherit}
+  .menu-size.on{background:var(--text);color:var(--bg);border-color:transparent}
   .menu-item{display:flex;align-items:center;justify-content:space-between;width:100%;gap:12px;padding:14px 0;border:none;border-bottom:1px solid var(--border);background:none;color:var(--text);font-size:0.9375rem;font-weight:700;cursor:pointer;font-family:inherit}
   .menu-item .menu-val{color:var(--muted);font-weight:600}
   .menu-item.danger{color:var(--red);border-bottom:none}
@@ -535,10 +536,10 @@
   .ptr-spin.spinning{animation:ptr-rot .8s linear infinite}
   @keyframes ptr-rot{to{transform:rotate(360deg)}}
   .ptr-text{letter-spacing:.2px}
-#sync-dot{width:8px;height:8px;border-radius:50%;background:var(--border2);margin-left:6px;flex-shrink:0;transition:background .4s;box-shadow:0 0 0 3px transparent}
-  #sync-dot.synced{background:var(--green);box-shadow:0 0 0 3px var(--gb)}
-  #sync-dot.syncing{background:var(--amber);animation:pulse 1s infinite}
-  #sync-dot.error{background:var(--red);box-shadow:0 0 0 3px var(--rb)}
+#sync-dot{width:7px;height:7px;border-radius:50%;background:var(--border2);margin-left:4px;flex-shrink:0;transition:background .4s}
+  #sync-dot.synced{background:var(--led-good);box-shadow:0 0 6px color-mix(in srgb,var(--led-good) 60%,transparent)}
+  #sync-dot.syncing{background:var(--led-warn);animation:pulse 1s infinite}
+  #sync-dot.error{background:var(--led-bad);box-shadow:0 0 6px color-mix(in srgb,var(--led-bad) 60%,transparent)}
   #app{display:flex;flex-direction:column;height:100vh;height:100dvh}
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
   @keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}

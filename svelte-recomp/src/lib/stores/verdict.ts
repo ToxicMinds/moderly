@@ -28,8 +28,6 @@ export function bandTone(b: RecompBand): Tone {
 export interface TodayVerdict {
   result: RecompScore;
   tone: Tone;
-  /** Breathing cadence for the orb: calm when well-recovered, quicker when not. */
-  breath: string;
   readinessScore: number | null;
 }
 
@@ -80,7 +78,6 @@ export const todayVerdict: Readable<TodayVerdict> = derived(
       readinessScore,
     });
 
-    const breath = readinessScore == null ? '5s' : `${(3.4 + (readinessScore / 100) * 3.4).toFixed(2)}s`;
-    return { result, tone: bandTone(result.band), breath, readinessScore };
+    return { result, tone: bandTone(result.band), readinessScore };
   }
 );

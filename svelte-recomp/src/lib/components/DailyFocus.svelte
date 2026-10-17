@@ -43,13 +43,12 @@
     dragging = false;
   }
 
-  // severity → accent color + soft background (distinct warn yellow so it
-  // doesn't blur into the purple "amber" brand accent).
+  // severity → the LED tone it lights (app.css). Colour only ever means data.
   const COLORS: Record<Severity, { c: string; bg: string }> = {
-    bad:  { c: 'var(--red)',   bg: 'var(--rb)' },
-    warn: { c: '#ffd166',      bg: 'rgba(255,209,102,.12)' },
-    good: { c: 'var(--green)', bg: 'var(--gb)' },
-    info: { c: 'var(--blue)',  bg: 'var(--bb)' },
+    bad:  { c: 'var(--led-bad)',  bg: 'color-mix(in srgb,var(--led-bad) 7%,var(--bg2))' },
+    warn: { c: 'var(--led-warn)', bg: 'color-mix(in srgb,var(--led-warn) 7%,var(--bg2))' },
+    good: { c: 'var(--led-good)', bg: 'color-mix(in srgb,var(--led-good) 7%,var(--bg2))' },
+    info: { c: 'var(--led-ok)',   bg: 'color-mix(in srgb,var(--led-ok) 7%,var(--bg2))' },
   };
 
   // Three topics, not a feed. The weight item becomes the headline when there
@@ -109,7 +108,6 @@
 
 {#snippet heroBody(it: FocusItem)}
   <div class="hero-top">
-    <span class="hero-icon">{it.icon}</span>
     <div class="f1">
       <div class="hero-title">{it.title}</div>
       {#if it.metric}<div class="hero-metric">{it.metric}</div>{/if}
@@ -122,7 +120,6 @@
 {/snippet}
 
 {#snippet groupBody(g: FocusGroup)}
-  <span class="pill-icon">{g.lead.icon}</span>
   <div class="f1">
     <div class="pill-title">
       <span class="topic">{g.label}</span>{g.lead.title}{#if g.lead.metric}<span class="pill-metric">{g.lead.metric}</span>{/if}{#if g.more > 0}<span class="more-n">+{g.more}</span>{/if}
@@ -137,43 +134,35 @@
 <style>
   .focus-wrap { margin-bottom: 16px; }
   .focus-hd { display: flex; align-items: center; gap: 8px; margin-bottom: 9px; }
-  .focus-title { font-size:0.6875rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.2px; color: var(--muted); }
-  .focus-dot { width: 7px; height: 7px; border-radius: 50%; box-shadow: 0 0 10px currentColor; animation: pulse 2.4s var(--ease) infinite; }
+  .focus-title { font-family: var(--font-display); font-size: 0.875rem; font-weight: 800; text-transform: uppercase; letter-spacing: .14em; color: var(--muted); }
+  .focus-dot { width: 7px; height: 7px; border-radius: 50%; box-shadow: 0 0 8px currentColor; }
   .focus-dot.sm { width: 6px; height: 6px; }
-  .focus-x { background: transparent; border: none; color: var(--muted); font-size:0.8125rem; cursor: pointer; padding: 2px 4px; line-height: 1; border-radius: 6px; -webkit-tap-highlight-color: transparent; }
+  .focus-x { background: transparent; border: none; color: var(--muted); font-size: 0.875rem; cursor: pointer; padding: 4px 6px; line-height: 1; border-radius: var(--r-sm); -webkit-tap-highlight-color: transparent; }
   .focus-x:active { transform: scale(.9); color: var(--text); }
-  .focus-chip { display: flex; align-items: center; gap: 7px; width: 100%; justify-content: center; background: transparent; border: 1px dashed var(--border2); border-radius: 10px; padding: 7px; color: var(--muted); font-size:0.6875rem; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; cursor: pointer; font-family: inherit; margin-bottom: 16px; -webkit-tap-highlight-color: transparent; }
-  .focus-chip:active { transform: scale(.99); border-color: var(--amber); }
-  @keyframes pulse { 0%,100% { opacity: .55; transform: scale(.85); } 50% { opacity: 1; transform: scale(1.15); } }
+  .focus-chip { display: flex; align-items: center; gap: 7px; width: 100%; justify-content: center; background: transparent; border: 1px dashed var(--border2); border-radius: var(--r-md); padding: 8px; color: var(--muted); font-family: var(--font-display); font-size: 0.8125rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; cursor: pointer; margin-bottom: 16px; -webkit-tap-highlight-color: transparent; }
+  .focus-chip:active { transform: scale(.99); border-color: var(--text); }
 
   .hero {
     position: relative; overflow: hidden;
-    border: 1px solid color-mix(in srgb, var(--ac) 45%, var(--border));
-    border-left: 3px solid var(--ac);
-    background:
-      linear-gradient(135deg, var(--abg), transparent 65%),
-      linear-gradient(180deg, var(--bg2), color-mix(in srgb, var(--bg2) 92%, black));
-    border-radius: 16px; padding: 15px 16px; margin-bottom: 8px;
-    box-shadow: var(--shadow-sm); touch-action: pan-y;
+    border: 1px solid var(--border); border-left: 3px solid var(--ac);
+    background: var(--abg);
+    border-radius: var(--r-md); padding: 14px 15px; margin-bottom: 8px; touch-action: pan-y;
   }
   .hero-top { display: flex; align-items: center; gap: 12px; }
-  .hero-icon { font-size:1.625rem; line-height: 1; filter: drop-shadow(0 0 8px color-mix(in srgb, var(--ac) 60%, transparent)); }
-  .hero-title { font-size:0.9375rem; font-weight: 800; color: var(--text); letter-spacing: -.2px; }
-  .hero-metric { font-size:0.75rem; font-weight: 700; color: var(--ac); margin-top: 1px; }
-  .hero-msg { font-size:0.8125rem; line-height: 1.5; color: var(--text); opacity: .92; margin-top: 9px; }
+  .hero-title { font-size: 1rem; font-weight: 800; color: var(--text); }
+  .hero-metric { font-size: 0.8125rem; font-weight: 700; color: var(--ac); margin-top: 1px; }
+  .hero-msg { font-size: 0.875rem; line-height: 1.5; color: var(--text); margin-top: 7px; }
 
   .pill {
     display: flex; align-items: flex-start; gap: 11px;
-    background: linear-gradient(90deg, var(--abg), transparent 80%);
+    background: var(--bg2);
     border: 1px solid var(--border); border-left: 3px solid var(--ac);
-    border-radius: 12px; padding: 11px 13px; margin-bottom: 7px;
+    border-radius: var(--r-md); padding: 11px 13px; margin-bottom: 7px;
   }
-  .pill-icon { font-size:1.125rem; line-height: 1.2; }
-  .pill-title { font-size:0.8125rem; font-weight: 700; color: var(--text); display: flex; align-items: baseline; gap: 8px; }
-  .topic { font-size:0.6875rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--ac); flex-shrink: 0; }
-  .more-n { font-size:0.6875rem; font-weight: 700; color: var(--muted); }
-  .pill-metric { font-size:0.6875rem; font-weight: 700; color: var(--ac); }
-  .pill-msg { font-size:0.75rem; line-height: 1.45; color: var(--muted); margin-top: 2px; }
+  .pill-title { font-size: 0.875rem; font-weight: 700; color: var(--text); display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 8px; }
+  .topic { font-family: var(--font-display); font-size: 0.875rem; font-weight: 800; text-transform: uppercase; letter-spacing: .1em; color: var(--ac); flex-shrink: 0; }
+  .more-n { font-size: 0.75rem; font-weight: 700; color: var(--muted); }
+  .pill-metric { font-size: 0.75rem; font-weight: 700; color: var(--ac); }
+  .pill-msg { font-size: 0.8125rem; line-height: 1.45; color: var(--muted); margin-top: 2px; }
   .focus-video { display: block; }
-
 </style>

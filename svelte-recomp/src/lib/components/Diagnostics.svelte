@@ -56,7 +56,7 @@
 </button>
 
 <Modal {open} onclose={() => (open = false)}>
-  <div style="font-size:1.125rem;font-weight:800;color:#fff;margin-bottom:10px">App status</div>
+  <div style="font-size:1.125rem;font-weight:800;color:var(--text);margin-bottom:10px">App status</div>
 
   <div class="diag-grid">
     <div class="diag-row">
@@ -164,10 +164,10 @@
 </Modal>
 
 <style>
-  .diag-btn{position:relative;width:36px;height:36px;border-radius:50%;border:1px solid var(--border);background:var(--bg3);color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:0.9375rem;transition:all .2s var(--ease)}
+  .diag-btn{position:relative;width:36px;height:36px;border-radius:var(--r-sm);border:1px solid var(--border2);background:var(--bg2);color:var(--text);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:0.9375rem;transition:all .2s var(--ease)}
   .diag-btn:active{transform:scale(.9)}
   .diag-btn.alert{border-color:var(--red);color:var(--red)}
-  .diag-count{position:absolute;top:-3px;right:-3px;background:var(--red);color:#fff;font-size:0.6875rem;font-weight:800;border-radius:999px;padding:1px 4px;line-height:1.3}
+  .diag-count{position:absolute;top:-3px;right:-3px;background:var(--led-bad);color:#fff;font-size:0.6875rem;font-weight:800;border-radius:999px;padding:1px 4px;line-height:1.3}
   .diag-grid{display:flex;flex-direction:column;gap:2px}
   .diag-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);font-size:0.7812rem}
   .diag-k{color:var(--muted)}
