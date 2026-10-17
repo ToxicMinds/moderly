@@ -201,9 +201,10 @@ export function buildDailyFocus(i: CoachInput): FocusItem[] {
     const lostCtx = i.totalLostKg != null && i.totalLostKg >= 3 ? ` You're ${i.totalLostKg} kg down since you started.` : '';
     const rate = Math.abs(i.rateKgPerWeek).toFixed(2);
     const plan = i.planKgPerWeek != null ? `${i.planKgPerWeek.toFixed(1)} kg a week` : 'your plan';
-    // The arithmetic first, the places to look second — never "you under-log".
-    const why = i.stall?.missingAtLeastKcal != null
-      ? ` Your log says ~${i.stall.medianKcal} kcal a day, and a body your size burns at least ~${i.stall.floorKcal} just living — so some of what you eat isn't reaching the log. Progress shows where it most likely is.`
+    // The arithmetic first, the room second — never "log more": the target is
+    // set in the log's own units, so a log that leaves the oil out still works.
+    const why = i.stall
+      ? ` At ~${i.stall.avgKcal.toLocaleString()} logged a day the scale ${i.pace === 'gaining' ? 'creeps up' : 'holds'}${i.calorieTarget ? `, so this week's target is ${i.calorieTarget.toLocaleString()} — one step down` : ''}. Progress shows where the room is.`
       : ' Progress shows where to look.';
     if (w <= i.goalKg) {
       items.push({
@@ -275,14 +276,15 @@ export function buildDailyFocus(i: CoachInput): FocusItem[] {
         });
       }
     } else if (overPerDay > target * 0.12) {
+      // Never red: "the week is blown" is the thought that makes it so.
       items.push({
         id: 'cal-over',
-        severity: overPerDay > target * 0.22 ? 'bad' : 'warn',
-        icon: '🔥',
-        title: 'Over your calorie budget',
+        severity: 'warn',
+        icon: '⚖️',
+        title: 'The week is running over',
         msg: daysLeft > 0
-          ? `Averaging ${overPerDay} kcal/day over target. You've got ${Math.max(0, perDayLeft)} kcal/day for the next ${daysLeft} day${daysLeft === 1 ? '' : 's'} to save the week — lean, high-protein days from here.`
-          : `You finished the week ~${overPerDay} kcal/day over. Not a failure — just reset tomorrow and get back on your target.`,
+          ? `About ${overPerDay} a day over this week's target. ~${Math.max(0, perDayLeft).toLocaleString()} a day for the next ${daysLeft} day${daysLeft === 1 ? '' : 's'} brings it back — or let it go and start clean on Monday.`
+          : `The week finished ~${overPerDay} a day over. One week is noise on the trend — Monday starts clean.`,
         metric,
         href: '/recipes',
       });

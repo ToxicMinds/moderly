@@ -4,15 +4,14 @@
   // Everything here is derived from data the app was ALREADY collecting — weigh-ins,
   // logged sets, body-fat measurements, food. None of it needed new input; it just
   // had nowhere to be read together. See $lib/recomp.ts for the reasoning.
-  import { liveWeights, liveWorkoutLogs, liveTracks, liveFoodLogs, liveGoal, liveGoalReason, liveActivitySessions } from '$lib/stores/live';
-  import { parseCalorieTarget } from '$lib/coach';
-  import { body } from '$lib/stores/body';
+  import { liveWeights, liveWorkoutLogs, liveTracks, liveFoodLogs, liveGoal, liveActivitySessions } from '$lib/stores/live';
+  import { body, stall } from '$lib/stores/body';
   import { strengthTrend } from '$lib/strength';
   import { recompVerdict, verdictTone, leanMass, fatMass, type BodyFatPoint } from '$lib/recomp';
   import { liveProfile } from '$lib/stores/live';
   import { nowTick } from '$lib/stores/refresh';
   import { shiftYmd } from '$lib/date';
-  import { diagnoseStall, proteinByTrainingDay, watchAgreement } from '$lib/insights';
+  import { proteinByTrainingDay, watchAgreement } from '$lib/insights';
   import MiniChart from '$lib/components/MiniChart.svelte';
   import WeeklyReview from '$lib/components/WeeklyReview.svelte';
   import BodyGoals from '$lib/components/BodyGoals.svelte';
@@ -42,7 +41,6 @@
   const _tracks = liveTracks();
   const _foodLogs = liveFoodLogs();
   const _goal = liveGoal();
-  const _goalReason = liveGoalReason();
   const _activity = liveActivitySessions();
 
   const _profile = liveProfile();
@@ -57,9 +55,6 @@
   const strength = $derived(strengthTrend($_logs as any, { asOf: $nowTick }));
   const currentWeight = $derived($body.currentKg);
   const proteinTargetG = $derived($body.proteinTargetG);
-  const stall = $derived(diagnoseStall({
-    pace: $body.pace, intake: $body.intake, foods: $_foodLogs as any[], floorKcal: $body.floorKcal, today: $body.today,
-  }));
 
   // Body-fat readings live in `tracks` (name='body_fat'). Each needs the
   // bodyweight from the same day to become a composition point — we take the
@@ -137,8 +132,6 @@
     const cutoff = shiftYmd(-14);
     return ($_activity as any[]).filter((a) => a.date >= cutoff && a.kind !== 'strength').length;
   });
-
-  const calorieTarget = $derived(parseCalorieTarget($_goalReason));
 
 
   function kg(n: number) { return `${Math.abs(n).toFixed(2)} kg`; }
@@ -263,38 +256,32 @@
   </div>
 {/if}
 
-{#if stall}
+{#if $stall}
   <!-- WHY THE SCALE ISN'T MOVING. Only once the trend has ruled the plan out.
-       The arithmetic first, then checkable facts about the entries — never
-       "you under-log": a log can't tell missing food from a generous formula,
-       so the comparison is with the floor, not the formula. -->
+       The arithmetic first, then where the room is in this person's own week —
+       never "log more": a log that leaves the same things out every week is a
+       consistent ruler, and the target is set in its units. -->
   <div class="card stall-card" id="why-stalled">
     <div class="card-lbl">Why the scale isn't moving</div>
-    {#if stall.missingAtLeastKcal != null}
-      <div class="trust-head">Your log and your scale disagree.</div>
-      <div class="trust-body">
-        Over the last five weeks your logged days came to a median <b>{stall.medianKcal.toLocaleString()} kcal</b>,
-        and the trend {$body.pace === 'gaining' ? 'went up' : 'stayed flat'}. A body your size burns at least
-        <b>~{stall.floorKcal?.toLocaleString()} kcal</b> a day just living — resting ~{Math.round((stall.floorKcal ?? 0) / 1.2 / 10) * 10} plus
-        getting through the day — before any badminton. So at least <b>~{stall.missingAtLeastKcal} kcal a day</b> isn't
-        reaching the log. That's normal: food logs typically miss 20–40% of what's eaten. It's the method, not you.
-      </div>
-    {:else}
-      <div class="trust-head">The scale says the intake is higher than the log.</div>
-      <div class="trust-body">
-        Your logged days came to a median <b>{stall.medianKcal.toLocaleString()} kcal</b> while the trend
-        {$body.pace === 'gaining' ? 'went up' : 'stayed flat'} — so either some food isn't reaching the log, or the
-        burn is lower than the formula thinks. The places below are where it usually turns out to be the first.
-      </div>
-    {/if}
-    {#if stall.clues.length}
+    <div class="trust-head">At what you log, your weight {$body.pace === 'gaining' ? 'creeps up' : 'holds'}.</div>
+    <div class="trust-body">
+      Over the last five weeks your logged days averaged <b>{$stall.avgKcal.toLocaleString()} kcal</b>
+      and the trend {$body.pace === 'gaining' ? 'went up' : 'stayed flat'}.
+      {#if $body.target.basis === 'learned' && $body.target.target}
+        So this week's target is <b>{$body.target.target.toLocaleString()}</b> — set from that, one step at a time.
+      {/if}
+      {#if $stall.missingAtLeastKcal != null}
+        Your log runs at least ~{$stall.missingAtLeastKcal} under what a body your size burns: the oil, the extras, the
+        bites. Everyone's does, and it's fine — the target is in the same units, so it cancels. Don't log more; log the same way.
+      {/if}
+    </div>
+    {#if $stall.clues.length}
       <ul class="stall-clues">
-        {#each stall.clues as c}<li><b>{c.title}</b>{c.detail}</li>{/each}
+        {#each $stall.clues as c}<li><b>{c.title}</b>{c.detail}</li>{/each}
       </ul>
     {/if}
     <div class="trust-foot">
-      One week settles it: log the oil when you cook and weigh the things you eat most, once. If the
-      trend still won't move with an honest log, the target comes down — with real numbers behind it.
+      The target moves every Monday from the trend. Weighing most mornings is what lets it move on evidence instead of noise.
     </div>
   </div>
 {/if}
@@ -372,9 +359,9 @@
       <div class="stat-hint">of days you logged</div>
     </div>
     <div class="stat">
-      <div class="stat-v">{calorieTarget ?? '—'}</div>
-      <div class="stat-l">kcal target</div>
-      <div class="stat-hint">set in Body &amp; Goals</div>
+      <div class="stat-v">{$body.target.target ?? '—'}</div>
+      <div class="stat-l">kcal a day</div>
+      <div class="stat-hint">this week's target</div>
     </div>
   </div>
 </div>

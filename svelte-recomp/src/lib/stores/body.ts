@@ -8,14 +8,19 @@
 // intake-by-date maps, three calorie targets — and they disagreed: one account
 // was told "losing 1.5 kg a week, 11 weeks to goal" on Today while Progress
 // called the same readings too noisy and the real eight-week trend was a gain.
+//
+// The calorie target is the WEEK's: set from data up to last Sunday, so it holds
+// still for seven days and the week's budget is a number you can plan against.
 import { derived, type Readable } from 'svelte/store';
-import { liveWeights, liveGoal, liveFoodLogs, liveDailyLogs, liveProfile, liveTracks, liveGoalReason } from './live';
+import { liveWeights, liveGoal, liveFoodLogs, liveDailyLogs, liveProfile, liveTracks, liveGoalReason, liveWorkoutLogs, liveActivitySessions } from './live';
 import { todayDate } from './refresh';
-import { weightVerdict, paceVsPlan, type WeightVerdict, type Pace } from '$lib/insights';
-import { adaptiveTdee, type AdaptiveTdee } from '$lib/adaptiveTdee';
-import { resolveCalorieTarget, burnFloor, type LiveTargetResult, type ActivityLevel } from '$lib/tdee';
+import { weightVerdict, paceVsPlan, diagnoseStall, type WeightVerdict, type Pace, type StallDiagnosis } from '$lib/insights';
+import { weeklyMaintenance, type AdaptiveTdee } from '$lib/adaptiveTdee';
+import { resolveCalorieTarget, burnFloor, calcTdee, type LiveTargetResult, type ActivityLevel } from '$lib/tdee';
 import { proteinTargetG, ageFrom } from '$lib/profile';
 import { parseCalorieTarget } from '$lib/coach';
+import { mondayOf, shiftYmd } from '$lib/date';
+import { weekBudget, type WeekBudget } from '$lib/week';
 
 export interface DayIntake { kcal: number; protein: number; carbs: number; fat: number; items: number }
 
@@ -36,13 +41,20 @@ export interface Body {
   /** Logged food per day. A day with no itemised food falls back to its
    *  quick-logged kcal, so older quick-log days still count. */
   intake: Map<string, DayIntake>;
+  /** Last Sunday's learned estimate: logged days, rate, interval. The target
+   *  itself is built on target.maintenance (smoothed across Sundays). */
   learned: AdaptiveTdee;
   target: LiveTargetResult;
+  week: WeekBudget | null;
   proteinTargetG: number;
   bodyFatPct: number | null;
   profile: BodyProfile | null;
   /** The least this body can burn (resting × 1.2), when the profile allows. */
   floorKcal: number | null;
+  /** How far the learned maintenance sits under that floor: food the log
+   *  consistently doesn't carry. Fine while it's steady — the target is in
+   *  the log's units. null when the log isn't short. */
+  logShortKcal: number | null;
 }
 
 function intakeByDate(food: any[], daily: any[]): Map<string, DayIntake> {
@@ -80,17 +92,25 @@ export const body: Readable<Body> = derived(
         : null;
 
     const intake = intakeByDate(($food as any[]) ?? [], ($daily as any[]) ?? []);
-    const learned = adaptiveTdee({ intake: Array.from(intake, ([date, d]) => ({ date, kcal: d.kcal })), weights, asOf: today });
+    const weekStart = mondayOf(new Date(`${today}T12:00:00`));
+    const weekly = weeklyMaintenance({
+      intake: Array.from(intake, ([date, d]) => ({ date, kcal: d.kcal })), weights, weekStart,
+      formulaKcal: profile && currentKg ? calcTdee({ weightKg: currentKg, ...profile }) : null,
+    });
+    // Last week's check-in answers move this week's target, for this week only
+    // (stored on the reviewed week's Monday; see WeekCheckIn).
+    const reviewed = shiftYmd(-7, new Date(`${weekStart}T12:00:00`));
+    const nudge = +((($daily as any[]) ?? []).find((l) => l.date === reviewed)?.week_check?.kcalDelta ?? 0) || 0;
     const target = resolveCalorieTarget({
-      goalKg, currentWeightKg: currentKg,
-      learnedTdee: learned.tdee,
-      learnedConfidence: learned.confidence === 'insufficient' ? null : learned.confidence,
-      profile, storedTarget: parseCalorieTarget($goalReason as string | null),
+      goalKg, currentWeightKg: currentKg, learnedTdee: weekly.kcal,
+      profile, storedTarget: parseCalorieTarget($goalReason as string | null), adjustKcal: nudge,
+      usualKcal: weekly.latest.meanIntake,
     });
     // The pace the plan is built for; 0.5 kg/week when only a stored target exists.
     const cutting = goalKg != null && currentKg != null && currentKg - goalKg > 0.5;
     const plan = target.direction === 'lose' ? target.planKgPerWeek : cutting && target.direction == null ? 0.5 : null;
-    const pace = paceVsPlan(weight, plan);
+    // "Too fast" means past 1% of bodyweight a week, whatever the plan said.
+    const pace = paceVsPlan(weight, plan, currentKg ? currentKg * 0.01 : null);
 
     // A finish date only from a loss the interval confirms — never from two
     // mornings' readings, and never while the trend is flat or rising.
@@ -99,11 +119,34 @@ export const body: Readable<Body> = derived(
       ? Math.ceil((currentKg - goalKg) / (weight as WeightVerdict).rateKgPerWeek)
       : null;
 
+    const floorKcal = profile && currentKg ? burnFloor({ weightKg: currentKg, ...profile }) : null;
+    const short = target.basis === 'learned' && floorKcal != null && target.maintenance != null ? floorKcal - target.maintenance : 0;
+
     return {
-      today, weight, currentKg, firstKg, goalKg, pace, weeksToGoal, intake, learned, target,
+      today, weight, currentKg, firstKg, goalKg, pace, weeksToGoal, intake, learned: weekly.latest, target,
+      week: weekBudget(target.target, intake, today),
       proteinTargetG: Math.max(1, proteinTargetG(goalKg, currentKg)),
-      bodyFatPct, profile,
-      floorKcal: profile && currentKg ? burnFloor({ weightKg: currentKg, ...profile }) : null,
+      bodyFatPct, profile, floorKcal,
+      logShortKcal: short >= 100 ? Math.round(short / 10) * 10 : null,
     };
   },
+);
+
+/** Days that count as training: a lifting log, or ≥ 30 minutes of sport the
+ *  watch recorded (it also files a lot of 3-minute "sessions" that aren't). */
+export function trainingDays(workoutLogs: any[], activity: any[]): Set<string> {
+  const days = new Set<string>((workoutLogs ?? []).map((l) => l.date));
+  const minutes = new Map<string, number>();
+  for (const a of activity ?? []) minutes.set(a.date, (minutes.get(a.date) ?? 0) + (+a.duration_min || 0));
+  for (const [d, m] of minutes) if (m >= 30) days.add(d);
+  return days;
+}
+
+/** Why the scale isn't moving — once, for Today and Progress alike. */
+export const stall: Readable<StallDiagnosis | null> = derived(
+  [body, liveWorkoutLogs(), liveActivitySessions()],
+  ([$body, $logs, $activity]) => diagnoseStall({
+    pace: $body.pace, intake: $body.intake, floorKcal: $body.floorKcal, today: $body.today,
+    trainingDays: trainingDays($logs as any[], $activity as any[]),
+  }),
 );

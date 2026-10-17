@@ -8,7 +8,9 @@
   // answers on daily_logs (see the 20260811120000 migration).
   import { userId } from '$lib/stores/user';
   import { upsertRecord } from '$lib/stores/sync';
-  import { liveFoodLogs, liveDailyLogs, liveBiometrics, liveWorkoutLogs } from '$lib/stores/live';
+  import { liveFoodLogs, liveDailyLogs, liveBiometrics, liveWorkoutLogs, liveProfile } from '$lib/stores/live';
+  import { reviewInputs } from '$lib/stores/review';
+  import { weeklyReview } from '$lib/weeklyReview';
   import { body } from '$lib/stores/body';
   import { todayDate } from '$lib/stores/refresh';
   import { haptic } from '$lib/haptics';
@@ -24,6 +26,7 @@
   const _dailyLogs = liveDailyLogs();
   const _bio = liveBiometrics();
   const _workoutLogs = liveWorkoutLogs();
+  const _profile = liveProfile();
 
   const today = $derived($todayDate);
   const weekStart = $derived(reviewWeekStart(today));
@@ -75,7 +78,8 @@
 
     const sessions = new Set(inWeek(($_workoutLogs as any[]).map((w) => ({ date: w.date }))).map((w) => w.date)).size;
 
-    const targetKcal = $body.target.target;
+    // The engine's number without any earlier nudge, so a nudge never stacks.
+    const targetKcal = $body.target.target != null ? $body.target.target - $body.target.adjustKcal : null;
 
     return { weightChangeKg, currentWeightKg, targetKcal, avgProteinG, proteinTargetG, avgSleepH, sessions, goalKg };
   });
@@ -112,13 +116,33 @@
       await upsertRecord('daily_logs', {
         user_id: uid,
         date: weekStart,
-        week_check: { effort, hunger, adherence, answeredAt: new Date().toISOString() },
+        // kcalDelta is what the answers change: stores/body applies it to the
+        // following week's target, for that week only. A promise the app keeps.
+        week_check: { effort, hunger, adherence, kcalDelta: result?.kcalDelta ?? 0, answeredAt: new Date().toISOString() },
       });
       justSaved = true;
     } catch (e: any) {
       error = 'Could not save — ' + (e?.message || String(e)).slice(0, 120);
     } finally {
       saving = false;
+    }
+  }
+
+  // The week under review, as the share sheet sends it.
+  const review = $derived(weeklyReview({ ...$reviewInputs, today: weekEnd }));
+  let sharing = $state(false);
+  let shareMsg = $state('');
+  async function share() {
+    if (sharing) return;
+    sharing = true;
+    shareMsg = '';
+    try {
+      const { shareWeek } = await import('$lib/weeklyShare');
+      shareMsg = await shareWeek(review, { name: ($_profile as any)?.display_name ?? null });
+    } catch (e: any) {
+      shareMsg = 'Share failed: ' + (e?.message || String(e)).slice(0, 100);
+    } finally {
+      sharing = false;
     }
   }
 
@@ -138,16 +162,21 @@
     {#if result && (storedAnswers || justSaved)}
       <!-- Answered. Show what changes and why — every reason names both the
            answer and the measurement, so no adjustment reads as arbitrary. -->
-      {#if result.nextTargetKcal != null && result.kcalDelta !== 0}
+      {#if result.kcalDelta !== 0}
         <div class="wc-target">
-          <span class="wc-target-n">{result.nextTargetKcal}</span>
-          <span class="wc-target-l">kcal/day next week <em>({result.kcalDelta > 0 ? '+' : ''}{result.kcalDelta})</em></span>
+          <span class="wc-target-n">{result.kcalDelta > 0 ? '+' : '−'}{Math.abs(result.kcalDelta)}</span>
+          <span class="wc-target-l">kcal a day on next week's target, for that week</span>
         </div>
       {/if}
       <ul class="wc-reasons">
         {#each result.reasons as r}<li>{r}</li>{/each}
         {#if result.trainingNote}<li class="wc-train">🏋 {result.trainingNote}</li>{/if}
       </ul>
+      <!-- Someone else knowing how the week went is one of the few things with
+           real evidence for keeping weight off. One tap, the OS share sheet,
+           the user picks who — the app never learns. -->
+      <button class="btn bg_ bfl wc-share" onclick={share} disabled={sharing}>{sharing ? '…' : 'Send my week to someone'}</button>
+      {#if shareMsg}<div class="wc-share-msg">{shareMsg}</div>{/if}
     {:else}
       <p class="wc-lede">Three taps. The scale and your watch can't tell me how it felt — and that's what decides whether this plan lasts.</p>
 
@@ -195,11 +224,12 @@
     background:var(--glass-2);border:1px solid var(--glass-brd);border-radius:14px}
   .wc-target-n{font-size:1.5rem;font-weight:900;letter-spacing:-.6px;color:var(--text)}
   .wc-target-l{font-size:0.75rem;font-weight:700;color:var(--muted)}
-  .wc-target-l em{font-style:normal;color:var(--amber);font-weight:800}
 
   .wc-reasons{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:7px}
   .wc-reasons li{font-size:0.8125rem;line-height:1.45;color:var(--text);
     padding-left:12px;border-left:2px solid var(--glass-brd)}
   .wc-reasons li.wc-train{border-left-color:var(--amber)}
   .wc-err{font-size:0.75rem;color:var(--red);text-align:center;margin-top:6px}
+  .wc-share{margin-top:12px}
+  .wc-share-msg{font-size:0.75rem;font-weight:700;color:var(--led-good);text-align:center;margin-top:6px}
 </style>

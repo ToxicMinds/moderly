@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { liveAlarms, liveWeights, liveGoal, liveActivityDates, liveGoalReason, liveSchedule, liveWorkoutSessions, liveSessionCompletions, liveDailySteps, liveFoodLogs, liveBiometrics, liveWorkoutLogs, liveActivitySessions, liveDailyLogs } from '$lib/stores/live';
+  import { liveAlarms, liveWeights, liveGoal, liveActivityDates, liveGoalReason, liveSchedule, liveWorkoutSessions, liveSessionCompletions, liveDailySteps, liveBiometrics, liveWorkoutLogs, liveActivitySessions, liveDailyLogs } from '$lib/stores/live';
   import { upsertRecord } from '$lib/stores/sync';
   import { userId } from '$lib/stores/user';
   import db from '$lib/db/dexie';
@@ -15,15 +15,14 @@
   import { speak } from '$lib/stores/toast';
   import { haptic } from '$lib/haptics';
   import { buildDailyFocus, goalSummary, waterTargetLitres } from '$lib/coach';
-  import { body } from '$lib/stores/body';
-  import { diagnoseStall } from '$lib/insights';
+  import { body, stall } from '$lib/stores/body';
   import { strengthTrend } from '$lib/strength';
   import { primaryActivity } from '$lib/health/exercise';
   import DailyFocus from '$lib/components/DailyFocus.svelte';
   import TodayPulse from '$lib/components/TodayPulse.svelte';
   import WeekCheckIn from '$lib/components/WeekCheckIn.svelte';
   import BackRebuild from '$lib/components/BackRebuild.svelte';
-  import { shiftYmd, mondayOf } from '$lib/date';
+  import { shiftYmd } from '$lib/date';
   import { nowTick, todayDate } from '$lib/stores/refresh';
 
   const dayIdx = $derived(new Date($nowTick).getDay());
@@ -215,7 +214,6 @@
   // Derive prioritised, actionable guidance from every signal the app
   // collects (calories, protein, sleep, steps, water, weight trend, training —
   // including watch/Health-Connect data) framed toward the goal weight.
-  const _foodLogs = liveFoodLogs();
   const _biometrics = liveBiometrics();
   const _workoutLogs = liveWorkoutLogs();
   const _activity = liveActivitySessions();
@@ -244,13 +242,7 @@
   const coachTodayKcal = $derived($body.intake.get(today)?.kcal ?? null);
   const coachTodayProtein = $derived($body.intake.get(today)?.protein ?? null);
 
-  const weekMonday = $derived(mondayOf(new Date($nowTick)));
   const daysElapsedThisWeek = $derived(dayIdx === 0 ? 7 : dayIdx); // Mon=1..Sun=7
-  const weekKcalSoFar = $derived.by(() => {
-    let sum = 0;
-    for (const [date, v] of $body.intake) if (date >= weekMonday && date <= today) sum += v.kcal;
-    return sum;
-  });
 
   // Steps: latest reading per day, averaged over days with data in the last 7.
   const stepsWeekAvg = $derived.by(() => {
@@ -270,12 +262,6 @@
     return ($_biometrics as any[]).find((b) => b.sleep_hours != null && b.date === today) ?? null;
   });
 
-  // Only when the trend has ruled the plan out: what the log says against what
-  // this body burns, and where food most often goes missing (see insights).
-  const stall = $derived(diagnoseStall({
-    pace: $body.pace, intake: $body.intake, foods: $_foodLogs as any[],
-    floorKcal: $body.floorKcal, today,
-  }));
 
   // What KIND of day is today? A gym session, an ACTIVE day (badminton/
   // cardio with no barbell session), or a true rest day. Badminton days have
@@ -311,11 +297,11 @@
       planKgPerWeek: $body.target.planKgPerWeek,
       weeksToGoal: $body.weeksToGoal,
       weighInsNeeded: $body.weight?.weighInsNeeded ?? null,
-      stall,
+      stall: $stall,
       totalLostKg: $body.firstKg != null && currentKg != null ? +($body.firstKg - currentKg).toFixed(1) : null,
       calorieTarget: $body.target.target,
       todayKcal: coachTodayKcal,
-      weekKcalSoFar,
+      weekKcalSoFar: $body.week?.logged ?? 0,
       daysElapsedThisWeek,
       proteinTarget: $body.proteinTargetG,
       todayProtein: coachTodayProtein,

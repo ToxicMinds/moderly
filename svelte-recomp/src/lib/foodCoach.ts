@@ -12,7 +12,7 @@ export type FoodTone = 'good' | 'ok' | 'warn' | 'bad' | 'na';
 export type Direction = 'lose' | 'gain' | 'maintain';
 
 export interface FoodEvalInput {
-  /** TDEE-backed daily calorie target; null when no goal is set yet. */
+  /** Today's share of the week's budget; null when no goal is set yet. */
   calorieTarget: number | null;
   /** Calories logged so far today. */
   kcalSoFar: number;
@@ -27,8 +27,9 @@ export interface FoodEvalInput {
   hour: number;
   /** Which way they're trying to move — changes whether "over budget" is bad. */
   direction: Direction;
-  /** Optional 7-day average intake, for the "why isn't the scale moving" note. */
-  avgKcal7d?: number | null;
+  /** The rest of the week after today, so going past today's share can say
+   *  what it costs instead of calling the day lost. */
+  weekAfter?: { days: number; perDay: number } | null;
 }
 
 export interface FoodEval {
@@ -79,22 +80,20 @@ export function evaluateFood(i: FoodEvalInput): FoodEval {
   const spareKcal = round(i.calorieTarget - i.kcalSoFar);
   const late = i.hour >= 20;
 
-  // — Over the day's budget — the "why isn't the scale moving" moment. Only a
-  //   problem when they're trying to LOSE; a surplus is the plan when gaining.
+  // — Past today's share of the week. Only a question when they're trying to
+  //   LOSE; a surplus is the plan when gaining. Never "the day is blown": that
+  //   thought is what turns one big meal into a big weekend. The week absorbs
+  //   it, and saying exactly how much it costs is what keeps the next meal sane.
   if (spareKcal < 0 && i.direction !== 'gain') {
     const over = -spareKcal;
-    const weekly = weeklyNote(i);
-    if (over <= 120) {
-      return {
-        tone: 'warn', spareKcal, spareProtein,
-        headline: `${over} kcal over budget`,
-        detail: `A hair over — fine once, but a daily overshoot this size is exactly what flattens the scale.${weekly}`,
-      };
-    }
+    const w = i.weekAfter;
+    const cost = w && w.days > 0
+      ? `The week absorbs it: about ${w.perDay.toLocaleString()} a day for the next ${w.days} day${w.days === 1 ? '' : 's'}. No making up for it tonight.`
+      : 'That’s the week. Monday starts clean — one big day is noise on the trend.';
     return {
-      tone: 'bad', spareKcal, spareProtein,
-      headline: `${over} kcal over budget`,
-      detail: `This is the reason the scale stalls: eating over target erases the deficit. ${proteinHit ? 'Protein’s already in, so call it a day here — water or a walk, not more food.' : `You’re still short on protein though — if you eat, make it pure ${LEAN_PROTEIN}, nothing else.`}${weekly}`,
+      tone: 'warn', spareKcal, spareProtein,
+      headline: `${over} kcal past today’s share`,
+      detail: `${cost}${proteinHit ? '' : ` Still short on protein: if you eat, make it ${LEAN_PROTEIN}.`}`,
     };
   }
 
@@ -144,11 +143,3 @@ function proteinGapKcal(gap: number): number {
   return gap * 5;
 }
 
-/** Optional weekly-average context — the honest link between intake and a stuck
- *  scale. Only fires with real data and a meaningful overshoot. */
-function weeklyNote(i: FoodEvalInput): string {
-  if (!i.avgKcal7d || !i.calorieTarget) return '';
-  const over = round(i.avgKcal7d - i.calorieTarget);
-  if (over < 100) return '';
-  return ` Over the last week you’ve averaged ~${round(i.avgKcal7d)} kcal — about ${over} above target most days, which is the gap keeping your weight where it is.`;
-}

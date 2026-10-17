@@ -177,13 +177,16 @@
       });
     }
 
-    if (todayCalTarget && dir !== 'gain' && before.kcal <= todayCalTarget && afterKcal > todayCalTarget) {
-      const over = Math.round(afterKcal - todayCalTarget);
-      speak(`over-budget-${todayStr}`, `${over} kcal over budget`, {
-        tone: 'bad', icon: '⚠️', ttl: 8000,
-        body: afterProtein >= proteinTargetG - 5
-          ? 'Protein’s in, so call it here — a daily overshoot is exactly what stalls the scale.'
-          : 'You’re over for the day. If you eat more, make it pure lean protein — nothing else.',
+    // Past today's share: say what it costs the rest of the week, never that
+    // the day is lost — that thought is what turns one meal into a weekend.
+    if (todayShare && dir !== 'gain' && before.kcal <= todayShare && afterKcal > todayShare) {
+      const over = Math.round(afterKcal - todayShare);
+      const w = restOfWeek(afterKcal);
+      speak(`past-share-${todayStr}`, `${over} kcal past today’s share`, {
+        tone: 'warn', icon: '⚖️', ttl: 8000,
+        body: w && w.days > 0
+          ? `The week absorbs it — about ${w.perDay.toLocaleString()} a day for the next ${w.days} day${w.days === 1 ? '' : 's'}.`
+          : 'That’s the week. Monday starts clean.',
       });
     }
   }
@@ -225,30 +228,26 @@
     'paneer, Instant Pot, low oil'
   ];
 
-  const todayCalTarget = $derived(liveTarget.target);
+  // The week is the budget; today's share is what's left of it spread over
+  // the days left (stores/body). A big Saturday leaves less for Sunday — it
+  // doesn't "break" anything.
+  const week = $derived($body.week);
+  const todayShare = $derived(week?.share ?? null);
+  const weekLeft = $derived(week ? week.budget - week.before - Math.round(todayTotals.kcal) : null);
+  /** What the rest of the week has per day once today's total is `kcalToday`. */
+  function restOfWeek(kcalToday: number) {
+    if (!week) return null;
+    const days = week.daysLeft - 1;
+    return { days, perDay: days > 0 ? Math.max(0, Math.round((week.budget - week.before - kcalToday) / days)) : 0 };
+  }
+  const usualKcal = $derived($body.learned.meanIntake != null ? Math.round($body.learned.meanIntake / 10) * 10 : null);
 
   // — Live food coach — the running totals turned into one honest, actionable
   // line that refreshes the instant a new entry lands (it reads todayTotals,
-  // which is reactive). It answers "what's spare, what do I eat next, and is
-  // today why the scale isn't moving" instead of just showing the numbers.
-  const avgKcal7d = $derived.by(() => {
-    const cutoff = new Date();
-    cutoff.setDate(cutoff.getDate() - 6); // today + 6 prior = 7-day window
-    const cutYmd = cutoff.toISOString().slice(0, 10);
-    const byDate = new Map<string, number>();
-    for (const f of $_foodLogs) {
-      if (f.date < cutYmd) continue;
-      byDate.set(f.date, (byDate.get(f.date) || 0) + (f.kcal || 0));
-    }
-    if (byDate.size < 3) return null; // too little data to claim a trend
-    let sum = 0;
-    for (const v of byDate.values()) sum += v;
-    return sum / byDate.size;
-  });
-
+  // which is reactive).
   const foodEval = $derived(
     evaluateFood({
-      calorieTarget: todayCalTarget,
+      calorieTarget: todayShare,
       kcalSoFar: todayTotals.kcal,
       proteinTarget: proteinTargetG,
       proteinSoFar: todayTotals.protein,
@@ -257,7 +256,7 @@
       mealsLogged: todayFoods.length,
       hour: new Date().getHours(),
       direction: goalDirection(currentWeightKg, goalKg ?? 0),
-      avgKcal7d,
+      weekAfter: restOfWeek(todayTotals.kcal),
     })
   );
 
@@ -290,7 +289,7 @@
         body: {
           request: ask,
           proteinTarget: proteinTargetG,
-          kcalTarget: todayCalTarget,
+          kcalTarget: todayShare,
           proteinSoFar: Math.round(todayTotals.protein),
           kcalSoFar: Math.round(todayTotals.kcal),
           // Don't serve the same dinner twice in a week.
@@ -387,16 +386,32 @@
   value={`${Math.round(todayTotals.protein)}g`}
   caption={proteinTargetG ? `of ${proteinTargetG}g protein` : 'protein today'}
   story={fuelStory}
-  stats={[
-    { v: Math.round(todayTotals.kcal), l: todayCalTarget ? `of ${todayCalTarget} kcal` : 'kcal today' },
+  stats={week ? [
+    { v: Math.round(todayTotals.kcal).toLocaleString(), l: `of ${week.share.toLocaleString()} today` },
+    { v: weekLeft != null && weekLeft < 0 ? `+${(-weekLeft).toLocaleString()}` : (weekLeft ?? 0).toLocaleString(), l: weekLeft != null && weekLeft < 0 ? 'over this week' : 'left this week' },
+    { v: week.daysLeft, l: week.daysLeft === 1 ? 'day to go' : 'days to go' }
+  ] : [
+    { v: Math.round(todayTotals.kcal), l: 'kcal today' },
     { v: `${Math.round(todayTotals.carbs)}g`, l: 'carbs' },
     { v: `${Math.round(todayTotals.fat)}g`, l: 'fat' }
   ]} />
 
-{#if liveTarget.basis === 'learned' && liveTarget.target}
-  <div class="live-target">🧠 Live target <b>{liveTarget.target} kcal</b> — from your learned burn (~{liveTarget.maintenance} kcal maintenance{#if latestBodyFat} · {latestBodyFat}% bf{/if}). It adjusts as you lose weight.</div>
-{:else if liveTarget.basis === 'formula' && liveTarget.target && latestBodyFat}
-  <div class="live-target">🎯 Target <b>{liveTarget.target} kcal</b> — from ~{liveTarget.maintenance} kcal maintenance (lean-mass BMR at {latestBodyFat}% bf). Log a couple weeks and it learns your real burn.</div>
+<!-- Where the number comes from, in the log's own terms: a log that leaves the
+     same things out every week is still a good ruler, so the target is set in
+     its units and nobody is asked to weigh the oil. -->
+{#if liveTarget.target && liveTarget.basis === 'learned'}
+  <div class="live-target">
+    This week: <b>{liveTarget.target.toLocaleString()} kcal</b> a day{#if usualKcal && usualKcal - liveTarget.target >= 50}, {(usualKcal - liveTarget.target).toLocaleString()} under your usual {usualKcal.toLocaleString()}{/if}.
+    Your log and scale say you hold weight at about <b>{liveTarget.maintenance?.toLocaleString()}</b> as you log it. Whatever the log
+    leaves out (cooking oil, a handful of nuts, a kid's leftovers) is left out of both numbers, so it cancels. Keep logging the way you do.
+    {#if liveTarget.adjustKcal}Includes {liveTarget.adjustKcal > 0 ? '+' : '−'}{Math.abs(liveTarget.adjustKcal)} from your check-in.{/if}
+    New number every Monday.
+  </div>
+{:else if liveTarget.target && liveTarget.basis === 'formula'}
+  <div class="live-target">
+    This week: <b>{liveTarget.target.toLocaleString()} kcal</b> a day, from a formula (~{liveTarget.maintenance?.toLocaleString()} maintenance{#if latestBodyFat}, lean-mass BMR at {latestBodyFat}% bf{/if}).
+    A few weeks of logging the way you do and weighing most mornings, and it comes from your own numbers instead.
+  </div>
 {/if}
 
 <FoodLogger logs={$_foodLogs as any[]} today={todayStr} onLog={logFoods}
@@ -511,7 +526,7 @@
   <div class="gen-sub">
     Describe what you feel like — ingredients, cuisine, time, equipment, who's eating.
     It's written around the
-    {#if todayCalTarget}{Math.max(0, todayCalTarget - Math.round(todayTotals.kcal))} kcal and {/if}
+    {#if todayShare}{Math.max(0, todayShare - Math.round(todayTotals.kcal))} kcal and {/if}
     {Math.max(0, proteinTargetG - Math.round(todayTotals.protein))}g of protein you still have left today.
   </div>
   <textarea class="gen-input" rows="2" bind:value={recipeAsk}

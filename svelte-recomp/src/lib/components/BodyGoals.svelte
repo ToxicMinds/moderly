@@ -24,10 +24,12 @@
   const _weights = liveWeights();
   const weights = $derived([...$_weights].sort((a, b) => a.date.localeCompare(b.date)).map((r: any) => ({ date: r.date?.slice(5), weight: r.weight })));
 
-  // Learned maintenance, and whether the live target trusts it, come from
-  // stores/body: confident AND above the floor a living body burns.
+  // The maintenance this week's target is built on (stores/body), so these
+  // projections and the Food page can never disagree. When it's learned it is
+  // in the log's own units — what the log leaves out, it leaves out of both.
   const learnedBurn = $derived($body.learned);
-  const useLearned = $derived($body.target.basis === 'learned');
+  const useLearned = $derived($body.target.basis === 'learned' && $body.target.maintenance != null);
+  const learnedKcal = $derived($body.target.maintenance as number);
   let weightInput = $state('');
   let savingWeight = $state(false);
 
@@ -244,7 +246,7 @@
     return goalWeight.map((g) => ({
       ...g,
       ...(useLearned
-        ? projectGoalWithTdee(learnedBurn.tdee as number, latestWeight, g.weight)
+        ? projectGoalWithTdee(learnedKcal, latestWeight, g.weight)
         : projectGoal(
             { weightKg: latestWeight, heightCm: parseFloat(height), age: ageNum, gender, activityLevel, bodyFatPct: bodyFat ?? null },
             g.weight
@@ -259,7 +261,7 @@
     if (!uid) return;
     settingGoal = scenario.label;
     const src = (scenario as any).learned
-      ? `your real maintenance of ~${scenario.tdee} kcal/day (learned from ${learnedBurn.loggedDays} days of your own logs)`
+      ? `the ~${scenario.tdee} kcal/day your own log and scale hold weight at (${learnedBurn.loggedDays} logged days)`
       : `your TDEE of ~${scenario.tdee} kcal/day`;
     const reason = `${scenario.label} (${scenario.bf}% body fat) — based on ${lbm}kg lean mass measured ${todayYmd()}. `
       + `At ${src} and a moderate ~${Math.abs(scenario.dailyEnergyDeltaKcal)} kcal `
@@ -436,11 +438,11 @@
       Based on {lbm} kg lean mass at {bodyFat}% body fat
       {#if !goalProjections}<br><span style="color:#ffd166">Enter your age above to see TDEE, calorie target, and a realistic timeline for each option.</span>{/if}
     </div>
-    {#if useLearned && learnedBurn.tdee != null}
+    {#if useLearned}
       <div class="note-box" style="margin-bottom:10px">
-        🧠 <strong>Learned from your data:</strong> your real maintenance is ~{learnedBurn.tdee} kcal/day
+        🧠 <strong>Learned from your data:</strong> you hold weight at ~{learnedKcal} kcal a day, as you log it
         (from {learnedBurn.loggedDays} logged days{#if learnedBurn.weightRateKgPerWeek !== 0} · {learnedBurn.weightRateKgPerWeek > 0 ? 'losing' : 'gaining'} ~{Math.abs(learnedBurn.weightRateKgPerWeek).toFixed(2)} kg/wk{/if}).
-        The targets below use this real number, not a textbook formula — so they self-correct to what your body's actually doing.
+        The targets below use this number, not a textbook formula — in the same units as your log, so they self-correct to what your body's actually doing.
       </div>
     {/if}
     {#each (goalProjections ?? goalWeight) as g}

@@ -161,14 +161,17 @@ export function projectionSummary(proj: GoalProjection, proteinG?: number): stri
 }
 
 /**
- * The LIVE daily calorie target — recomputed as weight and learned burn change,
+ * The week's daily calorie target — recomputed as weight and learned burn change,
  * instead of the number frozen into goal_reason the day the goal was set.
  *
  * Priority:
- *   1. LEARNED maintenance (adaptiveTdee: intake − weight-trend). This already
- *      includes every calorie training burned — badminton, the gym, steps — so
- *      it never needs exercise calories added on top (that would double-count),
- *      and it falls naturally as bodyweight drops.
+ *   1. LEARNED maintenance (weeklyMaintenance: intake − weight-trend, in the
+ *      log's own units, smoothed across Sundays). It already includes every
+ *      calorie training burned — badminton, the gym, steps — so exercise is
+ *      never added on top (that would double-count), and it falls naturally as
+ *      bodyweight drops. Below the formula is fine: a log that leaves the oil
+ *      out every week learns a maintenance with the oil left out, and a target
+ *      in those units cancels it.
  *   2. FORMULA maintenance (Mifflin, or Katch-McArdle when a body-fat % is
  *      known) at the CURRENT weight.
  *   3. The stored target parsed from goal_reason, as a last resort.
@@ -182,10 +185,16 @@ export type TargetBasis = 'learned' | 'formula' | 'stored' | 'none';
 export interface LiveTargetInput {
   goalKg: number | null;
   currentWeightKg: number | null;
+  /** Learned maintenance the target may be built on — null when it may not
+   *  (weeklyMaintenance decides). */
   learnedTdee: number | null;
-  learnedConfidence: 'low' | 'medium' | 'high' | null;
   profile: { heightCm: number; age: number; gender: 'male' | 'female'; activityLevel: ActivityLevel; bodyFatPct?: number | null } | null;
   storedTarget: number | null;
+  /** This week's nudge from the Sunday check-in, kcal/day (one week only). */
+  adjustKcal?: number;
+  /** What the log usually says a day (median of the trend window's logged
+   *  days). A cut never asks for more than one step below it in a week. */
+  usualKcal?: number | null;
 }
 
 export interface LiveTargetResult {
@@ -196,15 +205,14 @@ export interface LiveTargetResult {
   /** The weekly change this target is built to produce, kg/week, POSITIVE =
    *  losing (the trend's convention). null when there is no maintenance. */
   planKgPerWeek: number | null;
-  /** The learned burn was confident but below what a living, moving body can
-   *  run on — so the target ignored it. It means food is missing from the log. */
-  learnedImplausible: boolean;
+  /** The check-in nudge inside `target`, kcal/day. */
+  adjustKcal: number;
 }
 
 /**
  * The least a body can be burning: resting metabolism plus the bare minimum of
- * daily living (×1.2, the "sedentary" multiplier). A learned burn below this
- * isn't a slow metabolism — it's intake that never reached the log.
+ * daily living (×1.2, the "sedentary" multiplier). A learned maintenance below
+ * this isn't a slow metabolism — it's food the log doesn't carry.
  */
 export function burnFloor(p: { weightKg: number; heightCm: number; age: number; gender: 'male' | 'female'; bodyFatPct?: number | null }): number {
   return Math.round(calcBmr(p) * 1.2);
@@ -213,26 +221,36 @@ export function burnFloor(p: { weightKg: number; heightCm: number; age: number; 
 /** Hard floors so a cut can never prescribe a dangerously low intake. */
 const CUT_FLOOR: Record<'male' | 'female', number> = { male: 1500, female: 1200 };
 
+/**
+ * The most a learned cut asks below what the log usually says, per week. When
+ * the scale has run ahead of the log for a while the maths can land 500+ under
+ * someone's usual day, and a number that far from their life gets ignored, not
+ * followed. One step at a time: if the scale still won't move, the usual comes
+ * down and so does next week's target.
+ */
+const STEP_KCAL = 300;
+
 export function resolveCalorieTarget(i: LiveTargetInput): LiveTargetResult {
   const haveGoal = i.goalKg != null && i.currentWeightKg != null && i.currentWeightKg > 0;
-  const body = i.profile && haveGoal
-    ? { weightKg: i.currentWeightKg as number, heightCm: i.profile.heightCm, age: i.profile.age, gender: i.profile.gender, bodyFatPct: i.profile.bodyFatPct ?? null }
-    : null;
-  const confident = i.learnedTdee != null && (i.learnedConfidence === 'high' || i.learnedConfidence === 'medium');
-  const learnedImplausible = confident && body != null && (i.learnedTdee as number) < burnFloor(body);
-  const result = (target: number, basis: TargetBasis, maintenance: number, direction: GoalDirection): LiveTargetResult =>
-    ({ target, basis, maintenance, direction, planKgPerWeek: +(((maintenance - target) * 7) / KCAL_PER_KG).toFixed(2), learnedImplausible });
+  const adjust = i.adjustKcal ?? 0;
+  const result = (projected: number, basis: TargetBasis, maintenance: number, direction: GoalDirection): LiveTargetResult => {
+    const target = floorIfCut(projected + adjust, direction, i.profile?.gender);
+    return { target, basis, maintenance, direction, planKgPerWeek: +(((maintenance - target) * 7) / KCAL_PER_KG).toFixed(2), adjustKcal: target - floorIfCut(projected, direction, i.profile?.gender) };
+  };
   if (haveGoal) {
-    if (confident && !learnedImplausible) {
-      const p = projectGoalWithTdee(i.learnedTdee as number, i.currentWeightKg as number, i.goalKg as number);
-      return result(floorIfCut(p.targetIntakeKcal, p.direction, i.profile?.gender), 'learned', i.learnedTdee as number, p.direction);
+    if (i.learnedTdee != null) {
+      const p = projectGoalWithTdee(i.learnedTdee, i.currentWeightKg as number, i.goalKg as number);
+      // One step under the usual at most, and never above maintenance: a cut
+      // that plans a gain isn't one.
+      const step = p.direction === 'lose' && i.usualKcal ? Math.min(i.learnedTdee, Math.round((i.usualKcal - STEP_KCAL) / 50) * 50) : 0;
+      return result(Math.max(p.targetIntakeKcal, step), 'learned', i.learnedTdee, p.direction);
     }
-    if (i.profile && body) {
-      const p = projectGoal({ ...body, activityLevel: i.profile.activityLevel }, i.goalKg as number);
-      return result(floorIfCut(p.targetIntakeKcal, p.direction, i.profile.gender), 'formula', p.tdee, p.direction);
+    if (i.profile) {
+      const p = projectGoal({ weightKg: i.currentWeightKg as number, ...i.profile }, i.goalKg as number);
+      return result(p.targetIntakeKcal, 'formula', p.tdee, p.direction);
     }
   }
-  return { target: i.storedTarget, basis: i.storedTarget != null ? 'stored' : 'none', maintenance: null, direction: null, planKgPerWeek: null, learnedImplausible };
+  return { target: i.storedTarget, basis: i.storedTarget != null ? 'stored' : 'none', maintenance: null, direction: null, planKgPerWeek: null, adjustKcal: 0 };
 }
 
 function floorIfCut(target: number, direction: GoalDirection, gender?: 'male' | 'female'): number {

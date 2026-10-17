@@ -225,19 +225,23 @@ export function weightVerdict(points: WeighIn[], asOfMs?: number): WeightVerdict
  *   gaining  — the whole interval is weight going UP
  *   stalled  — ruled out the plan's pace, and the best estimate is ~flat
  *   slower   — ruled out the plan's pace, but genuinely losing
- *   faster   — losing well over 1.5× the plan (muscle is at risk)
+ *   faster   — losing well over 1.5× the plan and past ~1% of bodyweight a
+ *              week (muscle is at risk)
  *   on-pace  — confirmed losing, and the plan's pace is still in the interval
  */
 export type Pace = 'too-early' | 'gaining' | 'stalled' | 'slower' | 'on-pace' | 'faster';
 
-export function paceVsPlan(v: WeightVerdict | null, planKgPerWeek: number | null): Pace {
+export function paceVsPlan(v: WeightVerdict | null, planKgPerWeek: number | null, fastKgPerWeek: number | null = null): Pace {
   if (!v || v.state === 'not-enough') return 'too-early';
   if (v.hiKgPerWeek < 0) return 'gaining';
   if (planKgPerWeek == null || planKgPerWeek <= 0) return 'too-early';
   if (v.hiKgPerWeek < planKgPerWeek) {
     return v.loKgPerWeek <= 0 || v.rateKgPerWeek < RATE_FLOOR_KG_WK ? 'stalled' : 'slower';
   }
-  if (v.loKgPerWeek > planKgPerWeek * 1.5) return 'faster';
+  // A gentle plan (one step under the usual can mean 0.2 kg a week) must not
+  // make an ordinary half-kilo week "too fast": that also needs the body's own
+  // limit, ~1% of bodyweight, when the caller knows it.
+  if (v.loKgPerWeek > Math.max(planKgPerWeek * 1.5, fastKgPerWeek ?? 0)) return 'faster';
   if (v.loKgPerWeek > 0) return 'on-pace';
   return 'too-early';
 }
@@ -421,98 +425,98 @@ export function recoveryCost(
 // Why the scale isn't moving
 // ---------------------------------------------------------------------------
 
-export interface StallClue { id: 'cooking-fat' | 'same-portion' | 'thin-days'; title: string; detail: string }
+export interface StallClue { id: 'weekend' | 'training' | 'thin-days'; title: string; detail: string }
 
 export interface StallDiagnosis {
-  /** Median logged kcal on the days that count (≥ 800 kcal), over the trend window. */
-  medianKcal: number;
+  /** Average logged kcal on the days that count (≥ 800 kcal), over the trend
+   *  window — the mean, because the weekend's extra is real energy. */
+  avgKcal: number;
   loggedDays: number;
   /** The least this body burns just living (resting × 1.2), when known. */
   floorKcal: number | null;
-  /** floor − median, when the log sits below the floor: a LOWER bound on what's missing. */
+  /** floor − average, when the log sits below the floor: what the log doesn't
+   *  carry, at least. Fine while it's steady — the target is in the log's units. */
   missingAtLeastKcal: number | null;
   clues: StallClue[];
 }
 
-const COOKED = /masala|curry|tikka|dal\b|daal|sambar|korma|biryani|stir[- ]?fr|fried|omelet|omelette|vajíčk|praženic|curr|gul[aá]š|soté|saut|roast|pečen|vyprážan|smažen|risotto|pasta|stew/i;
-const COOKING_FAT = /\boil\b|olej|ghee|butter|maslo|máslo|masło|lard|bravčová mast|sádlo/i;
+const med = (a: number[]) => {
+  const s = [...a].sort((x, y) => x - y);
+  return s.length % 2 ? s[s.length >> 1] : (s[s.length / 2 - 1] + s[s.length / 2]) / 2;
+};
 
 /**
- * Only when the trend has ruled out the plan (stalled or gaining): set what the
- * log says against what a body this size burns, and point at where food most
- * often goes missing — from this person's own entries.
+ * Only when the trend has ruled out the plan (stalled or gaining): the
+ * arithmetic, then where the room is — from this person's own week.
  *
- * It never says "you under-log". An over-generous FORMULA and missing food look
- * identical, so the comparison is against the floor — resting metabolism plus
- * bare daily living — not the activity estimate; a log that holds weight below
- * that floor has its likeliest explanation in food that never reached it. The
- * clues are checkable facts about the entries, not accusations.
+ * It does NOT ask for a more complete log. A log that leaves the oil out every
+ * week is a consistent ruler, and the target is set in its units (see
+ * weeklyMaintenance), so hunting the missing grams changes nothing but the
+ * effort. What moves a stall is behaviour the log CAN see: a weekend that runs
+ * well above the weekdays, training that dropped away, days only half logged
+ * (those do wobble the ruler).
  */
 export function diagnoseStall(input: {
   pace: string;
   intake: Map<string, { kcal: number; items: number }>;
-  foods: Array<{ date: string; name?: string | null; kcal?: number | null }>;
   floorKcal: number | null;
   today: string;
+  /** Days with a lifting log or ≥ 30 minutes of watch-recorded sport. */
+  trainingDays?: Iterable<string>;
   windowDays?: number;
 }): StallDiagnosis | null {
   if (input.pace !== 'stalled' && input.pace !== 'gaining') return null;
   const dayMs = 86400000;
+  const win = input.windowDays ?? WINDOW_DAYS;
   const end = new Date(`${input.today}T12:00:00`).getTime();
-  const since = (days: number) => (d: string) => {
+  const between = (from: number, to: number) => (d: string) => {
     const t = new Date(`${d}T12:00:00`).getTime();
-    return t <= end && t > end - days * dayMs;
+    return t <= end - from * dayMs && t > end - to * dayMs;
   };
-  const inTrend = since(input.windowDays ?? WINDOW_DAYS);
-  const days = [...input.intake].filter(([d, v]) => inTrend(d) && v.kcal >= 800).map(([, v]) => v);
+  const inTrend = between(0, win);
+  const days = [...input.intake].filter(([d, v]) => inTrend(d) && v.kcal >= 800);
   if (days.length < 10) return null;
-  const sorted = days.map((d) => d.kcal).sort((a, b) => a - b);
-  const median = Math.round(sorted.length % 2 ? sorted[sorted.length >> 1] : (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2);
+  const avg = Math.round(days.reduce((t, [, v]) => t + v.kcal, 0) / days.length);
 
   const clues: StallClue[] = [];
-  const recent = input.foods.filter((f) => f?.date && since(60)(f.date));
 
-  // 1. Cooking fat: days with a cooked dish and no oil, ghee or butter logged
-  //    that same day.
-  const cookedDays = new Set(recent.filter((f) => COOKED.test(f.name ?? '')).map((f) => f.date));
-  const fatDays = new Set(recent.filter((f) => COOKING_FAT.test(f.name ?? '')).map((f) => f.date));
-  const dry = [...cookedDays].filter((d) => !fatDays.has(d)).length;
-  if (dry >= 7 && dry >= cookedDays.size * 0.7) {
-    clues.push({
-      id: 'cooking-fat', title: 'Is the cooking fat in the log?',
-      detail: `${dry} of ${cookedDays.size} days with a cooked dish have no oil, ghee or butter logged that day. A tablespoon is about 120 kcal and a curry often takes two to four — unless the dish entries already include it.`,
-    });
+  // 1. The weekend. Friday evening onwards is where most weeks are won or lost.
+  const dow = (d: string) => new Date(`${d}T12:00:00`).getDay();
+  const weekend = days.filter(([d]) => [0, 5, 6].includes(dow(d))).map(([, v]) => v.kcal);
+  const weekdays = days.filter(([d]) => ![0, 5, 6].includes(dow(d))).map(([, v]) => v.kcal);
+  if (weekend.length >= 3 && weekdays.length >= 5) {
+    const we = Math.round(med(weekend) / 10) * 10, wd = Math.round(med(weekdays) / 10) * 10;
+    if (we - wd >= 300) {
+      clues.push({
+        id: 'weekend', title: 'The weekend is where the room is',
+        detail: `Friday to Sunday you log a median ${we.toLocaleString()} a day, Monday to Thursday ${wd.toLocaleString()} — ${(we - wd).toLocaleString()} more, three days a week, before anything the weekend doesn't log. Meeting halfway saves ~${(Math.round(((we - wd) * 3) / 2 / 50) * 50).toLocaleString()} a week without touching a weekday.`,
+      });
+    }
   }
 
-  // 2. One portion logged the same way again and again — the biggest such
-  //    lever (times × kcal), skipping anything already measured ("250 g").
-  const MEASURED = /\d\s*(g|kg|ml|l|scoops?|ks|pcs)\b/i;
-  const reps = new Map<string, { n: number; name: string; kcal: number }>();
-  for (const f of recent) {
-    const k = Math.round(+(f.kcal ?? 0));
-    if (!f.name || k < 100 || MEASURED.test(f.name)) continue;
-    const key = `${f.name.toLowerCase().replace(/\(.*?\)/g, '').trim()}|${k}`;
-    const r = reps.get(key) ?? { n: 0, name: f.name.replace(/\s*\(.*?\)\s*/g, ' ').trim(), kcal: k };
-    r.n++; reps.set(key, r);
-  }
-  const top = [...reps.values()].filter((r) => r.n >= 8).sort((a, b) => b.n * b.kcal - a.n * a.kcal)[0];
-  if (top) {
-    clues.push({
-      id: 'same-portion', title: 'Is that portion right?',
-      detail: `${top.name} is logged ${top.n} times at exactly ${top.kcal} kcal. Weigh it once: if the real portion is bigger, every one of those entries came up short.`,
-    });
+  // 2. Training that dropped away: the burn falls with it, so the same food
+  //    that was losing weight stops doing it.
+  if (input.trainingDays) {
+    const all = [...new Set(input.trainingDays)];
+    const perWeek = (f: (d: string) => boolean) => (all.filter(f).length * 7) / win;
+    const now = perWeek(inTrend), before = perWeek(between(win, 2 * win));
+    if (before >= 1.5 && before - now >= 1) {
+      clues.push({
+        id: 'training', title: 'Less training, less burn',
+        detail: `${before.toFixed(1)} training days a week in the five weeks before, ${now.toFixed(1)} in the last five. The burn dropped with them — that's why food that was losing weight stopped doing it. The target follows the burn down until training is back.`,
+      });
+    }
   }
 
-  // 3. Days that are only half there.
-  const thin = [...input.intake].filter(([d, v]) => inTrend(d) && v.items > 0 && v.items <= 2 && v.kcal < median * 0.6).length;
+  // 3. Days that are only half there: they do wobble the ruler.
+  const thin = [...input.intake].filter(([d, v]) => inTrend(d) && v.items > 0 && v.items <= 2 && v.kcal < avg * 0.6).length;
   if (thin >= 3) {
     clues.push({
       id: 'thin-days', title: 'Half-logged days?',
-      detail: `${thin} days in the last five weeks have only one or two entries. A day that's half logged reads as a day you ate half.`,
+      detail: `${thin} days in the last five weeks have only one or two entries. Logging roughly is fine; logging some days and not others makes the ruler wobble.`,
     });
   }
 
-  const missing = input.floorKcal != null && median < input.floorKcal ? input.floorKcal - median : null;
-  return { medianKcal: median, loggedDays: days.length, floorKcal: input.floorKcal, missingAtLeastKcal: missing, clues };
+  const missing = input.floorKcal != null && avg < input.floorKcal ? input.floorKcal - avg : null;
+  return { avgKcal: avg, loggedDays: days.length, floorKcal: input.floorKcal, missingAtLeastKcal: missing, clues };
 }
-

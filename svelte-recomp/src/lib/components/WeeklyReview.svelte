@@ -3,37 +3,15 @@
   // narrative verdict plus concrete, prioritised adjustments for next week — the
   // kind of thing a good coach would text you on Sunday night. Pure aggregation
   // lives in $lib/weeklyReview; this component only feeds it live data.
-  import { liveWeights, liveDailySteps, liveBiometrics, liveWorkoutLogs, liveGoal, liveProfile } from '$lib/stores/live';
+  import { liveProfile } from '$lib/stores/live';
   import { weeklyReview } from '$lib/weeklyReview';
-  import { body } from '$lib/stores/body';
+  import { reviewInputs } from '$lib/stores/review';
   import { todayDate } from '$lib/stores/refresh';
 
-  const _weights = liveWeights();
-  const _steps = liveDailySteps();
-  const _bio = liveBiometrics();
-  const _workoutLogs = liveWorkoutLogs();
-  const _goal = liveGoal();
   const _profile = liveProfile();
-
   const today = $derived($todayDate);
-  const goalKg = $derived($_goal ?? null);
-  const proteinTargetG = $derived(goalKg ? $body.proteinTargetG : 0);
-
-  // Per-day intake: the shared map from stores/body.
-  const intake = $derived(Array.from($body.intake, ([date, d]) => ({ date, kcal: d.kcal, protein: d.protein })));
-
-  const steps = $derived(Array.from($_steps, ([date, count]) => ({ date, count })));
-
-  const sleep = $derived(($_bio as any[]).map((b) => ({ date: b.date, sleep_hours: b.sleep_hours ?? null })));
-  const weights = $derived(($_weights as any[]).map((w) => ({ date: w.date, weight: w.weight })));
-
-  const learnedTdee = $derived($body.learned.tdee);
-
-  const review = $derived(weeklyReview({
-    today, weights, intake, steps, sleep,
-    workouts: $_workoutLogs as any,
-    learnedTdee, proteinTargetG, goalKg,
-  }));
+  const proteinTargetG = $derived($reviewInputs.proteinTargetG);
+  const review = $derived(weeklyReview({ ...$reviewInputs, today }));
 
   const fmtBal = (n: number) => (n >= 0 ? `+${Math.round(n)}` : `${Math.round(n)}`);
 
@@ -45,11 +23,8 @@
     sharing = true;
     shareMsg = '';
     try {
-      const [{ weeklySummaryText }, { deliverText, deliveryMessage }] =
-        await Promise.all([import('$lib/weeklyShare'), import('$lib/shareFile')]);
-      const text = weeklySummaryText(review, { name: ($_profile as any)?.display_name ?? null });
-      const res = await deliverText('My week — RecompOS', text);
-      shareMsg = deliveryMessage(res, 'Summary');
+      const { shareWeek } = await import('$lib/weeklyShare');
+      shareMsg = await shareWeek(review, { name: ($_profile as any)?.display_name ?? null });
     } catch (e: any) {
       shareMsg = 'Share failed: ' + (e?.message || String(e)).slice(0, 100);
     } finally {

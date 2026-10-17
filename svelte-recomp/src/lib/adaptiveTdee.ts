@@ -51,7 +51,8 @@ export interface AdaptiveTdee {
   confidence: TdeeConfidence;
   /** Number of plausibly-logged intake days used. */
   loggedDays: number;
-  /** Mean of those logged days' intake. null if none. */
+  /** Mean of those logged days' intake — what the log usually says a day.
+   *  null if none. */
   meanIntake: number | null;
   /** Weight-trend slope over the window, kg/week (negative = losing). */
   weightRateKgPerWeek: number;
@@ -59,12 +60,6 @@ export interface AdaptiveTdee {
   weightSpanDays: number;
   /** ± kcal/day on tdee, from the weight slope's 95% interval. null without a line. */
   uncertaintyKcal: number | null;
-}
-
-function median(nums: number[]): number {
-  const s = [...nums].sort((a, b) => a - b);
-  const m = Math.floor(s.length / 2);
-  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
 }
 
 /** ± kcal/day of learned burn below which the estimate may steer a target. */
@@ -115,10 +110,12 @@ export function adaptiveTdee(input: AdaptiveTdeeInput): AdaptiveTdee {
   // Need a real weight span AND enough logged intake days to trust the identity.
   if (!line || span < 14 || logged.length < 10 || base.meanIntake == null) return base;
 
-  // Use the median logged intake (robust to the odd cheat/feast day) as the
-  // steady-state intake, then apply the energy-balance identity.
-  const medIntake = median(logged.map((i) => i.kcal));
-  const tdee = Math.round(medIntake - slope * KCAL_PER_KG);
+  // The MEAN logged intake, not the median: energy adds up. The median of a
+  // week with a rhythm sits on the weekdays and ignores what the weekend adds —
+  // on one real account (Sunday 2,850, Monday 1,820) it under-read intake, and
+  // so the learned burn and every target built on it, by ~250 kcal a day.
+  const meanIntake = logged.reduce((s, i) => s + i.kcal, 0) / logged.length;
+  const tdee = Math.round(meanIntake - slope * KCAL_PER_KG);
 
   // Sanity clamp — a wildly out-of-range value means the data (usually
   // incomplete logging) can't be trusted; downgrade rather than mislead.
@@ -132,7 +129,83 @@ export function adaptiveTdee(input: AdaptiveTdeeInput): AdaptiveTdee {
   else if (logged.length >= 14 && span >= 14 && u <= MEDIUM_KCAL) confidence = 'medium';
   else confidence = 'low';
 
-  return { ...base, tdee, meanIntake: Math.round(medIntake), confidence };
+  return { ...base, tdee, confidence };
+}
+
+// ---------------------------------------------------------------------------
+// The week's maintenance: the number this week's target is built on
+// ---------------------------------------------------------------------------
+
+/** How far each Sunday's fresh estimate moves the one targets are built on. */
+const WEEKLY_ALPHA = 0.35;
+/** Sundays the smoothing runs over. 0.65^12 < 1%: the oldest has no pull left. */
+const SMOOTH_WEEKS = 12;
+/** With no usable Sunday for longer than this, the smoothed number is stale. */
+const STALE_WEEKS = 3;
+
+export interface WeeklyMaintenance {
+  /** Smoothed learned maintenance for this week; null means use the formula. */
+  kcal: number | null;
+  /** The fresh estimate as of last Sunday — logged days, rate, interval. */
+  latest: AdaptiveTdee;
+  /** The formula's maintenance sits outside the learned interval: this log and
+   *  this scale rule it out, whatever the reason (food the log leaves out, an
+   *  activity level that's a guess). */
+  formulaRuledOut: boolean;
+}
+
+function shiftDays(ymdStr: string, days: number): string {
+  const d = new Date(`${ymdStr}T12:00:00`);
+  d.setDate(d.getDate() + days);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/**
+ * Learned maintenance in the LOG'S OWN UNITS, re-estimated as of each Sunday
+ * and smoothed, so a target set from it holds for the week and moves gently.
+ *
+ * A log that leaves the same things out every week — the oil in the curry, the
+ * raisins on the tvaroh — still makes a good ruler: what it misses is missing
+ * from the intake AND from the maintenance learned against the scale, so a
+ * target in its units cancels it. Asking for every gram logged would ask for a
+ * habit nobody keeps for a year. So a learned number is used when it is tight
+ * enough to steer by, or when its interval already rules out the formula —
+ * either way it beats a formula the scale has contradicted.
+ *
+ * One Sunday's estimate swings a few hundred kcal on a ±1 kg scale; feeding
+ * that straight into the target would lurch it by up to 500 a week. Smoothed
+ * (α 0.35), a closed-loop simulation moved it ~40 a week and tracked the true
+ * number twice as closely — and never wound itself down to the floor.
+ */
+export function weeklyMaintenance(input: {
+  intake: Array<{ date: string; kcal: number }>;
+  weights: Array<{ date: string; weight: number }>;
+  /** Monday of the current week. Estimates are as of the Sundays before it. */
+  weekStart: string;
+  /** The formula's maintenance at the current weight, when the profile allows. */
+  formulaKcal: number | null;
+}): WeeklyMaintenance {
+  const usable = (e: AdaptiveTdee) => e.tdee != null && (
+    e.confidence === 'high' || e.confidence === 'medium' ||
+    (input.formulaKcal != null && e.uncertaintyKcal != null && Math.abs(input.formulaKcal - e.tdee) > e.uncertaintyKcal)
+  );
+  let smoothed: number | null = null;
+  let age = Infinity;
+  let latest: AdaptiveTdee | null = null;
+  for (let k = SMOOTH_WEEKS - 1; k >= 0; k--) {
+    const e = adaptiveTdee({ intake: input.intake, weights: input.weights, asOf: shiftDays(input.weekStart, -1 - 7 * k) });
+    if (k === 0) latest = e;
+    if (!usable(e)) { age++; continue; }
+    smoothed = smoothed == null ? (e.tdee as number) : smoothed + WEEKLY_ALPHA * ((e.tdee as number) - smoothed);
+    age = 0;
+  }
+  const l = latest as AdaptiveTdee;
+  return {
+    kcal: smoothed != null && age <= STALE_WEEKS ? Math.round(smoothed) : null,
+    latest: l,
+    formulaRuledOut: input.formulaKcal != null && l.tdee != null && l.uncertaintyKcal != null
+      && Math.abs(input.formulaKcal - l.tdee) > l.uncertaintyKcal,
+  };
 }
 
 /**

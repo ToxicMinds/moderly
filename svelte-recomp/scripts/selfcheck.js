@@ -1637,29 +1637,27 @@ check('Katch-McArdle: a body-fat % switches BMR to lean mass', () => {
 check('live target prefers learned burn and floors a cut', () => {
   // Learned maintenance drives it; on a cut, target = maintenance − 20% (capped).
   const learned = resolveCalorieTarget({
-    goalKg: 85, currentWeightKg: 95, learnedTdee: 2600, learnedConfidence: 'high',
+    goalKg: 85, currentWeightKg: 95, learnedTdee: 2600,
     profile: { heightCm: 178, age: 35, gender: 'male', activityLevel: 'moderate' }, storedTarget: 9999,
   });
   assert.equal(learned.basis, 'learned');
   assert.ok(learned.target < 2600 && learned.target >= 1500, 'a cut sits below maintenance, above the floor');
   assert.equal(learned.direction, 'lose');
 
-  // Low confidence → formula path (uses profile, lean-mass-aware).
+  // No usable learned number (weeklyMaintenance said null) → formula path.
   const formula = resolveCalorieTarget({
-    goalKg: 85, currentWeightKg: 95, learnedTdee: 2600, learnedConfidence: 'low',
+    goalKg: 85, currentWeightKg: 95, learnedTdee: null,
     profile: { heightCm: 178, age: 35, gender: 'male', activityLevel: 'moderate', bodyFatPct: 22 }, storedTarget: 9999,
   });
   assert.equal(formula.basis, 'formula');
 
   // No goal/weight → falls back to the stored number.
-  const stored = resolveCalorieTarget({ goalKg: null, currentWeightKg: null, learnedTdee: null, learnedConfidence: null, profile: null, storedTarget: 2100 });
+  const stored = resolveCalorieTarget({ goalKg: null, currentWeightKg: null, learnedTdee: null, profile: null, storedTarget: 2100 });
   assert.equal(stored.basis, 'stored');
   assert.equal(stored.target, 2100);
 
   // A gainer is never told to eat less than maintenance.
-  const gain = resolveCalorieTarget({
-    goalKg: 66, currentWeightKg: 58, learnedTdee: 2075, learnedConfidence: 'high', profile: null, storedTarget: null,
-  });
+  const gain = resolveCalorieTarget({ goalKg: 66, currentWeightKg: 58, learnedTdee: 2075, profile: null, storedTarget: null });
   assert.ok(gain.target > 2075, 'gaining goal => surplus, not a deficit');
 });
 
@@ -2487,14 +2485,14 @@ check('a deload snaps to a real, rackable weight (rounds, not up)', () => {
 
 // --- Per-entry food coaching ----------------------------------------------
 
-check('going over budget in a cut names it as why the scale stalls', () => {
-  const r = evaluateFood({
-    calorieTarget: 2000, kcalSoFar: 2300, proteinTarget: 150, proteinSoFar: 150,
-    mealsLogged: 4, hour: 19, direction: 'lose',
-  });
-  assert.equal(r.tone, 'bad');
-  assert.ok(/over budget/i.test(r.headline));
-  assert.ok(/scale|deficit/i.test(r.detail));
+check('going past today’s share costs the week, it never calls the day lost', () => {
+  const base = { calorieTarget: 2000, kcalSoFar: 2300, proteinTarget: 150, proteinSoFar: 150, mealsLogged: 4, hour: 19, direction: 'lose' };
+  const r = evaluateFood({ ...base, weekAfter: { days: 3, perDay: 1750 } });
+  assert.equal(r.tone, 'warn', 'one big day is never red: “blown” is the thought that makes a weekend of it');
+  assert.match(r.headline, /300 kcal past today/);
+  assert.match(r.detail, /1,750 a day for the next 3 days/);
+  assert.doesNotMatch(`${r.headline} ${r.detail}`, /blown|ruined|fail|stall|over budget/i);
+  assert.match(evaluateFood({ ...base, weekAfter: { days: 0, perDay: 0 } }).detail, /Monday starts clean/);
 });
 
 check('a surplus is fine when the goal is to GAIN', () => {
@@ -2969,40 +2967,109 @@ check('learned burn is only “high” when the weight slope is tight, not just 
   assert.equal(clean.confidence, 'high');
 });
 
-check('a confident learned burn below what a living body burns never sets the target', () => {
+check('a log that leaves food out still steers: the target is in its own units', () => {
+  // 113 kg, holding weight at ~1,940 LOGGED kcal: the oil and the extras are
+  // missing from the log and from the maintenance alike, so they cancel.
   const profile = { heightCm: 187, age: 41, gender: 'male', activityLevel: 'moderate' };
-  const r = resolveCalorieTarget({ goalKg: 96, currentWeightKg: 113, learnedTdee: 1750, learnedConfidence: 'high', profile, storedTarget: null });
-  assert.equal(r.basis, 'formula', 'a 1,750 kcal burn for a 113 kg man is missing food, not a slow metabolism');
-  assert.equal(r.learnedImplausible, true);
-  assert.ok(r.planKgPerWeek > 0.4 && r.planKgPerWeek < 0.8, `plan pace comes with the target, got ${r.planKgPerWeek}`);
-  const ok = resolveCalorieTarget({ goalKg: 96, currentWeightKg: 113, learnedTdee: 3000, learnedConfidence: 'high', profile, storedTarget: null });
-  assert.equal(ok.basis, 'learned');
+  const r = resolveCalorieTarget({ goalKg: 96, currentWeightKg: 113, learnedTdee: 1940, profile, storedTarget: null, usualKcal: 2060 });
+  assert.equal(r.basis, 'learned', 'below the formula and the floor is a log’s units, not a reason to ignore it');
+  assert.equal(r.target, 1750, 'one step (300) under the usual day, rounded');
+  assert.ok(r.planKgPerWeek > 0 && r.planKgPerWeek < 0.3, `a gentle plan, got ${r.planKgPerWeek}`);
 });
 
-check('the stall diagnosis leads with arithmetic and only speaks when the plan is ruled out', () => {
+check('one step at a time: a cut never asks for more than 300 under the usual day', () => {
+  const profile = { heightCm: 187, age: 41, gender: 'male', activityLevel: 'moderate' };
+  const t = (learnedTdee, usualKcal) => resolveCalorieTarget({ goalKg: 96, currentWeightKg: 113, learnedTdee, profile, storedTarget: null, usualKcal }).target;
+  assert.equal(t(1900, 2600), 1900, 'when even the step would plan a gain, the target stops at maintenance');
+  assert.equal(t(2600, 2000), 2080, 'when the maths is gentler than the step, the maths wins');
+  assert.equal(t(1600, 1700), 1500, 'and never under the safety floor');
+});
+
+check('the check-in nudge lands on that week’s target, inside the floor', () => {
+  const profile = { heightCm: 187, age: 41, gender: 'male', activityLevel: 'moderate' };
+  const base = { goalKg: 96, currentWeightKg: 113, learnedTdee: 2600, profile, storedTarget: null };
+  const plain = resolveCalorieTarget(base);
+  const up = resolveCalorieTarget({ ...base, adjustKcal: 100 });
+  assert.equal(up.target, plain.target + 100);
+  assert.equal(up.adjustKcal, 100);
+  const floored = resolveCalorieTarget({ ...base, learnedTdee: 1880, adjustKcal: -150 });
+  assert.equal(floored.target, 1500);
+  assert.equal(floored.adjustKcal, -4, 'the nudge it reports is the one that actually landed');
+});
+
+// A synthetic person (the repo is public): a flat ±1 kg scale for 20 weeks
+// while logging ~2,000, with a formula that says 3,200.
+const flatDays = 140;
+const flatWeights = Array.from({ length: flatDays }, (_, i) => ({ date: shiftYmd(-(flatDays - 1 - i), new Date('2026-10-18T12:00:00')), weight: +(113 + NOISE[i % NOISE.length]).toFixed(1) }))
+  .filter((_, i) => i % 2 === 0);
+const flatIntake = Array.from({ length: flatDays }, (_, i) => ({ date: shiftYmd(-(flatDays - 1 - i), new Date('2026-10-18T12:00:00')), kcal: 2000 + (i % 7 >= 5 ? 400 : -160) }));
+
+check('the week’s maintenance is learned in the log’s units once the scale rules the formula out', async () => {
+  const { weeklyMaintenance } = await import('../src/lib/adaptiveTdee.ts');
+  const w = weeklyMaintenance({ intake: flatIntake, weights: flatWeights, weekStart: '2026-10-19', formulaKcal: 3200 });
+  assert.equal(w.formulaRuledOut, true);
+  assert.ok(w.kcal > 1850 && w.kcal < 2200, `holding weight on ~2,000 logged → ~2,000, got ${w.kcal}`);
+  const agree = weeklyMaintenance({ intake: flatIntake, weights: flatWeights, weekStart: '2026-10-19', formulaKcal: w.latest.tdee });
+  if (agree.latest.confidence === 'low') assert.equal(agree.kcal, null, 'a loose estimate that agrees with the formula is no reason to leave it');
+  assert.equal(weeklyMaintenance({ intake: [], weights: [], weekStart: '2026-10-19', formulaKcal: 3200 }).kcal, null);
+});
+
+check('the week’s maintenance moves gently from Sunday to Sunday, and goes stale', async () => {
+  const { weeklyMaintenance } = await import('../src/lib/adaptiveTdee.ts');
+  const weeks = ['2026-09-21', '2026-09-28', '2026-10-05', '2026-10-12', '2026-10-19']
+    .map((weekStart) => weeklyMaintenance({ intake: flatIntake, weights: flatWeights, weekStart, formulaKcal: 3200 }).kcal);
+  const jumps = weeks.slice(1).map((k, i) => Math.abs(k - weeks[i]));
+  assert.ok(Math.max(...jumps) < 150, `a ±1 kg scale must not lurch the target: ${weeks.join(' → ')}`);
+  const later = weeklyMaintenance({ intake: flatIntake, weights: flatWeights, weekStart: '2026-12-14', formulaKcal: 3200 });
+  assert.equal(later.kcal, null, 'eight weeks without data is not this week’s maintenance');
+});
+
+check('the week’s target holds still all week and is read from last Sunday', async () => {
+  const { readFileSync } = await import('node:fs');
+  const b = readFileSync('src/lib/stores/body.ts', 'utf8');
+  assert.match(b, /weekStart = mondayOf\(/);
+  assert.match(b, /weeklyMaintenance\(\{/);
+  assert.match(b, /week_check\?\.kcalDelta/, 'the check-in nudge is applied, not just promised');
+  assert.match(readFileSync('src/lib/components/WeekCheckIn.svelte', 'utf8'), /kcalDelta: result\?\.kcalDelta/);
+});
+
+check('the week is the budget: today’s share is what’s left, spread evenly', async () => {
+  const { weekBudget } = await import('../src/lib/week.ts');
+  const intake = new Map([['2026-10-12', { kcal: 1800 }], ['2026-10-16', { kcal: 3000 }], ['2026-10-17', { kcal: 900 }], ['2026-10-11', { kcal: 9999 }]]);
+  const sat = weekBudget(1800, intake, '2026-10-17');
+  assert.deepEqual(sat, { start: '2026-10-12', budget: 12600, logged: 5700, before: 4800, daysLeft: 2, share: 3900 },
+    'last Sunday is last week; Saturday splits what’s left with Sunday');
+  assert.equal(weekBudget(1800, intake, '2026-10-12').daysLeft, 7, 'Monday has the whole week');
+  assert.equal(weekBudget(1800, intake, '2026-10-18').daysLeft, 1, 'Sunday belongs to the week just ending');
+  assert.equal(weekBudget(null, intake, '2026-10-17'), null);
+});
+
+check('the stall diagnosis points at the week, never at logging more', () => {
   const intake = new Map();
-  const foods = [];
-  for (let i = 0; i < 30; i++) {
+  for (let i = 0; i < 35; i++) {
     const date = shiftYmd(-i, new Date('2026-10-17T12:00:00'));
-    intake.set(date, { kcal: 2100, items: 5 });
-    foods.push({ date, name: 'Chicken tikka masala', kcal: 520 }, { date, name: 'Plain white rice (cooked)', kcal: 300 });
+    const dow = new Date(`${date}T12:00:00`).getDay();
+    intake.set(date, { kcal: [0, 5, 6].includes(dow) ? 2600 : 1900, items: 5 });
   }
-  const d = diagnoseStall({ pace: 'stalled', intake, foods, floorKcal: 2520, today: '2026-10-17' });
-  assert.equal(d.medianKcal, 2100);
-  assert.equal(d.missingAtLeastKcal, 420, 'floor − median: a lower bound, never a guess at the full gap');
-  assert.deepEqual(d.clues.map((c) => c.id).sort(), ['cooking-fat', 'same-portion']);
-  assert.equal(diagnoseStall({ pace: 'on-pace', intake, foods, floorKcal: 2520, today: '2026-10-17' }), null);
-  foods.push({ date: '2026-10-16', name: 'Bread s maslom', kcal: 250 });
-  assert.ok(diagnoseStall({ pace: 'stalled', intake, foods, floorKcal: 2520, today: '2026-10-17' }).clues.some((c) => c.id === 'cooking-fat'),
-    'one buttered roll does not account for thirty days of curry');
-  for (let i = 0; i < 25; i++) foods.push({ date: shiftYmd(-i, new Date('2026-10-17T12:00:00')), name: 'Olive oil', kcal: 120 });
-  assert.ok(!diagnoseStall({ pace: 'stalled', intake, foods, floorKcal: 2520, today: '2026-10-17' }).clues.some((c) => c.id === 'cooking-fat'),
-    'oil logged on most cooking days: nothing to ask');
+  const trainingDays = [];
+  for (let i = 35; i < 70; i += 2) trainingDays.push(shiftYmd(-i, new Date('2026-10-17T12:00:00'))); // 3.5 a week, then
+  trainingDays.push(shiftYmd(-3, new Date('2026-10-17T12:00:00')));                                 // ~0.2 a week now
+  const d = diagnoseStall({ pace: 'stalled', intake, floorKcal: 2520, today: '2026-10-17', trainingDays });
+  assert.equal(d.avgKcal, 2200, 'the average, weekends included: energy adds up');
+  assert.equal(d.missingAtLeastKcal, 320, 'floor − average: what the log does not carry, at least');
+  assert.deepEqual(d.clues.map((c) => c.id), ['weekend', 'training']);
+  assert.match(d.clues[0].detail, /2,600 a day, Monday to Thursday 1,900/);
+  for (const c of d.clues) {
+    assert.doesNotMatch(`${c.title} ${c.detail}`, /log (the|every|more)|weigh (it|the)|\boil\b/i, 'a consistent log is a good ruler — never ask for more of it');
+  }
+  assert.equal(diagnoseStall({ pace: 'on-pace', intake, floorKcal: 2520, today: '2026-10-17', trainingDays }), null);
+  const flat = new Map([...intake].map(([k]) => [k, { kcal: 2000, items: 5 }]));
+  assert.deepEqual(diagnoseStall({ pace: 'stalled', intake: flat, floorKcal: 2520, today: '2026-10-17' }).clues, [], 'an even week and no training data: nothing to point at');
 });
 
 check('a stalled trend leads the coach, and the log it contradicts is not praised', async () => {
   const { buildDailyFocus } = await import('../src/lib/coach.ts');
-  const stall = { medianKcal: 2060, loggedDays: 27, floorKcal: 2520, missingAtLeastKcal: 460, clues: [] };
+  const stall = { avgKcal: 2060, loggedDays: 27, floorKcal: 2520, missingAtLeastKcal: 460, clues: [] };
   const input = {
     goalKg: 96, currentWeight: 113.1, rateKgPerWeek: 0.04, pace: 'stalled', planKgPerWeek: 0.59, weeksToGoal: null,
     weighInsNeeded: null, stall, totalLostKg: null, calorieTarget: 2604, todayKcal: 1500, weekKcalSoFar: 2100 * 6,
@@ -3025,7 +3092,9 @@ check('weight rate, learned burn and targets are computed in one place', async (
   ].filter((f) => /\.(ts|svelte)$/.test(f));
   const offenders = (re, allowed) => files.filter((f) => !allowed.includes(f) && re.test(readFileSync(f, 'utf8')));
   assert.deepEqual(offenders(/sxy|\(xs\[i\] - mx\)|weeklyLoss\(/, ['src/lib/insights.ts']), [], 'one least-squares weight slope');
-  assert.deepEqual(offenders(/adaptiveTdee\(\{/, ['src/lib/stores/body.ts']), [], 'one learned burn');
+  assert.deepEqual(offenders(/adaptiveTdee\(\{/, ['src/lib/adaptiveTdee.ts']), [], 'one learned burn');
+  assert.deepEqual(offenders(/weeklyMaintenance\(\{/, ['src/lib/stores/body.ts']), [], 'one week’s maintenance');
+  assert.deepEqual(offenders(/diagnoseStall\(\{/, ['src/lib/stores/body.ts']), [], 'one stall diagnosis');
   assert.deepEqual(offenders(/resolveCalorieTarget\(\{/, ['src/lib/stores/body.ts']), [], 'one calorie target');
   assert.deepEqual(offenders(/goalKg \* 1\.8|GOAL_KG \* 1\.8/, []), [], 'one protein target (profile.proteinTargetG)');
 });

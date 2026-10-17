@@ -87,3 +87,10 @@ export function summaryLeaksWeight(text: string, bodyweightKg: number | null): b
   const whole = String(Math.round(bodyweightKg));
   return new RegExp(`\\b${whole}(\\.\\d+)?\\s*kg\\b`).test(text);
 }
+
+/** Format the week, hand it to the OS share sheet, and resolve to the one line
+ *  to show the user about where it went. */
+export async function shareWeek(review: WeeklyReview, opts: ShareOptions = {}): Promise<string> {
+  const { deliverText, deliveryMessage } = await import('./shareFile.ts');
+  return deliveryMessage(await deliverText('My week — RecompOS', weeklySummaryText(review, opts)), 'Summary');
+}
