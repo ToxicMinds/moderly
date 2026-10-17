@@ -3349,6 +3349,122 @@ check('no hard-coded white text: it vanishes in the light theme', async () => {
   assert.deepEqual(offenders, []);
 });
 
+// ── Morning briefing ─────────────────────────────────────────────────────────
+const { parseForecast, weatherWords, temps, composeBriefing } = await import('../src/lib/briefing.ts');
+
+// Open-Meteo's shape, two days: Saturday wet from 14:00, Sunday's drizzle code at 2 %.
+const METEO = {
+  daily: {
+    time: ['2026-10-17', '2026-10-18', '2026-10-19'],
+    weather_code: [61, 53, 3], temperature_2m_min: [7.6, 8.2, null], temperature_2m_max: [14.5, 13.9, 11],
+  },
+  hourly: {
+    time: [...['2026-10-17', '2026-10-18'].flatMap((d) => Array.from({ length: 24 }, (_, h) => `${d}T${String(h).padStart(2, '0')}:00`))],
+    precipitation_probability: [
+      ...Array.from({ length: 24 }, (_, h) => (h === 3 ? 90 : h >= 14 && h <= 18 ? 70 : 10)),
+      ...Array.from({ length: 24 }, (_, h) => (h === 23 ? 80 : 2)),
+    ],
+  },
+};
+
+check('the forecast reads Open-Meteo by day, and only daytime rain counts', () => {
+  const days = parseForecast(METEO);
+  assert.equal(days.length, 2, 'a day without temperatures is dropped, not shown as 0°');
+  assert.deepEqual(days[0], { date: '2026-10-17', tMin: 8, tMax: 15, code: 61, dayPct: 70, wetFrom: 14 },
+    'the 03:00 shower is asleep-time; the day turns wet at 14:00');
+  assert.equal(days[1].wetFrom, null, '23:00 rain is tomorrow night’s problem');
+  assert.equal(days[1].dayPct, 2);
+  assert.deepEqual(parseForecast(null), []);
+});
+
+check('the weather in words: the daytime odds outrank the day’s code', () => {
+  const [sat, sun] = parseForecast(METEO);
+  assert.equal(weatherWords(sat), 'rain from 14:00');
+  assert.equal(weatherWords(sun), 'dry', 'a drizzle code at 2 % is a dry day');
+  assert.equal(weatherWords({ ...sun, code: 73, wetFrom: 9 }), 'snow from 09:00');
+  assert.equal(weatherWords({ ...sun, dayPct: 35 }), '35% chance of rain');
+  assert.equal(weatherWords({ ...sun, code: 2 }), 'sun and cloud');
+  assert.equal(temps(sat), '8–15°');
+  assert.equal(temps({ ...sat, tMin: -3, tMax: 2 }), '−3° to 2°', 'never "-3–2°"');
+});
+
+const SAT_IN = {
+  date: '2026-10-17', forecast: parseForecast(METEO)[0], day: { label: 'Rest', note: '', time: null }, session: null,
+  rateBack: true, plans: { weekend: 'Leftovers in a box for tomorrow.', friday: 'One plate.' },
+  week: { share: 1850, budget: 13300, before: 9600, daysLeft: 2 },
+};
+
+check('the briefing: weather in the title, the first job first, then the day, the food and the plan', () => {
+  const b = composeBriefing(SAT_IN);
+  assert.equal(b.title, 'Sat · 8–15° · rain from 14:00', 'the watch shows the title: the weather');
+  assert.ok(b.title.length <= 40, 'short enough for a watch');
+  assert.deepEqual(b.body.split('\n'), [
+    'Scale first, then rate your back.',
+    'Rest day: a walk and the daily back basics.',
+    'Food: 1,850 today, 3,700 for the 2 days left.',
+    'Weekend: Leftovers in a box for tomorrow.',
+  ]);
+  assert.equal(b.date, '2026-10-17');
+});
+
+check('the briefing names the session, a new week, the week’s last day, and Friday’s plan over badminton’s', () => {
+  const mon = composeBriefing({ ...SAT_IN, date: '2026-10-19', forecast: null, day: { label: 'Gym', note: '', time: '18:00:00' },
+    session: { name: 'Rebuild A — Hinge & legs' }, week: { share: 1900, budget: 13300, before: 0, daysLeft: 7 } });
+  assert.equal(mon.title, 'Mon · Rebuild A — Hinge & legs', 'no forecast: the day’s session is the headline');
+  assert.match(mon.body, /^18:00 Rebuild A — Hinge & legs\.$/m);
+  assert.match(mon.body, /^New week: 1,900 a day\.$/m);
+  assert.ok(!/Weekend|Friday/.test(mon.body), 'a Monday carries no weekend plan');
+
+  const sun = composeBriefing({ ...SAT_IN, date: '2026-10-18', rateBack: false, week: { share: 2100, budget: 13300, before: 11200, daysLeft: 1 } });
+  assert.match(sun.body, /^Scale first, before food or drink\.$/m);
+  assert.match(sun.body, /^Rest day\.$/m);
+  assert.match(sun.body, /the week's last day/);
+
+  const fri = composeBriefing({ ...SAT_IN, date: '2026-10-16', day: { label: 'Badminton', note: '', time: '19:00' },
+    plans: { friday: 'One plate.', badminton: 'Shake first.' } });
+  assert.match(fri.body, /^19:00 Badminton\.$/m);
+  assert.match(fri.body, /^Friday evening: One plate\.$/m, 'Friday’s plan decides the weekend');
+  assert.ok(!/Shake first/.test(fri.body), 'one plan, not two');
+  assert.ok(!composeBriefing({ ...SAT_IN, week: null }).body.includes('Food'), 'no target, no food line');
+});
+
+check('with the briefing on, the morning weigh-in and the weekend-plan pings fold into it', () => {
+  const sat = { ...DAY, proteinG: 165, nowMinutes: 8 * 60, dow: 6, plans: { weekend: 'Leftovers in a box.', friday: 'One plate.' }, daysSinceWeighIn: 4 };
+  assert.ok(situationalNudges(sat).some((n) => n.key === 'weigh-in'));
+  assert.ok(situationalNudges(sat).some((n) => n.key === 'plan'));
+  assert.ok(!situationalNudges({ ...sat, briefing: true }).some((n) => n.key === 'weigh-in'), 'the briefing says “scale first”');
+  assert.ok(!situationalNudges({ ...sat, briefing: true }).some((n) => n.key === 'plan'), 'the briefing carried the weekend plan');
+  const fri = { ...sat, dow: 5, briefing: true };
+  assert.ok(situationalNudges(fri).some((n) => n.key === 'plan' && n.atMinutes === 16 * 60 + 30), 'Friday’s still comes before leaving work');
+});
+
+check('the briefing goes out at the first unlock after the morning time (MorningClock.java)', async () => {
+  const { spawnSync } = await import('node:child_process');
+  const file = 'android/app/src/main/java/com/toxicminds/recompos/MorningClock.java';
+  const r = spawnSync('java', [file], { encoding: 'utf8' });
+  if (r.error?.code === 'ENOENT') { console.log('  --  MorningClock.java not run: no java on this machine'); return; }
+  assert.equal(r.status, 0, (r.stderr || r.stdout).trim().split('\n').slice(0, 3).join(' | '));
+  assert.match(r.stdout, /MorningClock: ok/);
+});
+
+check('the morning briefing never wakes the phone, and is never an alarm', async () => {
+  const { readFileSync } = await import('node:fs');
+  const src = readFileSync('android/app/src/main/java/com/toxicminds/recompos/MorningReceiver.java', 'utf8');
+  assert.ok(!/AlarmManager\.RTC_WAKEUP|setAlarmClock\(|AllowWhileIdle\(/.test(src), 'every look is a non-waking alarm');
+  assert.match(src, /AlarmManager\.RTC,/);
+  assert.match(src, /setSound\(null, null\)/, 'no sound at six in a quiet house');
+});
+
+check('a day’s share of the week is worked out in one place', async () => {
+  const { readFileSync, readdirSync } = await import('node:fs');
+  const files = [
+    ...readdirSync('src/lib', { recursive: true }).map((f) => `src/lib/${f}`),
+    ...readdirSync('src/routes', { recursive: true }).map((f) => `src/routes/${f}`),
+  ].filter((f) => /\.(ts|svelte)$/.test(f));
+  const offenders = files.filter((f) => !['src/lib/stores/body.ts', 'src/lib/week.ts'].includes(f) && /weekBudget\(/.test(readFileSync(f, 'utf8')));
+  assert.deepEqual(offenders, [], 'the briefing reads body.week and body.tomorrow');
+});
+
 // Nothing may be reported until the async checks have actually settled.
 await Promise.all(pending);
 

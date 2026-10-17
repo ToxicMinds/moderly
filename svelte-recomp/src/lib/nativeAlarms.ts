@@ -208,3 +208,59 @@ export async function scheduleNudges(nudges: Nudge[], now: Date = new Date()): P
     return false;
   }
 }
+
+// ── MORNING BRIEFING ─────────────────────────────────────────────────────────
+// Not an alarm. Android posts it the first time the phone is unlocked after the
+// morning time (MorningReceiver.java), from text this app writes whenever it's
+// open (src/lib/briefing.ts). Only APKs from build 6 carry the plugin; on older
+// ones every call here is a no-op and the card asks for the update.
+
+export interface MorningState { on: boolean; after: number; shown?: string; postedAt?: number }
+
+// Wrapped in { M } for the same reason as readyPlugin(): a bare plugin proxy
+// returned from an async function gets probed for .then.
+async function morningPlugin(): Promise<{ M: any } | null> {
+  if (!isNativeApp()) return null;
+  try {
+    const { Capacitor, registerPlugin } = await import('@capacitor/core');
+    return Capacitor.isPluginAvailable('Morning') ? { M: registerPlugin('Morning') } : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function hasMorning(): Promise<boolean> {
+  return !!(await morningPlugin());
+}
+
+let armedWith = '';
+
+/** Hand Android the briefings for the coming mornings. Re-sent only when they
+ *  change, so calling it on every tick is free. */
+export async function armMorning(afterMinutes: number, briefings: Array<{ date: string; title: string; body: string }>): Promise<void> {
+  const key = JSON.stringify([afterMinutes, briefings]);
+  if (key === armedWith) return;
+  const p = await morningPlugin();
+  if (!p) return;
+  armedWith = key;
+  try {
+    await p.M.arm({ after: afterMinutes, briefings });
+  } catch (e) {
+    armedWith = '';
+    console.error('[morning] arm failed:', e);
+  }
+}
+
+export async function disarmMorning(): Promise<void> {
+  if (armedWith === 'off') return;
+  const p = await morningPlugin();
+  if (!p) return;
+  armedWith = 'off';
+  try { await p.M.disarm(); } catch (e) { armedWith = ''; console.error('[morning] disarm failed:', e); }
+}
+
+export async function morningStatus(): Promise<MorningState | null> {
+  const p = await morningPlugin();
+  if (!p) return null;
+  try { return await p.M.status(); } catch { return null; }
+}

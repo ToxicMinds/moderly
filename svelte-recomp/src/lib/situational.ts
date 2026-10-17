@@ -51,6 +51,9 @@ export interface SituationInput {
   badmintonDay?: boolean;
   /** Days since the last weigh-in; null when there has never been one. */
   daysSinceWeighIn: number | null;
+  /** The morning briefing is on: it already says "scale first" and carries
+   *  the weekend's plan, so neither gets a ping of its own. */
+  briefing?: boolean;
 }
 
 /**
@@ -120,7 +123,7 @@ export function situationalNudges(input: SituationInput): Nudge[] {
   if (plan) out.push(plan);
 
   // No weigh-in for days: fires tomorrow morning, when one is actually possible.
-  if (daysSinceWeighIn != null && daysSinceWeighIn >= 3) {
+  if (daysSinceWeighIn != null && daysSinceWeighIn >= 3 && !input.briefing) {
     out.push({
       key: 'weigh-in', atMinutes: T.weighIn, priority: 50,
       title: `${daysSinceWeighIn} days since your last weigh-in`,
@@ -148,7 +151,7 @@ function planMoment(i: SituationInput): Nudge | null {
   // A badminton Friday with no badminton plan still gets the Friday one.
   const candidates: Array<PlanCue | null> = [cue, i.dow === 5 ? 'friday' : null];
   const pick = candidates.find((c): c is PlanCue => c != null && !!i.plans?.[c]?.trim());
-  if (!pick) return null;
+  if (!pick || (pick === 'weekend' && i.briefing)) return null;
   const info = CUES.find((c) => c.cue === pick)!;
   return { key: 'plan', atMinutes: PLAN_AT[pick]!, priority: 75, title: `${info.label}: your plan`, body: i.plans[pick]!.trim() };
 }

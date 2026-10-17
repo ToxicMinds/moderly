@@ -175,6 +175,12 @@ const overlaidSessions = derived(
   ([sessions, schedule, profile]) => overlaySessions(sessions, schedule, profile?.program, todayYmd()),
 );
 
+/** The user's own sessions, before any program is laid over them: what
+ *  overlaySessions needs to work out another day's session (the briefing). */
+export function liveOwnSessions() {
+  return { subscribe: sessionResults.subscribe };
+}
+
 export function liveWorkoutSessions() {
   return { subscribe: overlaidSessions.subscribe };
 }

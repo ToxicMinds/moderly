@@ -108,6 +108,10 @@ existed, in a branch no test reached.
   `src/lib/adaptiveTdee.ts` (`weeklyMaintenance`) for why a consistent log is enough.
 - A weigh-in is saved only through `saveWeighIn` (`src/lib/weighIn.ts`); the line and
   the plans only through `src/lib/commitments.ts`.
+- The morning briefing's text is built only in `src/lib/stores/morning.ts`, from those
+  same stores. Android (`MorningReceiver.java`) posts it at the first unlock after the
+  morning time and computes nothing about the day. It never wakes the phone or rings:
+  the user asked for no more alarms (selfcheck guards both).
 - Rows that belong together (a meal, a seeded plan) go through `upsertRecords` — one
   request, all or nothing. No `for … await upsertRecord` loops.
 - A table's conflict key lives in `CONFLICT` in `stores/sync.ts`; "today" comes from

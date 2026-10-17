@@ -48,6 +48,9 @@ export interface Body {
   learned: AdaptiveTdee;
   target: LiveTargetResult;
   week: WeekBudget | null;
+  /** Tomorrow's share, from what's logged through today: what the morning
+   *  briefing says. On a Sunday it's a fresh week at this week's target. */
+  tomorrow: WeekBudget | null;
   proteinTargetG: number;
   bodyFatPct: number | null;
   profile: BodyProfile | null;
@@ -129,6 +132,7 @@ export const body: Readable<Body> = derived(
     return {
       today, weight, currentKg, firstKg, goalKg, pace, weeksToGoal, intake, learned: weekly.latest, target,
       week: weekBudget(target.target, intake, today),
+      tomorrow: weekBudget(target.target, intake, shiftYmd(1, new Date(`${today}T12:00:00`))),
       proteinTargetG: Math.max(1, proteinTargetG(goalKg, currentKg)),
       bodyFatPct, profile, floorKcal,
       next: milestoneState(p?.milestone ?? null, currentKg, p?.height_cm ? +p.height_cm : null),

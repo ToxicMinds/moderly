@@ -10,6 +10,8 @@ public class MainActivity extends BridgeActivity {
         // Register the custom in-app APK updater before the bridge boots, so the
         // web layer can call ApkInstaller.installFromUrl(...) over the bridge.
         registerPlugin(ApkInstallerPlugin.class);
+        // The morning briefing (MorningPlugin → MorningReceiver).
+        registerPlugin(MorningPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }

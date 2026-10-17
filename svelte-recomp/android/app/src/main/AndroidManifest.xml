@@ -74,6 +74,13 @@
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
 
+    <!-- Morning briefing: the weather where the phone is. APPROXIMATE only —
+         a forecast needs the town, not the street, and Android's dialog then
+         offers nothing finer. Read through the WebView's navigator.geolocation
+         (Capacitor's BridgeWebChromeClient asks the OS); the coordinates are
+         rounded before they leave the phone (src/lib/weather.ts). -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
@@ -113,6 +120,18 @@
                 <category android:name="android.intent.category.HEALTH_PERMISSIONS" />
             </intent-filter>
         </activity-alias>
+
+        <!-- Morning briefing: posts the day's briefing at the first unlock after
+             the morning time (see MorningClock). Re-arms after a reboot, which
+             clears alarms, and after an update. -->
+        <receiver
+            android:name=".MorningReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
 
         <provider
             android:name="androidx.core.content.FileProvider"
