@@ -88,6 +88,7 @@
   let effort = $state<Effort | ''>('');
   let hunger = $state<Hunger | ''>('');
   let adherence = $state<Adherence | ''>('');
+  let note = $state('');
   let saving = $state(false);
   let error = $state('');
   let justSaved = $state(false);
@@ -118,7 +119,12 @@
         date: weekStart,
         // kcalDelta is what the answers change: stores/body applies it to the
         // following week's target, for that week only. A promise the app keeps.
-        week_check: { effort, hunger, adherence, plan: reviewed?.cue ?? null, kcalDelta: result?.kcalDelta ?? 0, answeredAt: new Date().toISOString() },
+        week_check: {
+          effort, hunger, adherence, kcalDelta: result?.kcalDelta ?? 0,
+          plan: reviewed?.cue ?? null, planText: reviewed?.then ?? null,
+          note: note.trim().slice(0, 280) || null,
+          answeredAt: new Date().toISOString(),
+        },
       });
       justSaved = true;
     } catch (e: any) {
@@ -183,6 +189,10 @@
         </div>
       {/each}
 
+      <label class="wc-prompt" for="wc-note">One line about this week <span class="wc-opt-l">— just for you, optional</span></label>
+      <textarea id="wc-note" class="wc-note" rows="2" bind:value={note} maxlength="280"
+        placeholder="What happened, what you noticed, what you'd tell yourself next Friday."></textarea>
+
       <button class="btn bp bfl" disabled={answeredCount < 3 || saving} onclick={save}>
         {saving ? 'Saving…' : answeredCount < 3 ? `${answeredCount}/3 answered` : 'See what changes →'}
       </button>
@@ -200,7 +210,7 @@
   .wc-lede{font-size:0.8125rem;line-height:1.45;color:var(--muted);margin:0 0 12px}
 
   .wc-q{margin-bottom:10px}
-  .wc-prompt{font-size:0.8125rem;font-weight:800;color:var(--text);margin-bottom:6px}
+  .wc-prompt{display:block;font-size:0.8125rem;font-weight:800;color:var(--text);margin-bottom:6px}
   .wc-opts{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
   .wc-opt{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;cursor:pointer;
     background:var(--glass-2);border:1px solid var(--glass-brd);border-radius:12px;padding:8px 9px;
@@ -221,6 +231,8 @@
   .wc-reasons li.wc-train{border-left-color:var(--amber)}
   .wc-err{font-size:0.75rem;color:var(--red);text-align:center;margin-top:6px}
   .wc-next{margin-top:12px}
+  .wc-note{margin:0 0 12px;resize:vertical}
+  .wc-opt-l{font-weight:600;color:var(--muted)}
   .wc-why{font-size:0.875rem;font-weight:700;line-height:1.45;color:var(--text);margin:0 0 8px;
     padding-left:10px;border-left:2px solid var(--border2)}
 </style>

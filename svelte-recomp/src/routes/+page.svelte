@@ -316,12 +316,12 @@
      month of 13 weigh-ins left it a kilo wide either way — so the scale gets the
      top of the screen until today's reading is in, then shrinks to one line. -->
 {#if todayWeighIn}
-  <div class="mw-done">Weighed <b>{todayWeighIn.weight}</b> today{#if currentKg != null}{' · '}trend <b>{currentKg.toFixed(1)}</b> kg{/if}{#if $line}{' · '}line <b class="mw-line z-{$line.zone}">{$line.kg.toFixed(1)}</b>{/if}</div>
+  <div class="mw-done">Weighed <b>{todayWeighIn.weight}</b> today{#if currentKg != null}{' · '}trend <b>{currentKg.toFixed(1)}</b> kg{/if}{#if $line && !$line.misdrawn}{' · '}ceiling <b class="mw-line z-{$line.zone}">{$line.kg.toFixed(1)}</b>{/if}</div>
 {:else}
   <div class="card mw">
     <div class="mw-top">
       <label class="card-lbl" for="ql-weight">Morning weigh-in</label>
-      {#if currentKg != null}<span class="mw-trend">trend <b>{currentKg.toFixed(1)}</b> kg{#if $line}{' · '}line <b class="mw-line z-{$line.zone}">{$line.kg.toFixed(1)}</b>{/if}</span>{/if}
+      {#if currentKg != null}<span class="mw-trend">trend <b>{currentKg.toFixed(1)}</b> kg{#if $line && !$line.misdrawn}{' · '}ceiling <b class="mw-line z-{$line.zone}">{$line.kg.toFixed(1)}</b>{/if}</span>{/if}
     </div>
     <div class="mw-row">
       <input id="ql-weight" type="number" inputmode="decimal" step="0.1" bind:value={weight}
@@ -347,9 +347,11 @@
 
 <DailyFocus items={focusItems} />
 
-<!-- What you've committed to: where you're going, the line you don't cross
-     on the way back, and what you'll do when the hard moments come. -->
+<!-- What you've committed to: the next stop below you, the goal past it, the
+     ceiling above you that you don't go back over, and what you'll do when the
+     hard moments come. -->
 <div class="cm-row">
+  <button class="cm-chip" onclick={() => editing.set('next')}><span>Next stop</span><b class:cm-todo={!$body.next}>{$body.next ? `${$body.next.kg} kg${$body.next.reached ? ' ✓' : ''}` : 'Set'}</b></button>
   {#if editingGoal}
     <!-- svelte-ignore a11y_autofocus -->
     <input class="cm-goal-in" type="number" step="0.5" bind:value={goalInput} aria-label="Goal weight, kg"
@@ -357,7 +359,7 @@
   {:else}
     <button class="cm-chip" onclick={() => { editingGoal = true; goalInput = GOAL_KG.toString(); }}><span>Goal</span><b>{GOAL_KG} kg</b></button>
   {/if}
-  <button class="cm-chip" onclick={() => editing.set('line')}><span>Line</span><b class:cm-todo={!$line}>{$line ? `${$line.kg.toFixed(1)} kg` : 'Draw'}</b></button>
+  <button class="cm-chip" onclick={() => editing.set('line')}><span>Ceiling</span><b class:cm-todo={!$line || $line.misdrawn}>{$line && !$line.misdrawn ? `${$line.kg.toFixed(1)} kg` : 'Set'}</b></button>
   <button class="cm-chip" onclick={() => editing.set('plans')}><span>Plans</span><b class:cm-todo={!planCount}>{planCount || 'Make'}</b></button>
 </div>
 <Commitments />
@@ -480,7 +482,7 @@
   .mw-done b{font-family:var(--font-display);font-size:1.0625rem;color:var(--text)}
   .mw-line.z-over{color:var(--led-warn)}
   .mw-line.z-well-over{color:var(--led-bad)}
-  .cm-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:2px 0 14px}
+  .cm-row{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:2px 0 14px}
   .cm-chip{display:flex;flex-direction:column;align-items:flex-start;gap:3px;min-width:0;cursor:pointer;font-family:inherit;color:inherit;
     background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-md);padding:9px 11px;text-align:left;
     transition:transform .18s var(--ease),border-color .15s}

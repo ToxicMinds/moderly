@@ -7,7 +7,7 @@ import { userId } from '$lib/stores/user';
 import { cleanPlans, type Plans } from '$lib/plans';
 
 /** Which editor is open, wherever it was opened from. */
-export const editing = writable<'line' | 'plans' | null>(null);
+export const editing = writable<'line' | 'plans' | 'next' | null>(null);
 
 function uid(): string {
   const id = get(userId);
@@ -30,4 +30,12 @@ export async function savePlans(plans: Plans): Promise<void> {
 /** The user's reason, in their own words. Private; shown back at hard moments. */
 export async function saveWhy(why: string): Promise<void> {
   await upsertRecord('user_settings', { user_id: uid(), why: why.trim().slice(0, 280) || null, updated_at: new Date().toISOString() });
+}
+
+/** The next stop below the current weight; null removes it. */
+export async function saveMilestone(kg: number | null, today: string): Promise<void> {
+  await upsertRecord('user_settings', {
+    user_id: uid(), milestone: kg != null && kg > 0 ? { kg: Math.round(kg * 10) / 10, set: today } : null,
+    updated_at: new Date().toISOString(),
+  });
 }

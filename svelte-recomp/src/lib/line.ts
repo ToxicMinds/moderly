@@ -1,4 +1,4 @@
-// YOUR LINE — the weight the trend doesn't cross again.
+// YOUR CEILING (the "line" in code) — the weight the trend doesn't go back above.
 //
 // The one long trial that taught people to KEEP weight off (STOP Regain, Wing
 // et al., NEJM 2006) didn't run on willpower. It ran on a daily weigh-in and a
@@ -37,6 +37,9 @@ export interface LineState {
   /** trend − line, kg; positive is over. */
   overKg: number;
   zone: LineZone;
+  /** Drawn below the trend of the day it was drawn: that's a target, not a
+   *  ceiling (the first user typed his next goal here). */
+  misdrawn: boolean;
 }
 
 /** How far above the lowest held trend the line sits. */
@@ -82,8 +85,10 @@ export function lineState(setting: LineSetting | null | undefined, weights: Weig
 
   const kg = round1(Math.min(setting.kg, heldLow != null ? heldLow + LINE_MARGIN_KG : Infinity));
   const overKg = round1(trendKg - kg);
+  const atSet = trendAt(noon(setting.set));
   return {
     kg, heldLowKg: heldLow, trendKg, overKg,
     zone: overKg <= 0 ? 'under' : overKg <= WELL_OVER_KG ? 'over' : 'well-over',
+    misdrawn: atSet != null && setting.kg < atSet - 0.5,
   };
 }

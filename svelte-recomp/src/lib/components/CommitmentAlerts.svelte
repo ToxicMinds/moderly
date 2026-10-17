@@ -5,25 +5,46 @@
   // ordinary days is what makes these worth reading.
   import { line } from '$lib/stores/body';
   import { liveProfile } from '$lib/stores/live';
-  import { editing } from '$lib/commitments';
+  import { editing, saveMilestone, saveLine } from '$lib/commitments';
+  import { todayDate } from '$lib/stores/refresh';
   import { activePlan, cleanPlans, type PlanMoment } from '$lib/plans';
 
   let { moment }: { moment: Omit<PlanMoment, 'overLine'> } = $props();
 
   const _profile = liveProfile();
   const plans = $derived(cleanPlans(($_profile as any)?.plans));
-  const over = $derived($line != null && $line.zone !== 'under');
+  // A ceiling drawn under where you were is a target someone put in the wrong
+  // box (it happened): offer to move it, never call them 8 kg "over".
+  const misdrawn = $derived($line != null && $line.misdrawn);
+  const over = $derived($line != null && !$line.misdrawn && $line.zone !== 'under');
   const why = $derived((($_profile as any)?.why ?? '').trim());
   // The line has its own card; the strip shows the moment's other plan.
   const plan = $derived(activePlan({ ...plans, line: undefined }, { ...moment, overLine: over }));
+
+  let moving = $state(false);
+  async function moveToNext() {
+    if (!$line || moving) return;
+    moving = true;
+    try {
+      await saveMilestone($line.kg, $todayDate);
+      await saveLine(null, $todayDate);
+    } catch (e) { console.error('Move to next stop failed:', e);
+    } finally { moving = false; }
+  }
 </script>
 
-{#if over && $line}
+{#if misdrawn && $line}
+  <div class="ca ca-line tone-ok">
+    <span class="ca-k">That's a next stop, not a ceiling</span>
+    <span class="ca-t">You set {$line.kg.toFixed(1)} kg, below your trend of {$line.trendKg.toFixed(1)}. A ceiling sits above you; {$line.kg.toFixed(1)} is a weight you're heading down to.</span>
+    <button class="btn bp bsm ca-fix" onclick={moveToNext} disabled={moving}>{moving ? 'Moving…' : `Make ${$line.kg.toFixed(1)} my next stop`}</button>
+  </div>
+{:else if over && $line}
   <button class="ca ca-line tone-{$line.zone === 'well-over' ? 'bad' : 'warn'}" onclick={() => editing.set('line')}>
-    <span class="ca-k">{$line.zone === 'well-over' ? 'Well over your line' : 'Over your line'} <b>+{$line.overKg.toFixed(1)}</b> kg</span>
+    <span class="ca-k">{$line.zone === 'well-over' ? 'Well over your ceiling' : 'Over your ceiling'} <b>+{$line.overKg.toFixed(1)}</b> kg</span>
     <span class="ca-t">{plans.line ?? 'You haven’t decided what happens now. Decide it once, here.'}</span>
     {#if why}<span class="ca-why">You said: “{why}”</span>{/if}
-    <span class="ca-f">Trend {$line.trendKg.toFixed(1)} · line {$line.kg.toFixed(1)}. One week over is a signal, not a verdict.</span>
+    <span class="ca-f">Trend {$line.trendKg.toFixed(1)} · ceiling {$line.kg.toFixed(1)}. One week over is a signal, not a verdict.</span>
   </button>
 {/if}
 
@@ -46,5 +67,6 @@
   .ca-k b{font-family:var(--font-led);font-style:italic;letter-spacing:0;margin-left:6px}
   .ca-t{font-size:0.9375rem;font-weight:700;line-height:1.4;color:var(--text)}
   .ca-f{font-size:0.75rem;line-height:1.45;color:var(--muted)}
+  .ca-fix{align-self:flex-start;margin-top:4px}
   .ca-why{font-size:0.8125rem;font-weight:700;line-height:1.4;color:var(--text);padding-left:9px;border-left:2px solid var(--border2)}
 </style>

@@ -27,6 +27,11 @@ export interface CheckInAnswers {
   adherence: Adherence;
   /** ISO timestamp — so a stored answer can be shown as "you said this on…". */
   answeredAt?: string;
+  /** The plan the adherence question asked about, and its words that week. */
+  plan?: string | null;
+  planText?: string | null;
+  /** One line about the week, for the user only — the journal, a week at a time. */
+  note?: string | null;
 }
 
 export interface CheckInQuestion {

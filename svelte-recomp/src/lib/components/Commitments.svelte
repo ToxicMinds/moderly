@@ -1,12 +1,19 @@
 <script lang="ts">
-  // The two editors for what the user commits to: the line, and the plans.
-  // Mounted once on Today; opened from the commitments row, the line alert or
-  // the plan strip (all through `editing`).
+  // The editors for what the user commits to: the next stop below them, the
+  // ceiling above them, and the plans (with the reason behind them). Mounted
+  // once on Today; opened from the commitments row, the alerts or the plan
+  // strip (all through `editing`).
+  //
+  // Ceiling and next stop are opposite directions, and the first user typed his
+  // next goal into the ceiling because only one of them existed. So each editor
+  // names its direction, and a ceiling typed below the trend is offered as the
+  // next stop instead of being saved as a ceiling you're already 8 kg over.
   import { untrack } from 'svelte';
   import Modal from './Modal.svelte';
-  import { editing, saveLine, savePlans, saveWhy } from '$lib/commitments';
+  import { editing, saveLine, savePlans, saveWhy, saveMilestone } from '$lib/commitments';
   import { CUES, cleanPlans, type Plans } from '$lib/plans';
   import { suggestLine } from '$lib/line';
+  import { suggestStops, milestoneState } from '$lib/milestone';
   import { line, body } from '$lib/stores/body';
   import { liveProfile } from '$lib/stores/live';
   import { todayDate } from '$lib/stores/refresh';
@@ -15,9 +22,12 @@
   const _profile = liveProfile();
   const plans = $derived(cleanPlans(($_profile as any)?.plans));
   const drawn = $derived(!!($_profile as any)?.line);
+  const trend = $derived($body.currentKg);
+  const height = $derived(($_profile as any)?.height_cm ? +($_profile as any).height_cm : null);
 
   let lineKg = $state('');
   let linePlan = $state('');
+  let nextKg = $state('');
   let draft = $state<Plans>({});
   let whyDraft = $state('');
   let saving = $state(false);
@@ -30,15 +40,21 @@
     untrack(() => {
       error = '';
       if (open === 'line') {
-        const trend = $body.currentKg;
-        lineKg = $line ? $line.kg.toFixed(1) : trend != null ? suggestLine(trend).toFixed(1) : '';
+        lineKg = $line && !$line.misdrawn ? $line.kg.toFixed(1) : trend != null ? suggestLine(trend).toFixed(1) : '';
         linePlan = plans.line ?? '';
       } else if (open === 'plans') {
         draft = { ...plans };
         whyDraft = (($_profile as any)?.why ?? '').trim();
+      } else if (open === 'next') {
+        nextKg = $body.next ? String($body.next.kg) : '';
       }
     });
   });
+
+  // A "ceiling" under where you are is a target: offer it as the next stop.
+  const ceilingIsTarget = $derived(trend != null && parseFloat(lineKg) > 0 && parseFloat(lineKg) < trend - 0.5);
+  const nextPreview = $derived(parseFloat(nextKg) > 0 ? milestoneState({ kg: parseFloat(nextKg), set: '' }, trend, height) : null);
+  const stops = $derived(trend != null ? suggestStops(trend, height, $body.goalKg) : []);
 
   const close = () => editing.set(null);
 
@@ -57,37 +73,76 @@
     }
   }
 
-  const keepLine = () => run(async () => {
-    const kg = parseFloat(lineKg);
+  const weight = (v: string) => {
+    const kg = parseFloat(v);
     if (!(kg > 30 && kg < 400)) throw new Error('that isn’t a weight');
-    await saveLine(kg, $todayDate);
+    return kg;
+  };
+  const keepLine = () => run(async () => {
+    await saveLine(weight(lineKg), $todayDate);
     await savePlans({ ...plans, line: linePlan });
   });
+  const lineAsNextStop = () => run(async () => {
+    await saveMilestone(weight(lineKg), $todayDate);
+    if (drawn) await saveLine(null, $todayDate);
+  });
   const removeLine = () => run(() => saveLine(null, $todayDate));
+  const keepNext = () => run(() => saveMilestone(weight(nextKg), $todayDate));
+  const removeNext = () => run(() => saveMilestone(null, $todayDate));
   const keepPlans = () => run(async () => {
     await savePlans(draft);
     if (whyDraft.trim() !== ((($_profile as any)?.why ?? '').trim())) await saveWhy(whyDraft);
   });
 </script>
 
-<Modal open={$editing === 'line'} onclose={close}>
-  <div class="cm-h">Your line</div>
+<Modal open={$editing === 'next'} onclose={close}>
+  <div class="cm-h">Your next stop</div>
   <p class="cm-lede">
-    The weight your trend doesn't cross again. Draw it a kilo above where you are. Each time a lower
-    trend holds for a week, the line follows you down to a kilo above it, and it never goes back up on its own.
+    A weight below you, on the way to your goal — near enough to steer by on a Friday night. When the
+    trend gets there, pick the next one.
+  </p>
+  <label class="cm-lbl" for="cm-next-kg">Next stop, kg</label>
+  <input id="cm-next-kg" type="number" inputmode="decimal" step="0.1" bind:value={nextKg}>
+  {#if nextPreview}
+    <div class="cm-hint">
+      {#if nextPreview.toGoKg != null}{nextPreview.toGoKg > 0 ? `${nextPreview.toGoKg.toFixed(1)} kg below your trend` : 'Already there'}{/if}{#if nextPreview.bmi != null}{' · '}BMI {nextPreview.bmi.toFixed(1)}{/if}{#if nextPreview.meaning}{' · '}{nextPreview.meaning}{/if}
+    </div>
+  {/if}
+  {#if stops.length}
+    <div class="cm-stops">
+      {#each stops as k}<button type="button" class="cm-stop" class:on={parseFloat(nextKg) === k} onclick={() => (nextKg = String(k))}>{k}</button>{/each}
+    </div>
+  {/if}
+  <button class="btn bp bfl cm-go" onclick={keepNext} disabled={saving}>{saving ? 'Saving…' : 'Save my next stop'}</button>
+  {#if $body.next}<button class="btn bg_ bfl cm-go" onclick={removeNext} disabled={saving}>Remove it</button>{/if}
+  {#if error}<div class="cm-err">{error}</div>{/if}
+</Modal>
+
+<Modal open={$editing === 'line'} onclose={close}>
+  <div class="cm-h">Your ceiling</div>
+  <p class="cm-lede">
+    The weight your trend doesn't go back above. It sits a kilo above where you are now. Each time a lower
+    trend holds for a week, the ceiling comes down to a kilo above it, and it never goes back up on its own.
   </p>
   <p class="cm-why">
     It's the system from the trial that taught people to keep weight off (STOP Regain): weigh most mornings,
-    and decide now what you'll do the day the trend crosses the line.
+    and decide now what you'll do the day the trend goes over it.
   </p>
-  <label class="cm-lbl" for="cm-line-kg">Line, kg</label>
+  <label class="cm-lbl" for="cm-line-kg">Ceiling, kg</label>
   <input id="cm-line-kg" type="number" inputmode="decimal" step="0.1" bind:value={lineKg}>
-  {#if $body.currentKg != null}<div class="cm-hint">Your trend today: {$body.currentKg.toFixed(1)} kg{#if $line?.heldLowKg != null}{' · '}lowest held trend {$line.heldLowKg.toFixed(1)} kg{/if}</div>{/if}
-  <label class="cm-lbl" for="cm-line-plan">If my trend crosses it, I'll…</label>
-  <textarea id="cm-line-plan" rows="2" bind:value={linePlan} placeholder={CUES[0].suggestion}></textarea>
-  {#if !linePlan}<button type="button" class="cm-use" onclick={() => (linePlan = CUES[0].suggestion)}>Use this one</button>{/if}
-  <button class="btn bp bfl cm-go" onclick={keepLine} disabled={saving}>{saving ? 'Saving…' : drawn ? 'Save my line' : 'Draw my line'}</button>
-  {#if drawn}<button class="btn bg_ bfl cm-go" onclick={removeLine} disabled={saving}>Remove the line</button>{/if}
+  {#if trend != null}<div class="cm-hint">Your trend today: {trend.toFixed(1)} kg{#if $line?.heldLowKg != null}{' · '}lowest held trend {$line.heldLowKg.toFixed(1)} kg{/if}</div>{/if}
+  {#if ceilingIsTarget}
+    <div class="cm-turn">
+      <b>{lineKg} is below where you are.</b> A ceiling sits above you; a weight you're heading down to is a next stop.
+      <button class="btn bp bfl cm-go" onclick={lineAsNextStop} disabled={saving}>Make {lineKg} my next stop</button>
+    </div>
+  {:else}
+    <label class="cm-lbl" for="cm-line-plan">If my trend goes over it, I'll…</label>
+    <textarea id="cm-line-plan" rows="2" bind:value={linePlan} placeholder={CUES[0].suggestion}></textarea>
+    {#if !linePlan}<button type="button" class="cm-use" onclick={() => (linePlan = CUES[0].suggestion)}>Use this one</button>{/if}
+    <button class="btn bp bfl cm-go" onclick={keepLine} disabled={saving}>{saving ? 'Saving…' : drawn ? 'Save my ceiling' : 'Set my ceiling'}</button>
+  {/if}
+  {#if drawn}<button class="btn bg_ bfl cm-go" onclick={removeLine} disabled={saving}>Remove the ceiling</button>{/if}
   {#if error}<div class="cm-err">{error}</div>{/if}
 </Modal>
 
@@ -100,7 +155,7 @@
   </p>
   <label class="cm-lbl" for="pl-why">Why you're doing this</label>
   <textarea id="pl-why" rows="2" bind:value={whyDraft} placeholder="In your own words. Nobody else sees it."></textarea>
-  <div class="cm-hint">It comes back when a plan is tested: over your line, and in the Sunday check-in.</div>
+  <div class="cm-hint">It comes back when a plan is tested: over your ceiling, and in the Sunday check-in.</div>
   {#each CUES as c (c.cue)}
     <div class="pl-row">
       <label class="cm-lbl" for="pl-{c.cue}">{c.when}</label>
@@ -118,11 +173,17 @@
   .cm-why{font-size:0.8125rem;line-height:1.5;color:var(--muted);margin:0 0 14px}
   .cm-lbl{display:block;font-family:var(--font-display);font-size:0.875rem;font-weight:800;text-transform:uppercase;
     letter-spacing:.12em;color:var(--muted);margin:12px 0 6px}
-  .cm-hint{font-size:0.75rem;color:var(--muted);margin-top:6px}
+  .cm-hint{font-size:0.75rem;color:var(--muted);margin-top:6px;line-height:1.45}
   .cm-use{background:none;border:none;padding:6px 0 0;font:inherit;font-size:0.8125rem;font-weight:700;color:var(--text);
     text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--border2);cursor:pointer}
   .cm-go{margin-top:14px}
   .cm-go + .cm-go{margin-top:8px}
   .cm-err{font-size:0.8125rem;color:var(--led-bad);text-align:center;margin-top:8px}
+  .cm-turn{font-size:0.875rem;line-height:1.5;color:var(--text);margin-top:12px;padding:11px 12px;
+    background:var(--bg3);border-left:3px solid var(--led-ok);border-radius:var(--r-sm) var(--r-md) var(--r-md) var(--r-sm)}
+  .cm-stops{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+  .cm-stop{font-family:var(--font-display);font-size:1rem;font-weight:800;color:var(--text);cursor:pointer;
+    background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r-sm);padding:6px 12px}
+  .cm-stop.on{border-color:var(--text)}
   .pl-row textarea{resize:vertical}
 </style>

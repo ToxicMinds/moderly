@@ -6,7 +6,7 @@
 // break anything. Pure; see selfcheck.js.
 
 import { mondayOf } from './date.ts';
-import { fitWeightLine, type WeighIn } from './insights.ts';
+import { fitWeightLine, weightVerdict, type WeighIn } from './insights.ts';
 
 export interface WeekBudget {
   start: string;
@@ -103,4 +103,44 @@ export function weekShape(intake: Map<string, { kcal: number }>, weights: WeighI
   const weekendKcal = Math.round(median([4, 5, 6].flatMap((i) => byDay[i])) / 10) * 10;
   const weekdayKcal = Math.round(median([0, 1, 2, 3].flatMap((i) => byDay[i])) / 10) * 10;
   return { kcal, scale, weekdayKcal, weekendKcal, weekendGap: weekendKcal - weekdayKcal, heaviest, lightest };
+}
+
+// ---------------------------------------------------------------------------
+// Week by week: the journal the Sunday check-in writes, a line at a time
+// ---------------------------------------------------------------------------
+
+export interface JournalWeek {
+  /** Monday the check-in was filed under. */
+  weekStart: string;
+  /** The trend at that week's end, and its change from the week before. */
+  trendKg: number | null;
+  deltaKg: number | null;
+  /** The plan reviewed that week, in the words it had then. */
+  planText: string | null;
+  held: 'kept' | 'mostly' | 'not this time' | null;
+  note: string | null;
+}
+
+const HELD = { nailed: 'kept', mostly: 'mostly', struggled: 'not this time' } as const;
+
+/** Every answered week, newest first: the trend, the plan and how it held,
+ *  and the user's own line. Built from what the check-in already stores. */
+export function journalWeeks(dailyLogs: Array<{ date: string; week_check?: any }>, weights: WeighIn[], limit = 12): JournalWeek[] {
+  const weeks = (dailyLogs ?? []).filter((l) => l?.week_check?.effort).sort((a, b) => a.date.localeCompare(b.date));
+  let prev: number | null = null;
+  const out: JournalWeek[] = [];
+  for (const l of weeks) {
+    const sunday = Date.parse(`${l.date}T12:00:00`) + 6 * DAY_MS;
+    const trendKg = weightVerdict(weights, sunday)?.trendKg ?? null;
+    const c = l.week_check;
+    out.push({
+      weekStart: l.date, trendKg,
+      deltaKg: trendKg != null && prev != null ? Math.round((trendKg - prev) * 10) / 10 : null,
+      planText: c.planText ?? null,
+      held: c.planText ? HELD[c.adherence as keyof typeof HELD] ?? null : null,
+      note: c.note?.trim() || null,
+    });
+    if (trendKg != null) prev = trendKg;
+  }
+  return out.reverse().slice(0, limit);
 }

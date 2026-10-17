@@ -7,7 +7,7 @@
 // moment arrives — you only have to recognise it. So the app's job is to hold
 // the plan and put it in front of you when its moment comes round: Friday
 // evening, the weekend, late at night, home from badminton, a bad back
-// morning, a trend over the line.
+// morning, a trend over the ceiling.
 //
 // One plan per moment, in the user's own words. Pure; see selfcheck.js.
 
@@ -28,7 +28,7 @@ export interface CueInfo {
 /** In the order they win when two moments overlap: the specific beats the
  *  general, and the line beats everything. */
 export const CUES: CueInfo[] = [
-  { cue: 'line', when: 'When my trend crosses my line', label: 'Over your line', suggestion: 'Two weeks: the weekend at my weekday number, and the scale every morning.' },
+  { cue: 'line', when: 'When my trend goes over my ceiling', label: 'Over your ceiling', suggestion: 'Two weeks: the weekend at my weekday number, and the scale every morning.' },
   { cue: 'back', when: 'When my back says 6 or more', label: 'Back day', suggestion: 'A 30-minute walk instead of the gym. No lifting today.' },
   { cue: 'badminton', when: 'When I get home from badminton', label: 'After badminton', suggestion: 'A shake first, then dinner — never dinner starving.' },
   { cue: 'friday', when: 'When it’s Friday evening', label: 'Friday evening', suggestion: 'Dinner decided before I leave work: one plate, protein first.' },
@@ -45,7 +45,7 @@ export interface PlanMoment {
   badmintonDay: boolean;
   /** This morning's back rating, if any. */
   backPain: number | null;
-  /** The trend is over the line. */
+  /** The trend is over the ceiling. */
   overLine: boolean;
 }
 

@@ -30,6 +30,8 @@
   }>();
 
   const result = $derived($todayVerdict.result);
+  // The next stop is nearer than the goal, so it's the number worth a glance.
+  const next = $derived($body.next);
   const tone = $derived($todayVerdict.tone);
   const insufficient = $derived(result.band === 'insufficient');
 
@@ -56,7 +58,9 @@
   story={showPlan ? plan!.headline : result.headline}
   stats={showPlan
     ? [{ v: $body.target.target ?? plan!.targetKcal, l: 'kcal / day' }, { v: `${$body.proteinTargetG} g`, l: 'protein' }, { v: goalDateLabel(plan!.goalDate), l: `goal ${plan!.goalKg} kg` }]
-    : [{ v: kgLost, l: 'kg lost' }, { v: kgNow, l: 'kg trend' }, { v: weeks, l: 'wks to goal' }]}>
+    : [{ v: kgLost, l: 'kg lost' }, { v: kgNow, l: 'kg trend' }, next && next.toGoKg != null
+        ? (next.reached ? { v: '✓', l: `${next.kg} reached` } : { v: next.toGoKg.toFixed(1), l: `kg to ${next.kg}` })
+        : { v: weeks, l: 'wks to goal' }]}>
   {#snippet aside()}
     {#if mornings}
       <div class="ph-streak" class:full={mornings.weighed === mornings.days} title="Mornings weighed this week">Mornings <b>{mornings.weighed}/{mornings.days}</b></div>

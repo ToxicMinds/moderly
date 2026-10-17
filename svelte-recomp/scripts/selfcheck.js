@@ -3155,6 +3155,52 @@ check('nothing in the weekly ritual assumes someone to send it to', async () => 
   assert.match(c, /You said: “\{why\}”/, 'the user’s own reason comes back at the review');
 });
 
+check('a next stop knows what it means at this height', async () => {
+  const { milestoneState, weightUnderBmi, suggestStops } = await import('../src/lib/milestone.ts');
+  assert.equal(weightUnderBmi(30, 187), 104.9, 'the heaviest weight under BMI 30 at 187 cm');
+  const at105 = milestoneState({ kg: 105, set: '2026-10-17' }, 113.0, 187);
+  assert.equal(at105.toGoKg, 8);
+  assert.equal(at105.reached, false);
+  assert.match(at105.meaning, /“obese” BMI range ends at 104\.9 kg/, '105 is BMI 30.0 — say exactly where the band ends');
+  assert.match(milestoneState({ kg: 104.5, set: '' }, 113, 187).meaning, /out of the “obese” BMI range/);
+  assert.equal(milestoneState({ kg: 105, set: '' }, 104.8, 187).reached, true);
+  assert.deepEqual(suggestStops(113.0, 187, 96), [110, 104.9, 96, 87.4]);
+  assert.equal(milestoneState(null, 113, 187), null);
+});
+
+check('a ceiling set below the trend is caught as a target, not shown as 8 kg over', () => {
+  const flatAt = (kg) => Array.from({ length: 30 }, (_, i) => ({ date: dayAt(i), weight: kg + NOISE[i % NOISE.length] / 5 }));
+  const wrong = lineState({ kg: 105, set: dayAt(29) }, flatAt(113), dayAt(29));
+  assert.equal(wrong.misdrawn, true);
+  const right = lineState({ kg: 114, set: dayAt(29) }, flatAt(113), dayAt(29));
+  assert.equal(right.misdrawn, false);
+});
+
+check('the ceiling and the next stop are named for their direction everywhere the user reads', async () => {
+  const { readFileSync } = await import('node:fs');
+  const ui = ['src/routes/+page.svelte', 'src/lib/components/Commitments.svelte', 'src/lib/components/CommitmentAlerts.svelte', 'src/lib/plans.ts']
+    .map((f) => readFileSync(f, 'utf8')).join('\n');
+  assert.doesNotMatch(ui, /Over your line|Draw my line|Your line<|>Line</, '"line" read as a finish line once — it is a ceiling');
+  assert.match(ui, /Your ceiling/);
+  assert.match(ui, /Your next stop/);
+});
+
+check('the Sunday check-ins become a journal, newest first, in the user’s words', async () => {
+  const { journalWeeks } = await import('../src/lib/week.ts');
+  const weights = Array.from({ length: 40 }, (_, i) => ({ date: shiftYmd(-(39 - i), new Date('2026-10-18T12:00:00')), weight: +(114 - i * 0.04).toFixed(1) }));
+  const logs = [
+    { date: '2026-10-05', week_check: { effort: 'right', hunger: 'fine', adherence: 'nailed', planText: 'Leftovers in a box.', note: 'Planetarium, no munching.' } },
+    { date: '2026-10-12', week_check: { effort: 'right', hunger: 'fine', adherence: 'struggled', planText: 'Leftovers in a box.' } },
+    { date: '2026-10-14', water_glasses: 3 },
+  ];
+  const j = journalWeeks(logs, weights);
+  assert.deepEqual(j.map((w) => w.weekStart), ['2026-10-12', '2026-10-05']);
+  assert.equal(j[0].held, 'not this time');
+  assert.equal(j[1].note, 'Planetarium, no munching.');
+  assert.ok(j[0].deltaKg < 0, 'the trend fell between the two Sundays');
+  assert.equal(j[1].deltaKg, null, 'the first week has nothing to compare with');
+});
+
 check('mornings count up through the week and never reset mid-week', () => {
   const w = [{ date: '2026-10-12' }, { date: '2026-10-14' }, { date: '2026-10-15' }, { date: '2026-10-11' }];
   assert.deepEqual(morningsThisWeek(w, '2026-10-17'), { weighed: 3, days: 6 });

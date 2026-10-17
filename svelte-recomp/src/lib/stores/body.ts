@@ -22,6 +22,7 @@ import { parseCalorieTarget } from '$lib/coach';
 import { mondayOf, shiftYmd } from '$lib/date';
 import { weekBudget, weekShape, type WeekBudget, type WeekShape } from '$lib/week';
 import { lineState, type LineState } from '$lib/line';
+import { milestoneState, type MilestoneState } from '$lib/milestone';
 
 export interface DayIntake { kcal: number; protein: number; carbs: number; fat: number; items: number }
 
@@ -52,6 +53,8 @@ export interface Body {
   profile: BodyProfile | null;
   /** The least this body can burn (resting × 1.2), when the profile allows. */
   floorKcal: number | null;
+  /** The next stop on the way to the goal (user_settings.milestone). */
+  next: MilestoneState | null;
   /** How far the learned maintenance sits under that floor: food the log
    *  consistently doesn't carry. Fine while it's steady — the target is in
    *  the log's units. null when the log isn't short. */
@@ -128,6 +131,7 @@ export const body: Readable<Body> = derived(
       week: weekBudget(target.target, intake, today),
       proteinTargetG: Math.max(1, proteinTargetG(goalKg, currentKg)),
       bodyFatPct, profile, floorKcal,
+      next: milestoneState(p?.milestone ?? null, currentKg, p?.height_cm ? +p.height_cm : null),
       logShortKcal: short >= 100 ? Math.round(short / 10) * 10 : null,
     };
   },
