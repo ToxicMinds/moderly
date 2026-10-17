@@ -17,7 +17,8 @@
 // caller's `parse` wins and cancels the rest. A provider that fails fast hands
 // over immediately.
 
-const GEMINI_KEY = Deno.env.get('GEMINI_API_KEY') ?? '';
+// globalThis lookup so scripts/selfcheck.js (Node) can import the pure parts.
+const GEMINI_KEY: string = (globalThis as any).Deno?.env.get('GEMINI_API_KEY') ?? '';
 // Ordered by measured latency with thinking minimised (~1.5 s each). A model
 // that 404s is skipped; if every one is gone the live model list is consulted,
 // so a retirement degrades to "a different flash model", not an outage.

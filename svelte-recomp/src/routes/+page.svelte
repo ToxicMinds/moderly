@@ -120,7 +120,6 @@
   userId.subscribe((v) => { if (v) uid = v; });
 
   let weight = $state('');
-  let kcal = $state('');
   let steps = $state('');
   let saving = $state(false);
   let saveMsg = $state('');
@@ -158,9 +157,12 @@
     return Math.ceil((recentWeight - GOAL_KG) / wl);
   });
 
+  // Weight and steps only. This card also took a bare kcal number, written to
+  // daily_logs.kcal — a second, item-less food log that the Food page never
+  // saw and that competed with it in every calorie sum. Food has one way in now.
   async function quickLog() {
     if (!uid) { saveMsg = 'Not signed in — please sign back in.'; return; }
-    if (!weight && !kcal && !steps) { saveMsg = 'Enter at least one value first.'; return; }
+    if (!weight && !steps) { saveMsg = 'Enter a weight or steps first.'; return; }
     saving = true;
     saveMsg = '';
     try {
@@ -172,16 +174,13 @@
           created_at: new Date().toISOString(),
         });
       }
-      if (kcal) {
-        await upsertRecord('daily_logs', { user_id: uid, date: today, kcal: parseInt(kcal) });
-      }
       if (steps) {
         await upsertRecord('steps', {
           user_id: uid, date: today, count: parseInt(steps),
           created_at: new Date().toISOString(),
         });
       }
-      weight = ''; kcal = ''; steps = '';
+      weight = ''; steps = '';
       saveMsg = 'Saved ✓';
       setTimeout(() => { saveMsg = ''; }, 3000);
     } catch (e: any) {
@@ -200,7 +199,6 @@
   // kcal/water as if they were today's. The old `liveLog(today)` captured the
   // date once at mount and never rolled over.
   const todayLog = $derived(($_dailyLogs as any[]).find((l: any) => l.date === today) ?? null);
-  const todayKcal = $derived(todayLog?.kcal ?? null);
   // Steps live in their own `steps` table (field `count`), NOT on
   // daily_logs — the old `$_todayLog?.steps` always read undefined so
   // steps never displayed. Take the most recent entry logged today.
@@ -453,19 +451,16 @@
   </div>
 </div>
 
-{#if todayKcal !== null || todaySteps !== null}
-  <div class="card" use:cardNav={`${base}/recipes`}>
+<div class="card" use:cardNav={`${base}/recipes`}>
     <div class="flex jb ac">
       <div class="card-lbl" style="margin-bottom:0">Today's Stats</div>
-      <span class="card-link">Nutrition →</span>
+      <span class="card-link">{coachTodayKcal ? 'Food →' : 'Log food →'}</span>
     </div>
     <div class="flex gap2" style="font-size:0.8125rem;margin-top:10px">
-      {#if todayKcal !== null}
-        <div class="f1" style="background:var(--bg3);border-radius:8px;padding:8px;text-align:center">
-          <div style="font-weight:700;color:var(--amber);font-size:1.125rem">{todayKcal}</div>
-          <div style="font-size:0.6875rem;color:var(--muted)">kcal</div>
-        </div>
-      {/if}
+      <div class="f1" style="background:var(--bg3);border-radius:8px;padding:8px;text-align:center">
+        <div style="font-weight:700;color:var(--amber);font-size:1.125rem">{Math.round(coachTodayKcal ?? 0)}</div>
+        <div style="font-size:0.6875rem;color:var(--muted)">kcal eaten</div>
+      </div>
       {#if todaySteps !== null}
         <div class="f1" style="background:var(--bg3);border-radius:8px;padding:8px;text-align:center">
           <div style="font-weight:700;color:var(--green);font-size:1.125rem">{todaySteps.toLocaleString()}</div>
@@ -478,7 +473,7 @@
       </div>
     </div>
   </div>
-{/if}
+
 
 <div class="card" use:cardNav={`${base}/workouts`}>
   <div class="flex jb ac">
@@ -523,15 +518,11 @@
 </div>
 
 <div class="card">
-  <div class="card-lbl">Quick Log</div>
+  <div class="card-lbl">Weigh-in &amp; steps</div>
   <div class="flex gap2" style="margin-bottom:8px">
     <div class="f1">
       <label class="flbl" for="ql-weight">Weight (kg)</label>
       <input id="ql-weight" type="number" step="0.1" bind:value={weight} placeholder={recentWeight?.toString() || '116.0'} style="text-align:center">
-    </div>
-    <div class="f1">
-      <label class="flbl" for="ql-kcal">Kcal</label>
-      <input id="ql-kcal" type="number" bind:value={kcal} placeholder="2300" style="text-align:center">
     </div>
     <div class="f1">
       <label class="flbl" for="ql-steps">Steps</label>

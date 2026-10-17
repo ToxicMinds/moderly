@@ -18,6 +18,8 @@
 // no RLS policy, no new row in the sync TABLES list, and nothing new that could
 // leak between accounts (see the data-isolation audit).
 
+import { cleanName, foodKey, historyFoods } from './food.ts';
+
 /** A food_logs row, loosely typed — this module is pure and takes plain rows. */
 export interface FoodRow {
   id?: string;
@@ -28,6 +30,9 @@ export interface FoodRow {
   carbs_g?: number | null;
   fat_g?: number | null;
   created_at?: string | null;
+  grams?: number | null;
+  source?: string | null;
+  barcode?: string | null;
 }
 
 export interface QuickFood {
@@ -36,13 +41,18 @@ export interface QuickFood {
   protein_g: number;
   carbs_g: number;
   fat_g: number;
+  /** Portion in grams when it was recorded. */
+  grams?: number | null;
   /** How many times this name has ever been logged — drives the ranking. */
   count: number;
   /** Most recent date it was logged, so "recent" can beat "frequent" on ties. */
   lastDate: string;
 }
 
-const num = (n: unknown): number => (typeof n === 'number' && Number.isFinite(n) ? n : 0);
+const num = (n: unknown): number => {
+  const x = typeof n === 'string' ? parseFloat(n) : n;
+  return typeof x === 'number' && Number.isFinite(x) ? x : 0;
+};
 
 /**
  * Foods ranked by how much you actually use them, carrying the macros from the
@@ -51,39 +61,24 @@ const num = (n: unknown): number => (typeof n === 'number' && Number.isFinite(n)
  *
  * Ranking is count first, recency second. A food eaten 40 times but not for a
  * month still beats one eaten twice yesterday: the chips are for the staples.
+ *
+ * Grouping is by cleaned name (see food.ts): legacy rows carried their source in
+ * the name — "Plain white rice (cooked) (AI estimate, high confidence)" — and
+ * the old rule skipped anything named "(AI estimate". That kept this user's two
+ * most-logged foods (rice x48, whey x37) out of quick add entirely. A ONE-OFF AI
+ * guess is still not a staple; a repeated one is.
  */
 export function frequentFoods(logs: FoodRow[], limit = 8): QuickFood[] {
-  const byName = new Map<string, QuickFood & { lastAt: string }>();
-
-  for (const f of logs) {
-    const name = f.name?.trim();
-    if (!name) continue;
-    // AI photo estimates carry their own confidence caveat in the name and are
-    // one-off portions; re-logging one as a staple would be a lie.
-    if (/\(AI estimate/i.test(name)) continue;
-
-    const at = f.created_at || f.date || '';
-    const cur = byName.get(name);
-    if (!cur) {
-      byName.set(name, {
-        name, kcal: num(f.kcal), protein_g: num(f.protein_g), carbs_g: num(f.carbs_g),
-        fat_g: num(f.fat_g), count: 1, lastDate: f.date || '', lastAt: at,
-      });
-      continue;
-    }
-    cur.count++;
-    if (at >= cur.lastAt) {
-      cur.lastAt = at;
-      cur.lastDate = f.date || cur.lastDate;
-      cur.kcal = num(f.kcal); cur.protein_g = num(f.protein_g);
-      cur.carbs_g = num(f.carbs_g); cur.fat_g = num(f.fat_g);
-    }
-  }
-
-  return [...byName.values()]
-    .sort((a, b) => b.count - a.count || b.lastDate.localeCompare(a.lastDate) || a.name.localeCompare(b.name))
+  return historyFoods(logs)
+    .filter((c) => !(c.ai && (c.count ?? 1) < 2))
     .slice(0, Math.max(0, limit))
-    .map(({ lastAt, ...f }) => f);
+    .map((c) => ({
+      name: c.name,
+      kcal: c.portion?.kcal ?? 0, protein_g: c.portion?.protein_g ?? 0,
+      carbs_g: c.portion?.carbs_g ?? 0, fat_g: c.portion?.fat_g ?? 0,
+      grams: c.portion?.grams ?? null,
+      count: c.count ?? 1, lastDate: c.lastDate ?? '',
+    }));
 }
 
 export interface Meal {
@@ -140,7 +135,7 @@ export function groupIntoMeals(logs: FoodRow[], dayYmd: string): Meal[] {
     const at = rows.find((r) => r.created_at)?.created_at || '';
     const hour = at ? new Date(at).getHours() : NaN;
     const items: QuickFood[] = rows.map((r) => ({
-      name: (r.name || '').trim(),
+      name: cleanName(r.name || ''), grams: num(r.grams) || null,
       kcal: num(r.kcal), protein_g: num(r.protein_g), carbs_g: num(r.carbs_g), fat_g: num(r.fat_g),
       count: 1, lastDate: r.date || dayYmd,
     }));
@@ -165,19 +160,19 @@ export function repeatDay(logs: FoodRow[], fromYmd: string, toYmd: string): Quic
   const remaining = new Map<string, number>();
   for (const f of logs) {
     if (f.date !== toYmd) continue;
-    const n = f.name?.trim();
+    const n = f.name?.trim() ? foodKey(f.name) : '';
     if (n) remaining.set(n, (remaining.get(n) ?? 0) + 1);
   }
 
   const out: QuickFood[] = [];
   for (const f of logs.filter((x) => x.date === fromYmd).sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''))) {
-    const name = f.name?.trim();
-    if (!name) continue;
-    const already = remaining.get(name) ?? 0;
-    if (already > 0) { remaining.set(name, already - 1); continue; }
+    if (!f.name?.trim()) continue;
+    const key = foodKey(f.name);
+    const already = remaining.get(key) ?? 0;
+    if (already > 0) { remaining.set(key, already - 1); continue; }
     out.push({
-      name, kcal: num(f.kcal), protein_g: num(f.protein_g), carbs_g: num(f.carbs_g),
-      fat_g: num(f.fat_g), count: 1, lastDate: f.date || fromYmd,
+      name: cleanName(f.name), kcal: num(f.kcal), protein_g: num(f.protein_g), carbs_g: num(f.carbs_g),
+      fat_g: num(f.fat_g), grams: num(f.grams) || null, count: 1, lastDate: f.date || fromYmd,
     });
   }
   return out;

@@ -10,16 +10,14 @@
   import Modal from '$lib/components/Modal.svelte';
   import MiniChart from '$lib/components/MiniChart.svelte';
   import { swipeActions } from '$lib/actions/swipe';
-  import BarcodeScanner from '$lib/components/BarcodeScanner.svelte';
-  import FoodPhotoAnalyzer from '$lib/components/FoodPhotoAnalyzer.svelte';
+  import FoodLogger from '$lib/components/FoodLogger.svelte';
   import NutritionInsights from '$lib/components/NutritionInsights.svelte';
-  import FoodSearch from '$lib/components/FoodSearch.svelte';
+  import { cleanName, sourceOf, type NewFood } from '$lib/food';
   import { evaluateFood } from '$lib/foodCoach';
   import { speak } from '$lib/stores/toast';
   import { haptic } from '$lib/haptics';
   import db from '$lib/db/dexie';
-  import { todayYmd, shiftYmd } from '$lib/date';
-  import { frequentFoods, repeatDay, groupIntoMeals } from '$lib/quickAdd';
+  import { todayYmd } from '$lib/date';
   import { nowTick } from '$lib/stores/refresh';
   import PageHero from '$lib/components/PageHero.svelte';
 
@@ -55,7 +53,9 @@
   const _foodLogs = liveFoodLogs();
   const _weights = liveWeights();
   const _goal = liveGoal();
-  const todayStr = todayYmd();
+  // Re-derived on the clock tick: a page left open past midnight must file the
+  // next entry under the new day, not the day it was opened.
+  const todayStr = $derived.by(() => { void $nowTick; return todayYmd(); });
 
   const _profile = liveProfile();
   const currentWeightKg = $derived.by(() => {
@@ -169,154 +169,33 @@
   });
   let trendMetric = $state<'kcal' | 'protein'>('kcal');
 
-  // Frequent foods used to be computed here AND rendered in a card near the
-  // bottom of the page, below the log form and today's list — so the cheapest
-  // action in the app sat furthest from the thumb. It now comes from the shared,
-  // tested frequentFoods() and renders in the Quick add card at the very top,
-  // next to the two things that didn't exist at all: repeat-yesterday and meals.
-
   let showHistory = $state(false);
-
-  let foodName = $state('');
-  let foodKcal = $state('');
-  let foodProtein = $state('');
-  let foodCarbs = $state('');
-  let foodFat = $state('');
-  let addingFood = $state(false);
-  let foodMsg = $state('');
   let foodSwipeOffsets = $state<Record<string, number>>({});
   let repeatingId = $state<string | null>(null);
 
-  // Barcode scanner fills these fields with per-100g values from Open
-  // Food Facts -- the user still needs to adjust for their actual
-  // portion size before saving, so we prefill rather than auto-submit.
-  function applyScannedFood(food: { name: string; kcal: number; protein_g: number; carbs_g: number; fat_g: number }) {
-    foodName = food.name + ' (per 100g — adjust portion)';
-    foodKcal = String(Math.round(food.kcal));
-    foodProtein = String(Math.round(food.protein_g));
-    foodCarbs = String(Math.round(food.carbs_g));
-    foodFat = String(Math.round(food.fat_g));
-  }
+  // Provenance as a quiet tag on the row, not words baked into its name.
+  const SOURCE_TAG: Record<string, string> = { ai: 'AI', offline: 'estimate', label: 'label' };
+  const sourceLabel = (f: any) => SOURCE_TAG[sourceOf(f) ?? ''] ?? '';
 
-  // Every food name you've ever logged, deduped and ranked by how often you
-  // use it — the library FoodSearch matches against instantly. Picking one is
-  // your own exact entry, so it fills as-is (no "per 100g" caveat).
-  const myFoodLibrary = $derived.by(() => {
-    const byName = new Map<string, { count: number; last: any; lastAt: string }>();
-    for (const f of $_foodLogs) {
-      const key = f.name?.trim();
-      if (!key) continue;
-      const cur = byName.get(key);
-      const at = f.created_at || '';
-      if (!cur) byName.set(key, { count: 1, last: f, lastAt: at });
-      else { cur.count++; if (at >= cur.lastAt) { cur.last = f; cur.lastAt = at; } }
-    }
-    return [...byName.values()]
-      .sort((a, b) => b.count - a.count)
-      .map((v) => ({
-        name: v.last.name,
-        kcal: v.last.kcal ?? 0,
-        protein_g: v.last.protein_g ?? 0,
-        carbs_g: v.last.carbs_g ?? 0,
-        fat_g: v.last.fat_g ?? 0,
-        count: v.count,
-      }));
-  });
-
-  // FoodSearch pick: an online (per-100g) hit routes through the scan handler
-  // so it inherits the "adjust portion" prompt; your own logged food fills the
-  // exact values you saved before.
-  function applySearchFood(food: { name: string; kcal: number; protein_g: number; carbs_g: number; fat_g: number }, per100g: boolean) {
-    if (per100g) { applyScannedFood(food); return; }
-    foodName = food.name;
-    foodKcal = String(Math.round(food.kcal));
-    foodProtein = String(Math.round(food.protein_g));
-    foodCarbs = String(Math.round(food.carbs_g));
-    foodFat = String(Math.round(food.fat_g));
-  }
-
-  // Photo analysis (Gemini Vision) estimates the ACTUAL portion size
-  // shown in the photo, unlike the barcode scanner's fixed per-100g
-  // figures -- still just an AI estimate, so prefilled for review/
-  // adjustment rather than auto-submitted.
-  function applyPhotoFood(food: { name: string; kcal: number; protein_g: number; carbs_g: number; fat_g: number; confidence: string }) {
-    foodName = `${food.name} (AI estimate, ${food.confidence} confidence)`;
-    foodKcal = String(Math.round(food.kcal));
-    foodProtein = String(Math.round(food.protein_g));
-    foodCarbs = String(Math.round(food.carbs_g));
-    foodFat = String(Math.round(food.fat_g));
-  }
-
-  // ── QUICK ADD ─────────────────────────────────────────────────────────────
-  // All three shortcuts are derived from the user's own food_logs (quickAdd.ts):
-  // the staples they log constantly, yesterday's day, and yesterday's meals.
-  const quickFoods = $derived(frequentFoods($_foodLogs as any[], 6));
-  const yesterdayStr = $derived(shiftYmd(-1, new Date($nowTick)));
-  const yesterdayLeft = $derived(repeatDay($_foodLogs as any[], yesterdayStr, todayStr));
-  const yesterdayMeals = $derived(groupIntoMeals($_foodLogs as any[], yesterdayStr));
-
-  let quickBusy = $state('');
-  let quickMsg = $state('');
-
-  /** Log a whole set of foods in one tap. Writes sequentially so a mid-way
-   *  failure leaves the earlier rows saved rather than rolling the lot back —
-   *  a partially logged meal is recoverable, a silently dropped one is not. */
-  async function quickAddFoods(foods: Array<{ name: string; kcal: number; protein_g: number; carbs_g: number; fat_g: number }>, what: string) {
-    if (!uid) { quickMsg = 'Not signed in.'; return; }
-    if (quickBusy || foods.length === 0) return;
-    haptic('tap');
-    quickBusy = what;
-    quickMsg = '';
+  /** The ONE write path for food: FoodLogger (search, scan, photo, AI, quick
+   *  add) and re-logging all land here. Writes sequentially so a mid-way failure
+   *  leaves the earlier rows saved — a partially logged meal is recoverable, a
+   *  silently dropped one is not. */
+  async function logFoods(foods: NewFood[], _what: string) {
+    if (!uid) throw new Error('Not signed in — sign back in.');
     const before = { kcal: todayTotals.kcal, protein: todayTotals.protein };
-    let added = 0;
-    try {
-      for (const f of foods) {
-        await upsertRecord('food_logs', {
-          id: crypto.randomUUID(), user_id: uid, date: todayStr, name: f.name,
-          kcal: f.kcal, protein_g: f.protein_g, carbs_g: f.carbs_g, fat_g: f.fat_g,
-          created_at: new Date().toISOString(),
-        });
-        added++;
-      }
-      announceFood(before, {
-        kcal: before.kcal + foods.reduce((s, f) => s + f.kcal, 0),
-        protein: before.protein + foods.reduce((s, f) => s + f.protein_g, 0),
-      });
-      quickMsg = added === 1 ? 'Added' : `Added ${added}`;
-    } catch (e: any) {
-      quickMsg = added > 0 ? `Added ${added}, then failed` : 'Failed — try again';
-      console.error('Quick add failed:', e);
-    } finally {
-      quickBusy = '';
-      setTimeout(() => { quickMsg = ''; }, 2500);
-    }
-  }
-
-  async function addFood() {
-    if (!uid) { foodMsg = 'Not signed in — please sign back in.'; return; }
-    if (!foodName.trim()) { foodMsg = 'Enter a food name first.'; return; }
-    haptic('tap');
-    addingFood = true;
-    foodMsg = '';
-    try {
-      const name = foodName.trim();
-      const kcal = parseFloat(foodKcal) || 0;
-      const protein_g = parseFloat(foodProtein) || 0;
-      const carbs_g = parseFloat(foodCarbs) || 0;
-      const fat_g = parseFloat(foodFat) || 0;
-      const before = { kcal: todayTotals.kcal, protein: todayTotals.protein };
+    for (const f of foods) {
       await upsertRecord('food_logs', {
-        id: crypto.randomUUID(), user_id: uid, date: todayStr, name,
-        kcal, protein_g, carbs_g, fat_g,
+        id: crypto.randomUUID(), user_id: uid, date: todayStr, name: f.name,
+        kcal: f.kcal, protein_g: f.protein_g, carbs_g: f.carbs_g, fat_g: f.fat_g,
+        grams: f.grams ?? null, barcode: f.barcode ?? null, source: f.source,
         created_at: new Date().toISOString(),
       });
-      announceFood(before, { kcal, protein: protein_g });
-      foodName = ''; foodKcal = ''; foodProtein = ''; foodCarbs = ''; foodFat = '';
-    } catch (e: any) {
-      foodMsg = 'Save failed: ' + (e?.message || String(e)).slice(0, 150);
-    } finally {
-      addingFood = false;
     }
+    announceFood(before, {
+      kcal: foods.reduce((s, f) => s + f.kcal, 0),
+      protein: foods.reduce((s, f) => s + f.protein_g, 0),
+    });
   }
 
   // Speak the moment an entry tips a threshold: protein target just hit, or the
@@ -353,19 +232,15 @@
   // cook once and eat the same thing across several days) without
   // retyping macros.
   async function repeatFood(f: any) {
-    if (!uid) return;
     haptic('tap');
     repeatingId = f.id;
     try {
-      const before = { kcal: todayTotals.kcal, protein: todayTotals.protein };
-      await upsertRecord('food_logs', {
-        id: crypto.randomUUID(), user_id: uid, date: todayStr, name: f.name,
-        kcal: f.kcal || 0, protein_g: f.protein_g || 0, carbs_g: f.carbs_g || 0, fat_g: f.fat_g || 0,
-        created_at: new Date().toISOString(),
-      });
-      announceFood(before, { kcal: f.kcal || 0, protein: f.protein_g || 0 });
-    } catch (e: any) {
-      foodMsg = 'Repeat failed: ' + (e?.message || String(e)).slice(0, 150);
+      await logFoods([{
+        name: cleanName(f.name), kcal: f.kcal || 0, protein_g: f.protein_g || 0, carbs_g: f.carbs_g || 0, fat_g: f.fat_g || 0,
+        grams: f.grams ?? null, barcode: f.barcode ?? null, source: 'quick',
+      }], f.name);
+    } catch (e) {
+      console.error('Repeat failed:', e);
     } finally {
       repeatingId = null;
     }
@@ -564,70 +439,10 @@
   <div class="live-target">🎯 Target <b>{liveTarget.target} kcal</b> — from ~{liveTarget.maintenance} kcal maintenance (lean-mass BMR at {latestBodyFat}% bf). Log a couple weeks and it learns your real burn.</div>
 {/if}
 
-{#if quickFoods.length > 0 || yesterdayLeft.length > 0 || yesterdayMeals.length > 0}
-  <!-- QUICK ADD. Logging is this app's dominant interaction (5-8 entries a day,
-       every day) and every one of them used to mean typing a name and waiting on
-       a network search. People eat the same things, so all of this is derived
-       from the user's own history — no new table, no new sync surface. -->
-  <div class="card">
-    <div class="flex jb ac">
-      <div class="card-lbl" style="margin-bottom:0">Quick add</div>
-      {#if quickMsg}<div class="qa-msg">{quickMsg}</div>{/if}
-    </div>
-
-    {#if quickFoods.length > 0}
-      <div class="qa-chips">
-        {#each quickFoods as f (f.name)}
-          <button class="qa-chip" disabled={!!quickBusy} onclick={() => quickAddFoods([f], f.name)}>
-            <b>{f.name}</b>
-            <em>{Math.round(f.kcal)} kcal · {Math.round(f.protein_g)}g P</em>
-          </button>
-        {/each}
-      </div>
-    {/if}
-
-    {#if yesterdayLeft.length > 0}
-      <button class="btn bg_ bfl qa-repeat" disabled={!!quickBusy}
-        onclick={() => quickAddFoods(yesterdayLeft, 'yesterday')}>
-        ↺ Repeat yesterday · {yesterdayLeft.length} item{yesterdayLeft.length === 1 ? '' : 's'}, {Math.round(yesterdayLeft.reduce((s, f) => s + f.kcal, 0))} kcal
-      </button>
-    {/if}
-
-    {#if yesterdayMeals.length > 0}
-      <div class="qa-meals">
-        {#each yesterdayMeals as m (m.key)}
-          <button class="qa-meal" disabled={!!quickBusy} onclick={() => quickAddFoods(m.items, m.label.toLowerCase())}>
-            <span class="qa-meal-top"><b>{m.label}</b><span>{m.kcal} kcal · {m.protein_g}g P</span></span>
-            <em>{m.items.map((i) => i.name).join(' · ')}</em>
-          </button>
-        {/each}
-      </div>
-    {/if}
-  </div>
-{/if}
+<FoodLogger logs={$_foodLogs as any[]} today={todayStr} onLog={logFoods} />
 
 <div class="card">
-  <div class="card-lbl">Log food</div>
-  <div class="food-form">
-    <FoodSearch myFoods={myFoodLibrary} onPick={applySearchFood} />
-    <div class="flex gap2" style="margin-bottom:4px">
-      <BarcodeScanner onResult={applyScannedFood} />
-      <FoodPhotoAnalyzer onResult={applyPhotoFood} />
-    </div>
-    <div class="scan-note">Search above, scan, snap, or type it in below.</div>
-    <input placeholder="Food name (e.g. Chicken breast 200g)" bind:value={foodName} style="margin-bottom:6px">
-    <div class="food-form-row">
-      <input type="number" inputmode="decimal" placeholder="kcal" bind:value={foodKcal}>
-      <input type="number" inputmode="decimal" placeholder="protein g" bind:value={foodProtein}>
-      <input type="number" inputmode="decimal" placeholder="carbs g" bind:value={foodCarbs}>
-      <input type="number" inputmode="decimal" placeholder="fat g" bind:value={foodFat}>
-    </div>
-    <button class="btn bp bfl" style="margin-top:8px" onclick={addFood} disabled={addingFood}>{addingFood ? 'Adding…' : 'Add Food'}</button>
-    {#if foodMsg}
-      <div style="font-size:0.75rem;text-align:center;margin-top:6px;color:{foodMsg.startsWith('Save failed') ? 'var(--red)' : 'var(--green)'}">{foodMsg}</div>
-    {/if}
-  </div>
-
+  <div class="card-lbl">Today</div>
   {#if todayFoods.length > 0}
     <div class="food-list">
       {#each todayFoods as f}
@@ -644,7 +459,7 @@
             }}
           >
             <div class="fi-main">
-              <div class="fi-name">{f.name}</div>
+              <div class="fi-name">{cleanName(f.name)}{#if sourceLabel(f)}<span class="fi-src">{sourceLabel(f)}</span>{/if}</div>
               <div class="fi-macros">{Math.round(f.kcal)} kcal &middot; P{Math.round(f.protein_g)} C{Math.round(f.carbs_g)} F{Math.round(f.fat_g)}</div>
             </div>
             <button type="button" class="fi-repeat" onclick={() => repeatFood(f)} disabled={repeatingId === f.id} title="Log this again">
@@ -711,7 +526,7 @@
             </div>
             {#each day.foods as f}
               <div class="hist-item">
-                <span class="hist-name">{f.name}</span>
+                <span class="hist-name">{cleanName(f.name)}</span>
                 <div class="flex ac gap2">
                   <span class="hist-macros">{Math.round(f.kcal)}kcal</span>
                   <button type="button" class="fi-repeat fi-repeat-sm" onclick={() => repeatFood(f)} disabled={repeatingId === f.id} title="Re-log today">
@@ -849,33 +664,7 @@
 <style>
   .live-target{font-size:0.75rem;color:var(--amber2);line-height:1.5;background:var(--glass-2);border:1px solid var(--glass-brd);border-radius:11px;padding:9px 11px;margin-bottom:12px}
   .live-target b{color:#fff}
-  /* Quick add — the taps that replace typing. Chips scroll horizontally so six
-     staples fit one thumb-reach row on a 360px phone. */
-  .qa-msg{font-size:0.6875rem;font-weight:800;color:var(--green)}
-  .qa-chips{display:flex;gap:6px;overflow-x:auto;padding:2px 0 8px;margin:0 -2px;
-    scrollbar-width:none;-webkit-overflow-scrolling:touch}
-  .qa-chips::-webkit-scrollbar{display:none}
-  .qa-chip{flex:0 0 auto;display:flex;flex-direction:column;align-items:flex-start;gap:1px;
-    max-width:170px;text-align:left;cursor:pointer;
-    background:var(--glass-2);border:1px solid var(--glass-brd);border-radius:13px;
-    padding:8px 11px;transition:transform .18s var(--ease)}
-  .qa-chip:active{transform:scale(.94)}
-  .qa-chip:disabled{opacity:.5}
-  .qa-chip b{font-size:0.75rem;font-weight:800;color:var(--text);white-space:nowrap;
-    overflow:hidden;text-overflow:ellipsis;max-width:100%}
-  .qa-chip em{font-style:normal;font-size:0.6875rem;color:var(--muted);white-space:nowrap}
-  .qa-repeat{margin-bottom:8px}
-  .qa-meals{display:flex;flex-direction:column;gap:6px}
-  .qa-meal{display:flex;flex-direction:column;gap:2px;text-align:left;width:100%;cursor:pointer;
-    background:var(--glass-2);border:1px solid var(--glass-brd);border-radius:13px;
-    padding:9px 11px;transition:transform .18s var(--ease)}
-  .qa-meal:active{transform:scale(.985)}
-  .qa-meal:disabled{opacity:.5}
-  .qa-meal-top{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
-  .qa-meal-top b{font-size:0.8125rem;font-weight:800;color:var(--text)}
-  .qa-meal-top span{font-size:0.6875rem;font-weight:700;color:var(--muted);flex-shrink:0}
-  .qa-meal em{font-style:normal;font-size:0.6875rem;line-height:1.4;color:var(--muted);
-    display:-webkit-box;-webkit-line-clamp:2;line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .fi-src{margin-left:6px;font-size:0.6875rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);border:1px solid var(--border);border-radius:4px;padding:0 4px;vertical-align:1px}
   .gen-card{border:1px solid color-mix(in srgb, var(--amber) 45%, transparent)}
   .gen-sub{font-size:0.6875rem;color:var(--muted);line-height:1.45;margin-bottom:8px}
   .gen-input{width:100%;resize:vertical;font-family:inherit}

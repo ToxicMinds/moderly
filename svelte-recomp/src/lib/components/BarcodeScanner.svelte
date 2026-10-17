@@ -1,139 +1,164 @@
 <script lang="ts">
-  // Barcode -> food macros lookup, replicating MyFitnessPal's premium
-  // barcode-scan feature for free, using two things everyone's browser
-  // already ships and the fully free/keyless Open Food Facts database:
-  //   1. The native `BarcodeDetector` Web API (Chrome/Android/Edge) reads
-  //      a barcode from the live camera feed with zero dependencies.
-  //   2. https://world.openfoodfacts.org/api/v0/product/{barcode}.json
-  //      returns per-100g macros for 3M+ products, no API key required.
-  // iOS Safari does not implement BarcodeDetector (as of this writing),
-  // so we fall back to manual barcode entry there -- still faster than
-  // typing out full nutrition info by hand, and the lookup/macro-fill
-  // logic is identical either way.
-  let { onResult }: { onResult: (food: { name: string; kcal: number; protein_g: number; carbs_g: number; fat_g: number; per100g: boolean }) => void } = $props();
+  // Camera barcode reader. It only READS the code; the food logger looks it up.
+  //
+  // Why scans failed: the old version trusted `'BarcodeDetector' in window`. In
+  // the Android WebView that can be true while the detector has no backend —
+  // getSupportedFormats() comes back empty and detect() finds nothing, forever.
+  // It also streamed the camera at its default 640×480, too coarse for a small
+  // EAN on a yogurt cup. Now: the native detector only if it really reads EAN,
+  // otherwise ZXing compiled to WebAssembly (works in every browser and the
+  // WebView, served from our own origin); a 1080p stream with continuous focus
+  // and a torch button; a checksum on every read and two matching reads in a
+  // row before a code counts; and the number pad is always one tap away.
+  import { onMount, onDestroy } from 'svelte';
+  import { validGtin } from '$lib/food';
+  import { haptic } from '$lib/haptics';
 
-  let open = $state(false);
-  let scanning = $state(false);
-  let manualCode = $state('');
-  let status = $state('');
+  let { onCode, onClose }: { onCode: (code: string) => void; onClose: () => void } = $props();
+
   let videoEl: HTMLVideoElement | undefined = $state();
+  let status = $state('Starting camera…');
+  let manual = $state('');
+  let typing = $state(false);
+  let torchOn = $state(false);
+  let torchAvailable = $state(false);
   let stream: MediaStream | null = null;
-  let detectorSupported = typeof window !== 'undefined' && 'BarcodeDetector' in window;
-  // Set when the live camera can't be used on THIS device (permission denied,
-  // no camera, detector missing). Drives the same manual-entry UI as an
-  // unsupported browser, so a camera failure is never a dead end — you can
-  // always type the number under the barcode and still get the macros.
-  let manualFallback = $state(false);
-  let stopFlag = false;
+  let stopped = false;
+  let timer: ReturnType<typeof setTimeout> | undefined;
 
-  const showManual = $derived(!detectorSupported || manualFallback);
+  const FORMATS = ['ean_13', 'ean_8', 'upc_a', 'upc_e'];
 
-  async function lookupBarcode(code: string) {
-    status = 'Looking up…';
+  async function detector(): Promise<{ detect: (s: HTMLVideoElement) => Promise<Array<{ rawValue: string }>> }> {
+    const Native = (globalThis as any).BarcodeDetector;
+    if (Native?.getSupportedFormats) {
+      try {
+        if ((await Native.getSupportedFormats()).includes('ean_13')) return new Native({ formats: FORMATS });
+      } catch { /* fall through to ZXing */ }
+    }
+    const [{ BarcodeDetector, prepareZXingModule }, wasm] = await Promise.all([
+      import('barcode-detector/ponyfill'),
+      import('zxing-wasm/reader/zxing_reader.wasm?url'),
+    ]);
+    prepareZXingModule({
+      overrides: { locateFile: (path: string, prefix: string) => (path.endsWith('.wasm') ? wasm.default : prefix + path) },
+    });
+    return new BarcodeDetector({ formats: FORMATS as any });
+  }
+
+  onMount(async () => {
     try {
-      const res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${code}.json`);
-      const data = await res.json();
-      if (data.status !== 1 || !data.product) {
-        status = `No product found for barcode ${code}.`;
-        return;
-      }
-      const p = data.product;
-      const n = p.nutriments || {};
-      const name = p.product_name || p.generic_name || `Barcode ${code}`;
-      onResult({
-        name,
-        kcal: n['energy-kcal_100g'] ?? 0,
-        protein_g: n['proteins_100g'] ?? 0,
-        carbs_g: n['carbohydrates_100g'] ?? 0,
-        fat_g: n['fat_100g'] ?? 0,
-        per100g: true,
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+        audio: false,
       });
-      status = `Found: ${name} (values per 100g — adjust for your portion)`;
-      closeScanner();
-    } catch (e: any) {
-      status = 'Lookup failed: ' + (e?.message || String(e));
-    }
-  }
-
-  async function startScanner() {
-    open = true;
-    stopFlag = false;
-    manualFallback = false;
-    status = '';
-    if (!detectorSupported) return; // manual-entry UI shown instead
-    try {
-      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      if (stopped) return stopStream();
+      const track = stream.getVideoTracks()[0];
+      const caps: any = track.getCapabilities?.() ?? {};
+      if (caps.focusMode?.includes?.('continuous')) {
+        track.applyConstraints({ advanced: [{ focusMode: 'continuous' } as any] }).catch(() => {});
+      }
+      torchAvailable = !!caps.torch;
       if (videoEl) { videoEl.srcObject = stream; await videoEl.play(); }
-      scanning = true;
-      const Detector = (window as any).BarcodeDetector;
-      // Cover the retail formats actually printed on food packaging worldwide:
-      // EAN-13/8 (EU/IN/global), UPC-A/E (US), plus ITF-14 and Code 128 which
-      // appear on multipacks and store-packed goods.
-      const detector = new Detector({ formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'itf', 'code_128'] });
-      const loop = async () => {
-        if (stopFlag || !videoEl) return;
+      status = 'Point at the barcode';
+      const d = await detector();
+      let last = '';
+      const tick = async () => {
+        if (stopped || !videoEl) return;
         try {
-          const codes = await detector.detect(videoEl);
-          if (codes.length > 0) {
-            stopFlag = true;
-            await lookupBarcode(codes[0].rawValue);
-            return;
+          if (videoEl.readyState >= 2) {
+            const code = (await d.detect(videoEl)).map((r) => r.rawValue).find(validGtin);
+            // Two identical reads in a row: one glancing frame can't log the wrong food.
+            if (code && code === last) { haptic('success'); finish(code); return; }
+            last = code ?? '';
           }
-        } catch { /* transient decode errors are normal, keep looping */ }
-        requestAnimationFrame(loop);
+        } catch { /* a frame that failed to decode — keep going */ }
+        timer = setTimeout(tick, 110);
       };
-      loop();
+      tick();
     } catch (e: any) {
-      // Camera unavailable (permission denied, no camera, in use elsewhere).
-      // Don't strand the user on an error — drop straight to manual entry.
-      scanning = false;
-      manualFallback = true;
-      status =
-        e?.name === 'NotAllowedError'
-          ? 'Camera permission denied — allow camera for RecompOS in Android Settings → Apps → RecompOS → Permissions, or just type the barcode number below.'
-          : 'Camera unavailable (' + (e?.message || String(e)) + '). Type the barcode number instead.';
+      typing = true;
+      status = e?.name === 'NotAllowedError'
+        ? 'Camera blocked — allow it in Settings → Apps → RecompOS → Permissions, or type the number.'
+        : 'No camera available here — type the number under the barcode.';
     }
+  });
+
+  function stopStream() {
+    stream?.getTracks().forEach((t) => t.stop());
+    stream = null;
   }
 
-  function closeScanner() {
-    stopFlag = true;
-    scanning = false;
-    open = false;
-    if (stream) { stream.getTracks().forEach((t) => t.stop()); stream = null; }
+  function finish(code: string) {
+    stopped = true;
+    clearTimeout(timer);
+    stopStream();
+    onCode(code);
   }
+
+  function submitManual() {
+    const code = manual.replace(/\D/g, '');
+    if (!validGtin(code)) { status = `${code || 'That'} isn't a valid barcode — check the digits.`; return; }
+    finish(code);
+  }
+
+  async function toggleTorch() {
+    const track = stream?.getVideoTracks()[0];
+    if (!track) return;
+    torchOn = !torchOn;
+    try { await track.applyConstraints({ advanced: [{ torch: torchOn } as any] }); } catch { torchOn = false; }
+  }
+
+  function close() {
+    stopped = true;
+    clearTimeout(timer);
+    stopStream();
+    onClose();
+  }
+
+  onDestroy(() => { stopped = true; clearTimeout(timer); stopStream(); });
 </script>
 
-<button class="btn bg_ bsm" onclick={startScanner}>📷 Scan barcode</button>
-
-{#if open}
-  <!-- svelte-ignore a11y_click_events_have_key_events -->
-  <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div class="scan-overlay" onclick={closeScanner}>
-    <!-- svelte-ignore a11y_click_events_have_key_events -->
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div class="scan-box" onclick={(e) => e.stopPropagation()}>
-      <button class="scan-close" onclick={closeScanner} aria-label="Close">&times;</button>
-      {#if !showManual}
-        <video bind:this={videoEl} muted playsinline class="scan-video"></video>
-        <div class="scan-hint">Point the camera at a barcode</div>
-      {:else}
-        <div class="scan-manual">
-          <div class="scan-hint">{manualFallback ? 'Enter the number printed under the barcode.' : "Your browser doesn't support live barcode scanning — enter the number printed under the barcode instead."}</div>
-          <input type="text" inputmode="numeric" placeholder="e.g. 3017620422003" bind:value={manualCode}>
-          <button class="btn bp bfl" style="margin-top:8px" onclick={() => lookupBarcode(manualCode)} disabled={!manualCode.trim()}>Look up</button>
-        </div>
-      {/if}
-      {#if status}<div class="scan-status">{status}</div>{/if}
-    </div>
+<div class="scan" role="dialog" aria-label="Scan a barcode">
+  <div class="scan-view">
+    {#if !typing}
+      <!-- svelte-ignore a11y_media_has_caption -->
+      <video bind:this={videoEl} muted playsinline class="scan-video"></video>
+      <div class="scan-reticle" aria-hidden="true"></div>
+    {/if}
+    <button class="scan-x" onclick={close} aria-label="Close scanner">×</button>
   </div>
-{/if}
+  <div class="scan-foot">
+    <div class="scan-status" aria-live="polite">{status}</div>
+    {#if typing}
+      <form class="scan-manual" onsubmit={(e) => { e.preventDefault(); submitManual(); }}>
+        <!-- svelte-ignore a11y_autofocus -->
+        <input type="text" inputmode="numeric" autocomplete="off" placeholder="e.g. 8585002503541" bind:value={manual} autofocus>
+        <button class="btn bp" type="submit" disabled={!manual.trim()}>Look up</button>
+      </form>
+    {:else}
+      <div class="scan-actions">
+        {#if torchAvailable}<button class="btn bg_ bsm" onclick={toggleTorch}>{torchOn ? 'Light off' : 'Light on'}</button>{/if}
+        <button class="btn bg_ bsm" onclick={() => { typing = true; status = 'Type the number under the barcode'; }}>Type the number</button>
+      </div>
+    {/if}
+  </div>
+</div>
 
 <style>
-  .scan-overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:250;display:flex;align-items:center;justify-content:center;padding:20px}
-  .scan-box{position:relative;width:100%;max-width:400px;background:var(--bg2);border-radius:16px;padding:16px}
-  .scan-close{position:fixed;top:calc(var(--st) + 14px);right:14px;width:44px;height:44px;border-radius:50%;background:rgba(0,0,0,.6);border:1px solid rgba(255,255,255,.25);color:#fff;font-size:1.625rem;cursor:pointer;z-index:260;display:flex;align-items:center;justify-content:center}
-  .scan-video{width:100%;border-radius:10px;background:#000;aspect-ratio:4/3;object-fit:cover}
-  .scan-hint{font-size:0.75rem;color:var(--muted);text-align:center;margin-top:8px}
-  .scan-manual input{margin-top:6px}
-  .scan-status{font-size:0.75rem;color:var(--amber);text-align:center;margin-top:10px}
+  .scan{position:fixed;inset:0;z-index:260;background:#000;display:flex;flex-direction:column}
+  .scan-view{position:relative;flex:1;overflow:hidden;display:grid;place-items:center}
+  .scan-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+  .scan-reticle{position:relative;width:min(78vw,340px);height:150px;border-radius:14px;
+    box-shadow:0 0 0 100vmax rgba(0,0,0,.45);border:2px solid var(--led-good, #fff)}
+  .scan-reticle::after{content:'';position:absolute;left:8%;right:8%;top:50%;height:2px;background:var(--led-bad,#ff3b47);
+    box-shadow:0 0 12px var(--led-bad,#ff3b47);animation:scanline 1.6s ease-in-out infinite alternate}
+  @keyframes scanline{from{transform:translateY(-55px)}to{transform:translateY(55px)}}
+  @media (prefers-reduced-motion:reduce){.scan-reticle::after{animation:none}}
+  .scan-x{position:absolute;top:calc(var(--st) + 12px);right:12px;width:46px;height:46px;border-radius:50%;
+    background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.3);color:#fff;font-size:1.625rem;cursor:pointer}
+  .scan-foot{padding:14px 16px calc(18px + var(--sb));background:var(--bg);display:flex;flex-direction:column;gap:10px}
+  .scan-status{font-size:0.875rem;color:var(--text);text-align:center}
+  .scan-actions{display:flex;gap:8px;justify-content:center}
+  .scan-manual{display:flex;gap:8px}
+  .scan-manual input{flex:1}
 </style>

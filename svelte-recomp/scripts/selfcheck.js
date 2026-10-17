@@ -2748,6 +2748,113 @@ check('training heatmap: grid geometry and counts are right', () => {
   assert.equal(r.bestDayCount, 2, '08-26 logged twice');
 });
 
+// --- One food logger, every source ----------------------------------------
+//
+// 2026-10-16: OFF's browser search endpoints returned 503 (search found nothing),
+// kJ-only EU products were dropped, barcode names fell back to "Barcode 590…",
+// "describe a food" hung for minutes, and provenance lived inside food names —
+// which kept the account's two most-logged foods (rice x48, whey x37) out of
+// quick add. These pin the pure logic that replaced all of that.
+
+console.log('\nfood — one logger, every source');
+
+const food = await import('../src/lib/food.ts');
+const { frequentFoods: freq } = await import('../src/lib/quickAdd.ts');
+const { extractJson } = await import('../../supabase/functions/_shared/llm.ts');
+
+check('legacy provenance suffixes come off the name', () => {
+  assert.equal(food.cleanName('Plain white rice (cooked) (AI estimate, high confidence)'), 'Plain white rice (cooked)');
+  assert.equal(food.cleanName('Tvaroh (per 100g — adjust portion)'), 'Tvaroh');
+  assert.equal(food.cleanName('Chicken curry (1 portion)'), 'Chicken curry (1 portion)', 'a real portion note stays');
+});
+
+check('a repeated AI estimate is a staple; a one-off still is not', () => {
+  const rice = 'Plain white rice (cooked) (AI estimate, high confidence)';
+  const rows = [
+    { name: rice, date: '2026-10-01', kcal: 241, protein_g: 3, created_at: '2026-10-01T12:00:00Z' },
+    { name: rice, date: '2026-10-02', kcal: 250, protein_g: 5, created_at: '2026-10-02T12:00:00Z' },
+    { name: 'Lasagne (AI estimate, low confidence)', date: '2026-10-02', kcal: 700, created_at: '2026-10-02T19:00:00Z' },
+  ];
+  const chips = freq(rows, 8);
+  assert.deepEqual(chips.map((c) => c.name), ['Plain white rice (cooked)']);
+  assert.equal(chips[0].count, 2);
+  assert.equal(chips[0].kcal, 250, 'latest portion wins');
+});
+
+check('history folds legacy and clean names into one food, with per-100 g from grams', () => {
+  const h = food.historyFoods([
+    { name: 'Tvaroh (per 100g — adjust portion)', kcal: 67, protein_g: 12, date: '2026-09-01' },
+    { name: 'Tvaroh', kcal: 170, protein_g: 30, carbs_g: 10, fat_g: 1.25, grams: 250, barcode: '8594003963391', date: '2026-10-01' },
+  ]);
+  assert.equal(h.length, 1);
+  assert.equal(h[0].count, 2);
+  assert.equal(h[0].per100.kcal, 68);
+  assert.equal(h[0].barcode, '8594003963391', 'a re-scan resolves from history');
+});
+
+check('search ignores diacritics but does not stem nonsense', () => {
+  assert.equal(food.searchLocal('rozok', []).basics[0].name, 'Rožok (bread roll)');
+  assert.ok(!food.searchLocal('rozok', []).basics.some((c) => /raisin/i.test(c.name)), 'rožok must not find raisins');
+  assert.equal(food.searchLocal('sunka', []).basics[0].name, 'Ham, cooked (šunka)');
+  assert.equal(food.searchLocal('chicken breast', []).basics[0].name, 'Chicken breast, cooked', 'an exact alias wins the tie');
+});
+
+check('quantities read the way people type them', () => {
+  assert.deepEqual(food.parseQuantity('200g ryža'), { grams: 200, count: null, rest: 'ryža' });
+  assert.deepEqual(food.parseQuantity('ryža 200 g'), { grams: 200, count: null, rest: 'ryža' });
+  assert.deepEqual(food.parseQuantity('0,5 l kofola'), { grams: 500, count: null, rest: 'kofola' });
+  assert.deepEqual(food.parseQuantity('2x vajce'), { grams: null, count: 2, rest: 'vajce' });
+  assert.deepEqual(food.parseQuantity('dve vajcia'), { grams: null, count: 2, rest: 'vajcia' });
+});
+
+check('the offline estimate understands a Slovak breakfast', () => {
+  const e = food.estimateLocally('2 rožky s maslom a šunkou', []);
+  assert.deepEqual(e.items.map((i) => i.from), ['Rožok (bread roll)', 'Butter', 'Ham, cooked (šunka)']);
+  assert.equal(e.items[0].grams, 86, 'two 43 g rožky');
+  assert.ok(e.total.kcal > 300 && e.total.kcal < 400, `got ${e.total.kcal}`);
+  assert.equal(food.estimateLocally('kofola 0,5l', []).total.kcal, 160, '"0,5" is a decimal, not a list');
+  assert.equal(food.estimateLocally('xyzzy plugh', []), null, 'unknown food: no guess');
+});
+
+check('OFF products keep kJ-only energy and names in any language', () => {
+  const c = food.offCandidate({ code: '5907180335906', product_name_pl: 'Smoothie Mango', nutriments: { energy_100g: 229, proteins_100g: 0.5, carbohydrates_100g: 12, fat_100g: 0.2 } });
+  assert.equal(c.name, 'Smoothie Mango');
+  assert.equal(c.per100.kcal, 55, '229 kJ / 4.184');
+  assert.equal(food.offCandidate({ code: '1', product_name: 'Mystery', nutriments: {} }).per100, null, 'no data stays no data');
+});
+
+check('product ranking puts matching local products first', () => {
+  const hits = [
+    { code: '1', product_name: 'Smoked tofu', brands: 'Lidl', countries_tags: ['en:slovakia'], nutriments: { 'energy-kcal_100g': 134 } },
+    { code: '2', product_name: 'Excelent Protein Bar', brands: 'Nutrend', countries_tags: ['en:czech-republic'], nutriments: { 'energy-kcal_100g': 424 } },
+    { code: '3', product_name: 'Excelent protein', brands: 'Nobody', countries_tags: ['en:germany'], nutriments: {} },
+  ];
+  assert.deepEqual(food.rankProducts(hits, 'excelent protein').map((c) => c.key), ['o:2', 'o:3']);
+});
+
+check('a camera misread fails the GS1 check digit', () => {
+  assert.ok(food.validGtin('4056489413905'));
+  assert.ok(food.validGtin('20074043'), 'EAN-8');
+  assert.ok(!food.validGtin('4056489413906'), 'one digit off');
+  assert.ok(!food.validGtin('12345'));
+});
+
+check('free models’ replies parse even with reasoning and fences around the JSON', () => {
+  assert.deepEqual(extractJson('We need JSON. So: {"kcal": 750, "protein_g": 30} ok.'), { kcal: 750, protein_g: 30 });
+  assert.deepEqual(extractJson('```json\n{"a":{"b":1}}\n```'), { a: { b: 1 } });
+  assert.equal(extractJson('no json here'), null);
+});
+
+check('food has exactly one way in', async () => {
+  const { readFileSync, existsSync } = await import('node:fs');
+  const page = readFileSync('src/routes/recipes/+page.svelte', 'utf8');
+  assert.match(page, /<FoodLogger /, 'the Food page logs through FoodLogger');
+  assert.doesNotMatch(page, /placeholder="Food name|<FoodSearch|<BarcodeScanner|<FoodPhotoAnalyzer/, 'no second food form');
+  assert.ok(!existsSync('src/lib/components/FoodSearch.svelte') && !existsSync('src/lib/components/FoodPhotoAnalyzer.svelte'));
+  const today = readFileSync('src/routes/+page.svelte', 'utf8');
+  assert.doesNotMatch(today, /daily_logs',\s*\{[^}]*kcal/, 'Today must not write a bare kcal number');
+});
+
 // Nothing may be reported until the async checks have actually settled.
 await Promise.all(pending);
 
