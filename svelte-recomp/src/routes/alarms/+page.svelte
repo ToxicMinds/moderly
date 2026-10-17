@@ -6,7 +6,7 @@
   import { swipeActions } from '$lib/actions/swipe';
   import { scheduleNativeAlarms, type AlarmRow } from '$lib/nativeAlarms';
   import db from '$lib/db/dexie';
-  import MorningBriefing from '$lib/components/MorningBriefing.svelte';
+  import Moments from '$lib/components/Moments.svelte';
 
   const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const DAYS_FULL = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -154,7 +154,7 @@
   {#if $syncStatus === 'synced'}Synced just now{:else if $syncStatus === 'syncing'}Syncing…{:else if $syncStatus === 'error'}Sync error — check your connection{:else}Not connected{/if}
 </div>
 
-<MorningBriefing />
+<Moments />
 
 {#if loading}
   <div style="color:var(--muted);text-align:center;padding:20px">Loading...</div>

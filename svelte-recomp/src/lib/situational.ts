@@ -54,6 +54,9 @@ export interface SituationInput {
   /** The morning briefing is on: it already says "scale first" and carries
    *  the weekend's plan, so neither gets a ping of its own. */
   briefing?: boolean;
+  /** The evening hold is on: it carries the evening's plan (Friday's,
+   *  badminton's, the weekend's) and what's left of the day's protein. */
+  hold?: boolean;
 }
 
 /**
@@ -96,7 +99,7 @@ export function situationalNudges(input: SituationInput): Nudge[] {
   }
 
   // Protein short with time left to do something about it.
-  if (proteinTargetG != null && proteinTargetG > 0 && foodEntriesToday > 0) {
+  if (proteinTargetG != null && proteinTargetG > 0 && foodEntriesToday > 0 && !input.hold) {
     const short = proteinTargetG - proteinG;
     const pct = proteinG / proteinTargetG;
     if (short >= 20 && pct < 0.85) {
@@ -146,7 +149,7 @@ const PLAN_AT: Partial<Record<PlanCue, number>> = {
 };
 
 function planMoment(i: SituationInput): Nudge | null {
-  if (!i.plans || i.dow == null) return null;
+  if (!i.plans || i.dow == null || i.hold) return null;
   const cue: PlanCue | null = i.badmintonDay ? 'badminton' : i.dow === 5 ? 'friday' : i.dow === 6 || i.dow === 0 ? 'weekend' : null;
   // A badminton Friday with no badminton plan still gets the Friday one.
   const candidates: Array<PlanCue | null> = [cue, i.dow === 5 ? 'friday' : null];

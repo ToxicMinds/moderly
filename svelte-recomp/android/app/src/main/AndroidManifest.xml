@@ -121,11 +121,11 @@
             </intent-filter>
         </activity-alias>
 
-        <!-- Morning briefing: posts the day's briefing at the first unlock after
-             the morning time (see MorningClock). Re-arms after a reboot, which
+        <!-- Morning briefing and evening hold: each posted at the first unlock
+             inside its window (see MomentClock). Re-arms after a reboot, which
              clears alarms, and after an update. -->
         <receiver
-            android:name=".MorningReceiver"
+            android:name=".MomentReceiver"
             android:exported="false">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />

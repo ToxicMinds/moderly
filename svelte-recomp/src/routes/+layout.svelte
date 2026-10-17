@@ -22,8 +22,8 @@
   import { refreshAll, refreshing, refreshError, lastRefresh, startClock, stopClock, nowTick } from '$lib/stores/refresh';
   import Onboarding from '$lib/components/Onboarding.svelte';
   import { liveProfile, liveProfileLoaded, liveAlarms, liveFoodLogs, liveWeights, liveWorkoutLogs, liveGoal, liveSchedule } from '$lib/stores/live';
-  import { scheduleNativeAlarms, scheduleNudges, isNativeApp, hasMorning, armMorning, disarmMorning, type AlarmRow } from '$lib/nativeAlarms';
-  import { briefings, briefingSetting, refreshForecast, minutesOf } from '$lib/stores/morning';
+  import { scheduleNativeAlarms, scheduleNudges, isNativeApp, momentsSupport, armMoments, disarmMoments, type AlarmRow } from '$lib/nativeAlarms';
+  import { moments, momentSetting, refreshForecast } from '$lib/stores/moments';
   import { situationalNudges, minutesOfDay } from '$lib/situational';
   import { todayYmd } from '$lib/date';
   import { isComplete } from '$lib/profile';
@@ -213,23 +213,24 @@
   const _nudgeGoal = liveGoal();
   const _nudgeSchedule = liveSchedule();
 
-  // ── MORNING BRIEFING ──────────────────────────────────────────────────────
-  // Android posts it at the first unlock after the morning time; all this does
-  // is keep today's and tomorrow's text current there (see stores/morning).
-  // Old APKs have no Morning plugin: then nothing here runs, and nothing asks
-  // for a location that build can't grant.
-  let morningReady = $state(false);
-  $effect(() => { if ($user && isNativeApp()) hasMorning().then((v) => (morningReady = v)); });
-  const briefingOn = $derived(morningReady && !!$briefingSetting?.on);
+  // ── MORNING BRIEFING AND EVENING HOLD ──────────────────────────────────────
+  // Android posts each at the first unlock inside its window; all this does is
+  // keep today's and tomorrow's text current there (see stores/moments). Old
+  // APKs have no plugin: then nothing here runs, and nothing asks for a
+  // location that build can't grant.
+  let support = $state<'all' | 'morning' | null>(null);
+  $effect(() => { if ($user && isNativeApp()) momentsSupport().then((v) => (support = v)); });
+  const briefingOn = $derived(!!support && !!$momentSetting?.on);
+  const holdOn = $derived(support === 'all' && !!$momentSetting?.hold);
   $effect(() => {
     if (!briefingOn) return;
     void $nowTick; // the forecast is reused while under an hour old
     refreshForecast();
   });
   $effect(() => {
-    if (!$user || !morningReady || !$_profileLoaded) return;
-    if (!$briefingSetting?.on) { disarmMorning(); return; }
-    armMorning(minutesOf($briefingSetting.after), $briefings);
+    if (!$user || !support || !$_profileLoaded) return;
+    if (!$moments.length) { disarmMoments(); return; }
+    armMoments($moments);
   });
 
   $effect(() => {
@@ -262,6 +263,7 @@
       badmintonDay: /badminton/i.test(`${scheduledToday?.label ?? ''} ${scheduledToday?.note ?? ''}`),
       daysSinceWeighIn,
       briefing: briefingOn,
+      hold: holdOn,
     }), now);
   });
 

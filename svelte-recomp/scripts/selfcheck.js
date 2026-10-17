@@ -3249,7 +3249,8 @@ check('one weigh-in path, one place the commitments are saved', async () => {
   const files = await srcFiles();
   const weighs = files.filter((f) => /upsertRecords?\('weights'/.test(readFileSync(f, 'utf8')));
   assert.deepEqual(weighs.sort(), ['src/lib/components/Onboarding.svelte', 'src/lib/weighIn.ts'], 'onboarding seeds the first one; everything else goes through saveWeighIn');
-  const commits = files.filter((f) => /\b(line|plans|why): /.test(readFileSync(f, 'utf8')) && /upsertRecord\('user_settings'/.test(readFileSync(f, 'utf8')));
+  // A write that carries one of them, not a file that merely reads one.
+  const commits = files.filter((f) => /upsertRecord\('user_settings',\s*\{[^}]*\b(line|plans|why|milestone):/.test(readFileSync(f, 'utf8')));
   assert.deepEqual(commits, ['src/lib/commitments.ts']);
   assert.ok(!files.includes('src/lib/streaks.ts'), 'no streak to lose');
 });
@@ -3438,21 +3439,84 @@ check('with the briefing on, the morning weigh-in and the weekend-plan pings fol
   assert.ok(situationalNudges(fri).some((n) => n.key === 'plan' && n.atMinutes === 16 * 60 + 30), 'Friday’s still comes before leaving work');
 });
 
-check('the briefing goes out at the first unlock after the morning time (MorningClock.java)', async () => {
+check('each goes out at the first unlock inside its window (MomentClock.java)', async () => {
   const { spawnSync } = await import('node:child_process');
-  const file = 'android/app/src/main/java/com/toxicminds/recompos/MorningClock.java';
+  const file = 'android/app/src/main/java/com/toxicminds/recompos/MomentClock.java';
   const r = spawnSync('java', [file], { encoding: 'utf8' });
-  if (r.error?.code === 'ENOENT') { console.log('  --  MorningClock.java not run: no java on this machine'); return; }
+  if (r.error?.code === 'ENOENT') { console.log('  --  MomentClock.java not run: no java on this machine'); return; }
   assert.equal(r.status, 0, (r.stderr || r.stdout).trim().split('\n').slice(0, 3).join(' | '));
-  assert.match(r.stdout, /MorningClock: ok/);
+  assert.match(r.stdout, /MomentClock: ok/);
 });
 
-check('the morning briefing never wakes the phone, and is never an alarm', async () => {
+check('the briefing and the hold never wake the phone, and are never alarms', async () => {
   const { readFileSync } = await import('node:fs');
-  const src = readFileSync('android/app/src/main/java/com/toxicminds/recompos/MorningReceiver.java', 'utf8');
+  const src = readFileSync('android/app/src/main/java/com/toxicminds/recompos/MomentReceiver.java', 'utf8');
   assert.ok(!/AlarmManager\.RTC_WAKEUP|setAlarmClock\(|AllowWhileIdle\(/.test(src), 'every look is a non-waking alarm');
   assert.match(src, /AlarmManager\.RTC,/);
-  assert.match(src, /setSound\(null, null\)/, 'no sound at six in a quiet house');
+  assert.match(src, /setSound\(null, null\)/, 'no sound: a quiet house at six, a family at seven');
+});
+
+// ── Evening hold ─────────────────────────────────────────────────────────────
+const { composeHold, quoteFor, holdAfter, QUOTES, FRIDAY_QUOTE } = await import('../src/lib/hold.ts');
+const PLANS = { evening: 'Tvaroh or a shake, then the kitchen’s closed.', friday: 'One plate, protein first.', weekend: 'Leftovers in a box.', badminton: 'A shake first, then dinner.' };
+const HOLD = { plans: PLANS, why: 'Out of the obese range.', badmintonDay: false,
+  food: { kcal: 1300, share: 1850, proteinG: 120, proteinTargetG: 160 } };
+
+check('the evening hold on a weekday: a Stoic line first, then the evening plan and what’s left', () => {
+  const h = composeHold({ ...HOLD, date: '2026-10-20' });
+  assert.equal(h.title, 'Evening. Hold it.');
+  const lines = h.body.split('\n');
+  assert.match(lines[0], /^“.+” — (Epictetus|Marcus Aurelius)$/);
+  assert.equal(lines[1], 'Late evening: Tvaroh or a shake, then the kitchen’s closed.');
+  assert.equal(lines[2], 'Left today: 550 kcal, 40 g of it protein.');
+  assert.ok(!h.body.includes('You said'), 'the reason is kept for the hard evenings, so it doesn’t wear out');
+});
+
+check('Friday is the stronger signal: the weekend named, the plan, the reason, and the same line every week', () => {
+  const h = composeHold({ ...HOLD, date: '2026-10-23', badmintonDay: true });
+  assert.equal(h.title, 'Friday. The weekend starts now.');
+  const lines = h.body.split('\n');
+  assert.match(lines[0], /old habits pull hardest/);
+  assert.equal(lines[1], 'After badminton: A shake first, then dinner.', 'badminton night: the plan for getting home');
+  assert.equal(lines[2], 'You said: “Out of the obese range.”');
+  assert.equal(lines.at(-1), `“${FRIDAY_QUOTE.text}” — Epictetus`);
+  assert.equal(quoteFor('2026-10-30'), FRIDAY_QUOTE, 'a ritual: every Friday');
+  const fri = composeHold({ ...HOLD, date: '2026-10-23' });
+  assert.match(fri.body, /^Friday evening: One plate, protein first\.$/m);
+});
+
+check('weekend evenings: a slip is one meal, not the weekend', () => {
+  const sat = composeHold({ ...HOLD, date: '2026-10-24', food: { kcal: 2400, share: 2100, proteinG: 110, proteinTargetG: 160 } });
+  assert.equal(sat.title, 'Saturday evening. Hold through.');
+  assert.match(sat.body, /a slip is one meal, not the weekend/);
+  assert.match(sat.body, /^Weekend: Leftovers in a box\.$/m);
+  assert.match(sat.body, /^Today's share is eaten\. Protein is still 50 g short\.$/m, 'over the share: say so plainly, no number to feel bad about');
+  assert.equal(composeHold({ ...HOLD, date: '2026-10-25' }).title, 'Sunday evening. Finish the week.');
+  assert.ok(!composeHold({ ...HOLD, date: '2026-10-24', food: null }).body.includes('Left today'), 'tomorrow’s knows no food yet');
+  assert.ok(!composeHold({ ...HOLD, date: '2026-10-24', food: { ...HOLD.food, kcal: 0 } }).body.includes('Left today'), 'nothing logged: no food line');
+});
+
+check('the Stoic lines rotate by date, never at random, and each is sourced', () => {
+  assert.equal(quoteFor('2026-10-20'), quoteFor('2026-10-20'));
+  const week = ['2026-10-19', '2026-10-20', '2026-10-21', '2026-10-22'].map((d) => quoteFor(d).text);
+  assert.equal(new Set(week).size, 4, 'a different line each weekday');
+  assert.equal(new Set(QUOTES.map((q) => q.text)).size, QUOTES.length);
+  for (const q of [...QUOTES, FRIDAY_QUOTE]) {
+    assert.ok(/^(Epictetus|Marcus Aurelius)$/.test(q.who) && /^(Discourses|Meditations) [IVX]+\.\d+$/.test(q.where), q.text);
+    assert.match(q.text, /[.]$/);
+  }
+  assert.equal(holdAfter(5), 17 * 60, 'Friday from five');
+  assert.equal(holdAfter(0), 17 * 60);
+  assert.equal(holdAfter(2), 19 * 60 + 30);
+});
+
+check('with the hold on, the evening’s pings fold into it', () => {
+  const fri = { ...DAY, nowMinutes: 12 * 60, dow: 5, plans: PLANS };
+  assert.ok(situationalNudges(fri).some((n) => n.key === 'protein-short'));
+  assert.ok(situationalNudges(fri).some((n) => n.key === 'plan'));
+  const held = situationalNudges({ ...fri, hold: true });
+  assert.ok(!held.some((n) => n.key === 'protein-short'), 'the hold says what protein is left');
+  assert.ok(!held.some((n) => n.key === 'plan'), 'the hold hands back the plan');
 });
 
 check('a day’s share of the week is worked out in one place', async () => {
