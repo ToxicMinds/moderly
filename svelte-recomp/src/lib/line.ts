@@ -2,9 +2,11 @@
 //
 // The one long trial that taught people to KEEP weight off (STOP Regain, Wing
 // et al., NEJM 2006) didn't run on willpower. It ran on a daily weigh-in and a
-// line: within 2 lb of where you started was green, 2–4 lb over was yellow,
+// line: within 3 lb of where you started was green, 3–4 lb over was yellow,
 // 5 lb or more was red — and each colour came with something you'd already
-// agreed to do. Daily weighers with that system regained far less.
+// agreed to do. 46% of the face-to-face group regained 5 lb+ in 18 months,
+// against 72% of controls. Here amber starts ~1 kg (2.2 lb) over the held low
+// and red ~2 kg (4.4 lb) over: the same bands, a little earlier.
 //
 // Here the line is drawn 1 kg above today's trend, and it only ever moves DOWN:
 // each time a lower trend holds for a week, the line follows it to 1 kg above.
