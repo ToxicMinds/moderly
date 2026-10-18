@@ -101,7 +101,6 @@
   // Every weight number on this screen is the trend's (stores/body): one
   // morning's reading swings a kilo either way and is never the headline.
   const currentKg = $derived($body.currentKg);
-  const kgLost = $derived($body.firstKg != null && currentKg != null ? ($body.firstKg - currentKg).toFixed(1) : '--');
   const todayWeighIn = $derived(($_weights as any[]).find((w) => w.date === today) ?? null);
   // The raw reading stays visible beside the trend — the trend replaces it as
   // the headline, never as the record.
@@ -286,9 +285,7 @@
     })
   );</script>
 
-<TodayPulse greeting={greeting} sub={`${dayName} · ${dateStr}`}
-  {mornings}
-  kgLost={kgLost} kgNow={currentKg != null ? currentKg.toFixed(1) : '--'} weeks={$body.weeksToGoal ?? '—'} />
+<TodayPulse greeting={greeting} sub={`${dayName} · ${dateStr}`} {mornings} />
 
 <!-- MORNING WEIGH-IN. The trend is only as good as the mornings behind it — a
      month of 13 weigh-ins left it a kilo wide either way — so the scale gets the

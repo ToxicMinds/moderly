@@ -262,8 +262,8 @@ check('the text-size setting is wired end to end', async () => {
 //
 // 7 of the 8 accounts that ever wrote a row wrote 1-4 and never came back. What
 // they saw after five onboarding screens was a hero orb reading "—" at 0%.
-// recompScore is right to refuse a verdict it can't support, so the fix is to
-// answer the question that IS answerable from onboarding alone: the plan.
+// With no weigh-ins there is no trend to show, so the fix is to answer the
+// question that IS answerable from onboarding alone: the plan.
 
 console.log('\nday one — a new account gets a real answer, not an empty circle');
 
@@ -334,11 +334,11 @@ check('the goal date reads as a date a human would say', () => {
   assert.equal(goalDateLabel('2027-01-09'), '9 Jan 2027', 'a different year has to say so');
 });
 
-check('the day-one plan is wired into the hero, and only while insufficient', async () => {
+check('the day-one plan is wired into the hero, only before a trend and until its steps are done', async () => {
   const { readFileSync } = await import('node:fs');
   const src = readFileSync('src/lib/components/TodayPulse.svelte', 'utf8');
-  assert.match(src, /showPlan\s*=\s*\$derived\(insufficient && plan != null\)/,
-    'a real verdict must always win over the day-one plan');
+  assert.match(src, /showPlan = \$derived\(plan != null && \$body\.weight\?\.trendKg == null && plan\.stepsDone < plan\.steps\.length\)/,
+    'a trend always wins, and four ticked steps are not a number worth leading with ("what does that 4 mean?")');
 });
 
 // --- Logging food has to be cheap ------------------------------------------
@@ -440,7 +440,6 @@ console.log('\ndirection — the app cannot only know how to cut');
 // projectGoalWithTdee and dayOnePlan are already imported above; only the new
 // direction-aware helpers need pulling in here.
 const { projectionSummary } = await import('../src/lib/tdee.ts');
-const { recompScore: rs } = await import('../src/lib/recompScore.ts');
 const d1 = dayOnePlan;
 
 const RECOVERING = { height_cm: 175, birth_year: 1992, sex: 'male', goal_kg: 66, start_kg: 58, activity_level: 'light' };
@@ -487,86 +486,71 @@ check('no screen tells a gaining user to cut', () => {
   assert.ok(plan.targetKcal > plan.maintenanceKcal, 'the day-one target must be a surplus too');
 });
 
-check('losing weight is NOT praised when the goal is to gain', () => {
-  const r = rs({
-    weeklyLossRateKg: 0.4, currentWeightKg: 58, goalKg: 66,
-    strength: { direction: 'up', avgPct: 5 }, proteinAdherencePct: 95, readinessScore: 80,
-  });
-  assert.ok(!/fat is leaving/i.test(r.headline), 'that sentence is for a cut');
-  assert.match(r.headline, /LOSING weight when the goal is to gain/);
-  assert.equal(r.components[0].name, 'Weight-gain pace', 'even the LABEL must match the goal');
-  assert.ok(r.components[0].score <= 25);
-  // Three healthy inputs must not average a wrong direction into "on track".
-  assert.ok(r.band !== 'dialed-in' && r.band !== 'on-track', `band was ${r.band}`);
-  assert.match(r.topLever.title, /Eat more|surplus/i);
-  assert.ok(!/trim|deficit|eat less/i.test(r.topLever.msg), `the lever tells them to cut:\n${r.topLever.msg}`);
+const { pulse } = await import('../src/lib/pulse.ts');
+// A trend line the hero can read: answerable, with its 95% interval.
+const wv = (trendKg, rate, half = 0.1) => ({
+  state: 'answerable', rateKgPerWeek: rate, halfWidthKgPerWeek: half, loKgPerWeek: rate - half, hiKgPerWeek: rate + half,
+  scatterKg: 0.4, n: 20, spanDays: 28, weighInsNeeded: null, daysUntilAnswer: null, trendKg, latestKg: trendKg,
 });
 
-check('a steady lean gain scores well, and a runaway one does not', () => {
-  const base = { currentWeightKg: 58, goalKg: 66, strength: { direction: 'up', avgPct: 5 }, proteinAdherencePct: 95, readinessScore: 80 };
-  const lean = rs({ ...base, weeklyLossRateKg: -0.2 });   // gaining 0.2 kg/wk
-  assert.equal(lean.components[0].score, 100);
-  const fast = rs({ ...base, weeklyLossRateKg: -0.6 });   // gaining ~1%/wk
-  assert.ok(fast.components[0].score < 80, 'a fast gain is mostly fat');
+check('losing weight is NOT praised when the goal is to gain', () => {
+  const r = pulse({ weight: wv(58, 0.4), pace: 'too-early', firstKg: 58.5, goalKg: 66, next: null });
+  assert.equal(r.tone, 'warn');
+  assert.match(r.story, /Down 0\.4 kg a week, and the goal is up/);
+});
+
+check('a steady gain reads as progress when the goal is to gain', () => {
+  const r = pulse({ weight: wv(60, -0.25), pace: 'gaining', firstKg: 58, goalKg: 66, next: null });
+  assert.equal(r.tone, 'good', 'gaining is the point here');
+  assert.match(r.story, /^Up 0\.3 kg a week\. At that pace, 66 in about 24 weeks\.$/);
 });
 
 check('a maintenance goal rewards holding, not drifting', () => {
-  const base = { currentWeightKg: 85, goalKg: 85, strength: { direction: 'holding', avgPct: 0 }, proteinAdherencePct: 90, readinessScore: 75 };
-  assert.equal(rs({ ...base, weeklyLossRateKg: 0.05 }).components[0].score, 100);
-  assert.ok(rs({ ...base, weeklyLossRateKg: 0.9 }).components[0].score < 60, 'drifting off maintenance is not success');
-  assert.equal(rs({ ...base, weeklyLossRateKg: 0.05 }).components[0].name, 'Weight stability');
+  assert.equal(pulse({ weight: wv(85.2, 0.05), pace: 'stalled', firstKg: 85, goalKg: 85, next: null }).tone, 'good');
+  const drift = pulse({ weight: wv(85.2, 0.6), pace: 'on-pace', firstKg: 85, goalKg: 85, next: null });
+  assert.equal(drift.tone, 'warn');
+  assert.match(drift.story, /away from your goal/);
 });
 
-// --- One number, and it shows its working -----------------------------------
+// --- The hero is the trend ------------------------------------------------------
 //
-// Today used to carry TWO unexplained figures: an 89 in the Pulse orb and a 65
-// in the top bar. Nothing said what either meant, and nothing said that the 65
-// (readiness) is a WEIGHTED INPUT to the 89 rather than a rival. A verdict with
-// no evidence is indistinguishable from a slogan.
+// Today led with a 0–100 "recomp score" its one daily user never read, and while
+// the score couldn't be worked out it fell back to a new user's checklist: months
+// in, he saw a grey "4 / 4 first-week steps" and asked what it meant.
 
-console.log('\nthe score explains itself — every component names what it was read off');
+console.log('\nthe Today hero is the weight trend against the next stop');
 
-check('every component carries the measurement behind its score', async () => {
-  const { recompScore } = await import('../src/lib/recompScore.ts');
-  const r = recompScore({
-    weeklyLossRateKg: 0.62, currentWeightKg: 90, goalKg: 80,
-    strength: { direction: 'holding', avgPct: 2 },
-    proteinAdherencePct: 92, readinessScore: 65,
-  });
-  assert.ok(r.components.every((c) => c.measured && c.measured.length > 0),
-    'a bare score with no stated measurement is a slogan');
-  const fat = r.components.find((c) => c.key === 'fatloss');
-  assert.match(fat.measured, /0\.62 kg\/wk/, 'the actual rate, not just a band');
-  assert.match(fat.measured, /0\.7% of bodyweight/);
-  assert.match(r.components.find((c) => c.key === 'muscle').measured, /\+2%/);
-  assert.match(r.components.find((c) => c.key === 'protein').measured, /92%/);
-  // The readiness number that used to float alone in the top bar, now named as
-  // an ingredient with its weight attached.
-  const rec = r.components.find((c) => c.key === 'recovery');
-  assert.match(rec.measured, /readiness 65\/100/);
-  assert.match(rec.measured, /sleep \+ heart rate/);
-  assert.equal(rec.weight, 0.15);
+check('the hero reads the trend, the distance to the next stop, and a pace that is never red', () => {
+  const next = { kg: 105, toGoKg: 7.4, reached: false, held: false, celebrated: false, fromKg: 112, crossed: null, bmi: 30, meaning: null };
+  const up = pulse({ weight: wv(112.4, -0.4), pace: 'gaining', firstKg: 121, goalKg: 96, next });
+  assert.equal(up.kg, 112.4);
+  assert.equal(up.caption, 'kg trend · 7.4 to 105');
+  assert.equal(up.pct, 0, 'above where the stop was set: nothing lit, nothing negative');
+  assert.equal(up.tone, 'warn', 'a week up is amber, never red');
+  assert.equal(up.story, 'Up 0.4 kg a week right now.');
+  assert.deepEqual(up.stats.map((x) => x.v), ['−8.6', '+0.40', '16.4']);
+  const down = pulse({ weight: wv(108.5, 0.5), pace: 'on-pace', firstKg: 121, goalKg: 96, next });
+  assert.equal(down.tone, 'good');
+  assert.equal(Math.round(down.pct), 50, 'half way from 112 to 105');
+  assert.equal(down.story, 'Down 0.5 kg a week. At that pace, 105 in about 7 weeks.');
+  const early = pulse({ weight: { ...wv(112.4, 0), state: 'too-noisy', weighInsNeeded: 4 }, pace: 'too-early', firstKg: 112, goalKg: 96, next: null });
+  assert.equal(early.tone, 'na');
+  assert.match(early.story, /4 more mornings/);
+  assert.equal(early.stats[1].v, '—', 'no rate before the line is sure of one');
+  // His October: sixty mornings, flat, too noisy for an exact rate but surely
+  // not 0.6 a week. That is an answer ("flat"), not "30 more mornings".
+  const flat = pulse({ weight: { ...wv(113.1, 0.07, 0.34), state: 'too-noisy', weighInsNeeded: 30 }, pace: 'stalled', firstKg: 133.5, goalKg: 96, next });
+  assert.equal(flat.story, 'The trend is flat right now.');
+  assert.equal(flat.tone, 'warn');
+  assert.equal(flat.stats[0].v, '−20.4', 'and the twenty kilos since December still count');
+  assert.match(pulse({ weight: { ...wv(100, 0), state: 'too-noisy', weighInsNeeded: 30 }, pace: 'too-early', firstKg: 100, goalKg: 90, next: null }).story,
+    /few more weeks/, 'never "30 more mornings"');
 });
 
-check('the weights sum to a whole score, so the breakdown adds up', async () => {
-  const { recompScore } = await import('../src/lib/recompScore.ts');
-  const r = recompScore({
-    weeklyLossRateKg: 0.62, currentWeightKg: 90, goalKg: 80,
-    strength: { direction: 'holding', avgPct: 2 },
-    proteinAdherencePct: 92, readinessScore: 65,
-  });
-  const total = r.components.reduce((s, c) => s + c.weight, 0);
-  const recomputed = Math.round(r.components.reduce((s, c) => s + (c.weight / total) * c.score, 0));
-  assert.equal(recomputed, r.score, 'the shown parts must reproduce the headline number');
-});
-
-check('there is exactly ONE score in the app chrome', async () => {
-  const { readFileSync } = await import('node:fs');
-  const layout = readFileSync('src/routes/+layout.svelte', 'utf8');
-  assert.ok(!/<ReadinessButton/.test(layout),
-    'readiness is an input to the Pulse score, not a second number beside it');
-  const pulse = readFileSync('src/lib/components/TodayPulse.svelte', 'utf8');
-  assert.match(pulse, /ReadinessCard/, 'and its full detail must still be reachable');
+check('the score is gone from the app, and the glow reads the hero’s tone', async () => {
+  const { readFileSync, existsSync } = await import('node:fs');
+  assert.ok(!existsSync('src/lib/recompScore.ts') && !existsSync('src/lib/stores/verdict.ts'));
+  assert.match(readFileSync('src/routes/+layout.svelte', 'utf8'), /\$todayPulse\.tone/, 'the glow and the hero read one tone');
 });
 
 // --- The week asks back -----------------------------------------------------
@@ -2353,7 +2337,6 @@ check('brand ids are unique', () => {
 
 // ── New world-class feature modules ──────────────────────────────────────────
 const { signalFreshness, daysBetweenYmd, latestDate } = await import('../src/lib/freshness.ts');
-const { recompScore } = await import('../src/lib/recompScore.ts');
 const { weeklyReview } = await import('../src/lib/weeklyReview.ts');
 
 console.log('\nfreshness — honest signal age (the stale-watch-data fix, generalised)');
@@ -2381,47 +2364,6 @@ check('daysBetweenYmd + latestDate pick the freshest matching reading', () => {
   assert.equal(latestDate(rows), '2026-03-05');
   assert.equal(latestDate(rows, (r) => r.sleep != null), '2026-03-03');
   assert.equal(latestDate([]), null);
-});
-
-console.log('\nrecompScore — one verdict from fat-loss + muscle + protein + recovery');
-
-check('losing fat while holding strength with good protein scores high', () => {
-  const r = recompScore({
-    weeklyLossRateKg: 0.6, currentWeightKg: 90, goalKg: 80,
-    strength: { direction: 'holding', avgPct: 0 },
-    proteinAdherencePct: 95, readinessScore: 80,
-  });
-  assert.ok(r.score >= 75, `expected strong score, got ${r.score}`);
-  assert.ok(r.band === 'dialed-in' || r.band === 'on-track');
-});
-
-check('crash-dieting with dropping lifts and low protein scores poorly', () => {
-  const r = recompScore({
-    weeklyLossRateKg: 1.8, currentWeightKg: 90, goalKg: 80,
-    strength: { direction: 'down', avgPct: -8 },
-    proteinAdherencePct: 40, readinessScore: 45,
-  });
-  assert.ok(r.score < 55, `expected weak score, got ${r.score}`);
-  assert.ok(r.topLever, 'a weak score must name the top lever to fix');
-});
-
-check('too little data yields an honest insufficient band, never a fake number', () => {
-  const r = recompScore({
-    weeklyLossRateKg: null, currentWeightKg: null, goalKg: null,
-    strength: null, proteinAdherencePct: null, readinessScore: null,
-  });
-  assert.equal(r.band, 'insufficient');
-});
-
-check('components are weighted and every component carries a note', () => {
-  const r = recompScore({
-    weeklyLossRateKg: 0.5, currentWeightKg: 88, goalKg: 80,
-    strength: { direction: 'holding', avgPct: 1 },
-    proteinAdherencePct: 90, readinessScore: 70,
-  });
-  assert.ok(r.components.length >= 3);
-  assert.ok(r.components.every((c) => typeof c.note === 'string' && c.note.length > 0));
-  assert.ok(r.headline.length > 0);
 });
 
 console.log('\nweeklyReview — the Sunday-night digest + next-week adjustments');

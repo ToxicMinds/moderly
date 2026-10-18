@@ -1,0 +1,103 @@
+// The Today hero: the weight trend, and how far it is to the next stop.
+//
+// It used to be a 0–100 "recomp score" (fat loss, strength, protein and
+// recovery, weighted) that its one daily user never read. While that score
+// couldn't be worked out, the hero fell back to a new account's checklist, so
+// someone months in saw a grey "4 / 4 first-week steps" and asked what it
+// meant. The trend is the number the scale, the food and the training all
+// answer to, and the next stop is the one near enough to watch move.
+//
+// Pure, unit-tested in selfcheck.js. stores/body.ts derives it once
+// (`pulse`), for the hero and the page's glow alike, so they can't disagree.
+import { goalDirection } from './coach.ts';
+import type { Pace, WeightVerdict } from './insights.ts';
+import type { MilestoneState } from './milestone.ts';
+
+/** Never 'bad': a bad week is amber. "Blown" is the thought that makes it so. */
+export type PulseTone = 'good' | 'ok' | 'warn' | 'na';
+
+export interface PulseInput {
+  weight: WeightVerdict | null;
+  pace: Pace;
+  firstKg: number | null;
+  goalKg: number | null;
+  next: MilestoneState | null;
+}
+
+export interface Pulse {
+  /** The trend, else the latest weigh-in; null before the first. */
+  kg: number | null;
+  caption: string;
+  /** How far from where the stop was set to the stop (else from the first
+   *  weigh-in to the goal), 0–100; null when there's nothing to measure. */
+  pct: number | null;
+  tone: PulseTone;
+  story: string;
+  stats: Array<{ v: string; l: string }>;
+}
+
+const kg1 = (n: number) => Math.abs(n).toFixed(1);
+
+export function pulse(i: PulseInput): Pulse {
+  const w = i.weight;
+  const trend = w?.trendKg ?? null;
+  const kg = trend ?? w?.latestKg ?? null;
+  const stop = i.next && !i.next.reached ? i.next : null;
+  const target = stop ? stop.kg : i.goalKg;
+  const from = stop ? (stop.fromKg ?? i.firstKg) : i.firstKg;
+  const dir = goalDirection(kg, target ?? 0);
+  // A rate is worth saying once the line through the mornings is sure of it,
+  // or (on a cut) sure enough to judge against the plan: a flat month is too
+  // noisy for its exact rate yet certainly not the plan's pace, and "30 more
+  // mornings" was no answer to someone sixty mornings in.
+  const sure = w != null && trend != null && (w.state === 'answerable' || (dir === 'lose' && w.state === 'too-noisy' && i.pace !== 'too-early'));
+  const rate = sure ? w!.rateKgPerWeek : null;
+
+  const toGo = kg != null && target != null ? kg - target : null;
+  const caption = trend == null ? (kg != null ? 'kg · not a trend yet' : '')
+    : toGo == null ? 'kg trend'
+    : Math.abs(toGo) < 0.05 ? `kg trend · at ${target}`
+    : `kg trend · ${kg1(toGo)} to ${target}`;
+  const pct = trend != null && target != null && from != null && Math.abs(from - target) >= 0.1
+    ? Math.max(0, Math.min(100, ((from - trend) / (from - target)) * 100))
+    : null;
+
+  let tone: PulseTone = 'na';
+  let story: string;
+  if (rate == null) {
+    const n = w?.weighInsNeeded;
+    story = kg == null ? 'Weigh in tomorrow morning, before food or drink: the trend starts there.'
+      : n && n <= 7 ? `${n} more morning${n === 1 ? '' : 's'} on the scale and the trend can say how fast it’s moving.`
+      : 'A few more weeks of mornings on the scale and the trend can say how fast it’s moving.';
+  } else {
+    const r = kg1(rate);
+    const toward = toGo != null && (dir === 'lose' ? rate > 0 : dir === 'gain' ? rate < 0 : false);
+    const weeks = toward && Math.abs(rate) >= 0.05 ? Math.ceil(Math.abs(toGo!) / Math.abs(rate)) : null;
+    const eta = weeks != null && weeks <= 156 ? ` At that pace, ${target} in about ${weeks} week${weeks === 1 ? '' : 's'}.` : '';
+    if (dir === 'gain') {
+      tone = w!.hiKgPerWeek < 0 ? 'good' : w!.loKgPerWeek > 0 ? 'warn' : 'ok';
+      story = rate < 0 ? `Up ${r} kg a week.${eta}` : rate > 0.05 ? `Down ${r} kg a week, and the goal is up.` : 'The trend isn’t climbing yet.';
+    } else if (dir === 'maintain') {
+      tone = Math.abs(rate) <= 0.25 ? 'good' : 'warn';
+      story = tone === 'good' ? 'Holding at your goal.' : `${rate > 0 ? 'Down' : 'Up'} ${r} kg a week, away from your goal.`;
+    } else {
+      tone = i.pace === 'on-pace' || i.pace === 'faster' ? 'good' : i.pace === 'slower' ? 'ok'
+        : i.pace === 'stalled' || i.pace === 'gaining' ? 'warn' : 'na';
+      story = i.pace === 'stalled' ? 'The trend is flat right now.'
+        : rate < 0 ? `Up ${r} kg a week right now.`
+        : i.pace === 'faster' ? `Down ${r} kg a week, faster than the plan. Keep the protein up.${eta}`
+        : i.pace === 'slower' ? `Down ${r} kg a week, slower than the plan.${eta}`
+        : `Down ${r} kg a week.${eta}`;
+    }
+  }
+
+  const lost = i.firstKg != null && kg != null ? i.firstKg - kg : null;
+  const stats = [
+    { v: lost == null ? '—' : `${lost >= 0 ? '−' : '+'}${kg1(lost)}`, l: 'kg so far' },
+    { v: rate == null ? '—' : `${rate >= 0 ? '−' : '+'}${Math.abs(rate).toFixed(2)}`, l: 'kg / week' },
+    stop && i.goalKg != null && kg != null
+      ? { v: kg1(kg - i.goalKg), l: `kg to ${i.goalKg}` }
+      : { v: i.goalKg != null ? String(i.goalKg) : '—', l: 'goal kg' },
+  ];
+  return { kg, caption, pct, tone, story, stats };
+}

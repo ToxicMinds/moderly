@@ -1,4 +1,4 @@
-// The day-one plan, live. Mirrors stores/verdict.ts: one derived store the whole
+// The day-one plan, live. Like todayPulse in stores/body.ts: one derived store the whole
 // app shares, so the Today hero and anything else that wants to nudge a new user
 // read the same numbers and can never disagree.
 import { derived, type Readable } from 'svelte/store';

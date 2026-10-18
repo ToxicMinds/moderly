@@ -23,6 +23,7 @@ import { mondayOf, shiftYmd } from '$lib/date';
 import { weekBudget, weekShape, type WeekBudget, type WeekShape } from '$lib/week';
 import { lineState, type LineState } from '$lib/line';
 import { milestoneState, type MilestoneState } from '$lib/milestone';
+import { pulse, type Pulse } from '$lib/pulse';
 
 export interface DayIntake { kcal: number; protein: number; carbs: number; fat: number; items: number }
 
@@ -158,6 +159,10 @@ export const shape: Readable<WeekShape | null> = derived(
   [body, liveWeights()],
   ([$body, $weights]) => weekShape($body.intake, (($weights as any[]) ?? []).map((w) => ({ date: w.date, weight: +w.weight })), $body.today),
 );
+
+/** The Today hero and the page's glow, read off the same trend (src/lib/pulse.ts). */
+export const todayPulse: Readable<Pulse> = derived(body, ($b) =>
+  pulse({ weight: $b.weight, pace: $b.pace, firstKg: $b.firstKg, goalKg: $b.goalKg, next: $b.next }));
 
 /** Why the scale isn't moving — once, for Today and Progress alike. */
 export const stall: Readable<StallDiagnosis | null> = derived(

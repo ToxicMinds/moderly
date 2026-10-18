@@ -33,7 +33,7 @@
   import { todayYmd } from '$lib/date';
   import { isComplete } from '$lib/profile';
   import { setWatchBrand } from '$lib/health/healthConnect';
-  import { todayVerdict } from '$lib/stores/verdict';
+  import { todayPulse } from '$lib/stores/body';
   import { body } from '$lib/stores/body';
   import { initHaptics, hapticsEnabled, setHapticsEnabled, haptic } from '$lib/haptics';
 
@@ -43,13 +43,13 @@
   let syncStarted = false;
 
   // — Verdict light —
-  // Tie a faint wash from the top edge to how the recomposition is actually
-  // going, like the spill from a scoreboard: green on a dialed-in day, red
-  // when it's off track. The verdict is shared (see stores/verdict), so this
-  // colour follows you across every page, not just Today. Kept low-alpha so it
-  // reads as atmosphere, never as chrome.
+  // Tie a faint wash from the top edge to how the trend is going, like the
+  // spill from a scoreboard: green on pace, amber when it's flat or up. The
+  // same tone as the Today hero (stores/body todayPulse), so this colour
+  // follows you across every page. Kept low-alpha so it reads as atmosphere,
+  // never as chrome.
   $effect(() => {
-    const tone = $todayVerdict.tone;
+    const tone: string = $todayPulse.tone;
     const aura = tone === 'good' ? 'rgba(49,242,138,.10)'
       : tone === 'ok' ? 'rgba(77,163,255,.09)'
       : tone === 'warn' ? 'rgba(255,176,32,.09)'

@@ -1,8 +1,8 @@
 // DAY ONE — what the app can honestly say before it has any data.
 //
 // The Pulse orb is the face of RecompOS, and on a brand-new account it rendered
-// "—" at 0% fill with "-- kg lost" underneath. recompScore is RIGHT to return
-// `insufficient` (it will not invent a verdict from nothing), but that left the
+// "—" at 0% fill with "-- kg lost" underneath. With no weigh-ins there is no
+// trend to show (and the app will not invent one), but that left the
 // single most prominent element in the app blank at the exact moment a new user
 // decides whether to come back. Seven of the eight accounts that ever wrote a
 // row wrote between one and four and never returned.
@@ -13,8 +13,8 @@
 // I do first". Height, age, sex, activity and goal give a real calorie target,
 // a real protein target and a real date, with no logs at all.
 //
-// Once there is enough data for a genuine verdict, this disappears and the orb
-// takes over — see TodayPulse.svelte.
+// Once the steps are done, or the scale has drawn a trend, this disappears and
+// the trend takes over — see TodayPulse.svelte.
 
 // Explicit .ts extensions: scripts/selfcheck.js imports this module directly under
 // node's type-stripping, which does not resolve extensionless specifiers. tsconfig
