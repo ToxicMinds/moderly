@@ -22,6 +22,10 @@ export interface PulseInput {
   firstKg: number | null;
   goalKg: number | null;
   next: MilestoneState | null;
+  /** The day training restarted (a program's first day), while it's under two
+   *  weeks ago: new training holds water, and the scale can rise as the work
+   *  starts. null otherwise. */
+  restartedOn?: string | null;
 }
 
 export interface Pulse {
@@ -89,6 +93,14 @@ export function pulse(i: PulseInput): Pulse {
         : i.pace === 'slower' ? `Down ${r} kg a week, slower than the plan.${eta}`
         : `Down ${r} kg a week.${eta}`;
     }
+  }
+
+  // Two weeks after a restart, the water has settled; until then a flat or
+  // rising trend is the work starting, not the plan failing.
+  if (i.restartedOn && (tone === 'warn' || tone === 'na')) {
+    const d = new Date(`${i.restartedOn}T12:00:00`);
+    d.setDate(d.getDate() + 14);
+    story += ` New training can hold extra water for a week or two: judge the trend from ${d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}.`;
   }
 
   const lost = i.firstKg != null && kg != null ? i.firstKg - kg : null;

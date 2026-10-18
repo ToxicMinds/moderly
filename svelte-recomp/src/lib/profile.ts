@@ -1,7 +1,7 @@
 // The user profile — what turns this from one person's app into anyone's.
 //
-// The app was built around hardcoded constants: GOAL_KG = 90 and
-// START_KG = 133.5 in config.ts, derived from one person's 187cm height. Worse,
+// The app was built around hardcoded constants in config.ts: a goal and a
+// start weight derived from one person's body. Worse,
 // BodyGoals collected height, age and sex as LOCAL COMPONENT STATE — you had to
 // retype them every single visit, and nothing else in the app could ever see
 // them. So the TDEE engine, which needs all three, could not run unless you were

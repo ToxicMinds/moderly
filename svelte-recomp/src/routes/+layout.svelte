@@ -43,18 +43,13 @@
   let syncStarted = false;
 
   // — Verdict light —
-  // Tie a faint wash from the top edge to how the trend is going, like the
-  // spill from a scoreboard: green on pace, amber when it's flat or up. The
-  // same tone as the Today hero (stores/body todayPulse), so this colour
-  // follows you across every page. Kept low-alpha so it reads as atmosphere,
-  // never as chrome.
+  // A faint green wash from the top edge while the trend is on pace, like the
+  // spill from a scoreboard, read off the same tone as the Today hero
+  // (stores/body todayPulse). Only green: the hero already says a flat month
+  // in amber, and an amber tint on every page for weeks would say it on the
+  // food log and the training screen too, where it helps nobody.
   $effect(() => {
-    const tone: string = $todayPulse.tone;
-    const aura = tone === 'good' ? 'rgba(49,242,138,.10)'
-      : tone === 'ok' ? 'rgba(77,163,255,.09)'
-      : tone === 'warn' ? 'rgba(255,176,32,.09)'
-      : tone === 'bad' ? 'rgba(255,59,71,.10)'
-      : 'transparent';
+    const aura = $todayPulse.tone === 'good' ? 'rgba(49,242,138,.10)' : 'transparent';
     document.documentElement.style.setProperty('--aura', aura);
   });
 

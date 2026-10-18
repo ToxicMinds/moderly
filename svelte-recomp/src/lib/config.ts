@@ -1,7 +1,7 @@
 // Last-resort fallbacks only.
 //
-// These used to be the app's real source of truth — GOAL_KG = 90 and
-// START_KG = 133.5, both derived from one specific person's body — which is
+// These used to be the app's real source of truth — a goal and a start weight
+// hardcoded from one specific person's body — which is
 // precisely why nobody else could use the app. Real values now come from the
 // user's profile (see $lib/profile and the onboarding flow) and are stored per
 // user in `user_settings`.

@@ -516,41 +516,49 @@ check('a maintenance goal rewards holding, not drifting', () => {
 //
 // Today led with a 0–100 "recomp score" its one daily user never read, and while
 // the score couldn't be worked out it fell back to a new user's checklist: months
-// in, he saw a grey "4 / 4 first-week steps" and asked what it meant.
+// in, a user saw a grey "4 / 4 first-week steps" and asked what it meant.
 
 console.log('\nthe Today hero is the weight trend against the next stop');
 
 check('the hero reads the trend, the distance to the next stop, and a pace that is never red', () => {
-  const next = { kg: 105, toGoKg: 7.4, reached: false, held: false, celebrated: false, fromKg: 112, crossed: null, bmi: 30, meaning: null };
-  const up = pulse({ weight: wv(112.4, -0.4), pace: 'gaining', firstKg: 121, goalKg: 96, next });
-  assert.equal(up.kg, 112.4);
-  assert.equal(up.caption, 'kg trend · 7.4 to 105');
+  // A made-up person, never a real user's numbers: this repo is public.
+  const next = { kg: 85, toGoKg: 7.4, reached: false, held: false, celebrated: false, fromKg: 92, crossed: null, bmi: 27, meaning: null };
+  const up = pulse({ weight: wv(92.4, -0.4), pace: 'gaining', firstKg: 101, goalKg: 76, next });
+  assert.equal(up.kg, 92.4);
+  assert.equal(up.caption, 'kg trend · 7.4 to 85');
   assert.equal(up.pct, 0, 'above where the stop was set: nothing lit, nothing negative');
   assert.equal(up.tone, 'warn', 'a week up is amber, never red');
   assert.equal(up.story, 'Up 0.4 kg a week right now.');
   assert.deepEqual(up.stats.map((x) => x.v), ['−8.6', '+0.40', '16.4']);
-  const down = pulse({ weight: wv(108.5, 0.5), pace: 'on-pace', firstKg: 121, goalKg: 96, next });
+  const down = pulse({ weight: wv(88.5, 0.5), pace: 'on-pace', firstKg: 101, goalKg: 76, next });
   assert.equal(down.tone, 'good');
-  assert.equal(Math.round(down.pct), 50, 'half way from 112 to 105');
-  assert.equal(down.story, 'Down 0.5 kg a week. At that pace, 105 in about 7 weeks.');
-  const early = pulse({ weight: { ...wv(112.4, 0), state: 'too-noisy', weighInsNeeded: 4 }, pace: 'too-early', firstKg: 112, goalKg: 96, next: null });
+  assert.equal(Math.round(down.pct), 50, 'half way from 92 to 85');
+  assert.equal(down.story, 'Down 0.5 kg a week. At that pace, 85 in about 7 weeks.');
+  const early = pulse({ weight: { ...wv(92.4, 0), state: 'too-noisy', weighInsNeeded: 4 }, pace: 'too-early', firstKg: 92, goalKg: 76, next: null });
   assert.equal(early.tone, 'na');
   assert.match(early.story, /4 more mornings/);
   assert.equal(early.stats[1].v, '—', 'no rate before the line is sure of one');
-  // His October: sixty mornings, flat, too noisy for an exact rate but surely
-  // not 0.6 a week. That is an answer ("flat"), not "30 more mornings".
-  const flat = pulse({ weight: { ...wv(113.1, 0.07, 0.34), state: 'too-noisy', weighInsNeeded: 30 }, pace: 'stalled', firstKg: 133.5, goalKg: 96, next });
+  // Sixty mornings, flat: too noisy for an exact rate but surely not 0.6 a
+  // week. That is an answer ("flat"), not "30 more mornings".
+  const flat = pulse({ weight: { ...wv(93.1, 0.07, 0.34), state: 'too-noisy', weighInsNeeded: 30 }, pace: 'stalled', firstKg: 113.5, goalKg: 76, next });
   assert.equal(flat.story, 'The trend is flat right now.');
   assert.equal(flat.tone, 'warn');
-  assert.equal(flat.stats[0].v, '−20.4', 'and the twenty kilos since December still count');
+  assert.equal(flat.stats[0].v, '−20.4', 'and what is already lost still counts');
   assert.match(pulse({ weight: { ...wv(100, 0), state: 'too-noisy', weighInsNeeded: 30 }, pace: 'too-early', firstKg: 100, goalKg: 90, next: null }).story,
     /few more weeks/, 'never "30 more mornings"');
+  // Training restarts: the scale can rise with water just as the work starts.
+  const restart = { firstKg: 101, goalKg: 76, next, restartedOn: '2026-10-19' };
+  assert.match(pulse({ ...restart, weight: wv(92.4, -0.4), pace: 'gaining' }).story,
+    /^Up 0\.4 kg a week right now\. New training can hold extra water for a week or two: judge the trend from 2 Nov\.$/);
+  assert.doesNotMatch(pulse({ ...restart, weight: wv(88.5, 0.5), pace: 'on-pace' }).story, /water/, 'going down anyway: nothing to explain');
 });
 
 check('the score is gone from the app, and the glow reads the hero’s tone', async () => {
   const { readFileSync, existsSync } = await import('node:fs');
   assert.ok(!existsSync('src/lib/recompScore.ts') && !existsSync('src/lib/stores/verdict.ts'));
-  assert.match(readFileSync('src/routes/+layout.svelte', 'utf8'), /\$todayPulse\.tone/, 'the glow and the hero read one tone');
+  const layout = readFileSync('src/routes/+layout.svelte', 'utf8');
+  assert.match(layout, /\$todayPulse\.tone === 'good'/, 'the glow and the hero read one tone');
+  assert.doesNotMatch(layout, /255,176,32/, 'and never an amber tint over every page for a flat month');
 });
 
 // --- The week asks back -----------------------------------------------------
@@ -2653,8 +2661,8 @@ check('nutrition patterns: low protein and a weekend blowout surface; the hour e
 check('the eating rhythm is learned from the log, and the coach measures protein against it', async () => {
   const { eatingRhythm } = await import('../src/lib/rhythm.ts');
   const { buildDailyFocus } = await import('../src/lib/coach.ts');
-  // Fasts until 15:00, protein after nine: 60 g at 15:00, 50 g at 21:30. Local
-  // clock times, whatever the machine's zone.
+  // A 16:8 eater: 60 g at 15:00, 50 g at 21:30. Local clock times, whatever
+  // the machine's zone.
   const at = (d, h, m = 0) => new Date(2026, 9, d, h, m).toISOString();
   const rows = [];
   for (let d = 5; d <= 12; d++) {

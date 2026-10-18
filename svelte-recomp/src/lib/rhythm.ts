@@ -2,8 +2,8 @@
 //
 // A 14:00 "nothing logged yet" nudge, an "after 8pm" warning and "protein at
 // breakfast" advice all assumed three meals from the morning. Someone who fasts
-// until mid-afternoon and has his protein after nine by design was told off
-// every day for keeping his own plan. Anything that judges a day by the hour
+// until mid-afternoon and eats late by design was told off every day for
+// keeping their own plan. Anything that judges a day by the hour
 // asks this instead: on a usual day, how much is in by now?
 //
 // Pure, unit-tested in selfcheck.js. Times are the device's clock, from each
