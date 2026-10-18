@@ -21,10 +21,6 @@ export interface FoodEvalInput {
   proteinSoFar: number;
   carbsSoFar?: number;
   fatSoFar?: number;
-  /** Number of separate food entries logged today. */
-  mealsLogged: number;
-  /** Local hour 0..23, so late-in-the-day advice differs from mid-morning. */
-  hour: number;
   /** Which way they're trying to move — changes whether "over budget" is bad. */
   direction: Direction;
   /** The rest of the week after today, so going past today's share can say
@@ -77,8 +73,9 @@ export function evaluateFood(i: FoodEvalInput): FoodEval {
     };
   }
 
+  // No advice by the clock (breakfast, "late"): when someone eats is theirs
+  // to decide. A fasting morning or a 21:00 shake is often the plan.
   const spareKcal = round(i.calorieTarget - i.kcalSoFar);
-  const late = i.hour >= 20;
 
   // — Past today's share of the week. Only a question when they're trying to
   //   LOSE; a surplus is the plan when gaining. Never "the day is blown": that
@@ -111,7 +108,7 @@ export function evaluateFood(i: FoodEvalInput): FoodEval {
     return {
       tone: 'warn', spareKcal, spareProtein,
       headline: `${spareProtein} g protein short, only ${Math.max(0, spareKcal)} kcal left`,
-      detail: `Tight budget. Spend what’s left on ${LEAN_PROTEIN} — it buys the most protein per calorie.${late ? ' Tomorrow, front-load protein at breakfast so you’re not chasing it now.' : ''}`,
+      detail: `Tight budget. Spend what’s left on ${LEAN_PROTEIN} — it buys the most protein per calorie.`,
     };
   }
 
@@ -123,7 +120,7 @@ export function evaluateFood(i: FoodEvalInput): FoodEval {
     return {
       tone: 'ok', spareKcal, spareProtein,
       headline: `${spareKcal} kcal${spareProtein > 0 ? ` and ${spareProtein} g protein` : ''} to go`,
-      detail: `${protLine}${i.mealsLogged === 0 ? ' First entry of the day — a strong protein breakfast sets the tone.' : ''}`,
+      detail: protLine,
     };
   }
 

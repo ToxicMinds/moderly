@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { liveWeights, liveGoal, liveGoalReason, liveSchedule, liveWorkoutSessions, liveSessionCompletions, liveDailySteps, liveBiometrics, liveWorkoutLogs, liveActivitySessions, liveDailyLogs } from '$lib/stores/live';
+  import { liveWeights, liveGoal, liveGoalReason, liveSchedule, liveWorkoutSessions, liveSessionCompletions, liveDailySteps, liveBiometrics, liveWorkoutLogs, liveActivitySessions, liveDailyLogs, liveFoodLogs } from '$lib/stores/live';
   import { upsertRecord } from '$lib/stores/sync';
   import { userId } from '$lib/stores/user';
   import { liveProfile } from '$lib/stores/live';
@@ -13,6 +13,7 @@
   import { morningsThisWeek } from '$lib/scale';
   import { saveWeighIn, NeedsConfirm } from '$lib/weighIn';
   import { buildDailyFocus, waterTargetLitres } from '$lib/coach';
+  import { eatingRhythm } from '$lib/rhythm';
   import { body, stall, line } from '$lib/stores/body';
   import { editing } from '$lib/commitments';
   import { cleanPlans } from '$lib/plans';
@@ -242,6 +243,15 @@
   const badmintonDay = $derived((dayInfo.label === 'Badminton' && bRule?.play !== false) || watchToday?.label === 'Badminton');
   const planCount = $derived(Object.keys(cleanPlans(($_profile as any)?.plans)).length);
 
+  // When this person usually eats, from their own log: the coach measures
+  // "behind on protein" against that, not against the clock.
+  const _foodLogs = liveFoodLogs();
+  const rhythm = $derived(eatingRhythm($_foodLogs as any[], today));
+  const proteinUsualByNow = $derived.by(() => {
+    const t = new Date($nowTick);
+    return rhythm ? rhythm.proteinBy(t.getHours() * 60 + t.getMinutes()) : null;
+  });
+
   const focusItems = $derived(
     buildDailyFocus({
       goalKg: GOAL_KG,
@@ -272,6 +282,7 @@
       inProgram: programActive(($_profile as any)?.program, today),
       watchActivityToday: watchToday,
       hour: nowHour,
+      proteinUsualByNow,
     })
   );</script>
 

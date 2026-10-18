@@ -1,12 +1,13 @@
 <script lang="ts">
   // Nutrition PATTERNS across weeks, on the Food tab: how reliably protein
-  // lands, whether weekends erase the weekday deficit, and how much of the day
-  // arrives late at night. Pure + unit-tested; hides itself until there are a
-  // few logged days. Local hour is computed here (from created_at) so late-night
-  // detection isn't thrown off by UTC.
+  // lands, whether weekends erase the weekday deficit, and the hours this
+  // person usually eats, learned and shown, never judged. Pure + unit-tested;
+  // hides itself until there are a few logged days.
   import { liveFoodLogs, liveGoal, liveWeights } from '$lib/stores/live';
   import { proteinTargetG as calcProteinTarget } from '$lib/profile';
   import { nutritionPatterns } from '$lib/nutritionPatterns';
+  import { eatingRhythm } from '$lib/rhythm';
+  import { todayDate } from '$lib/stores/refresh';
 
   const _food = liveFoodLogs();
   const _goal = liveGoal();
@@ -22,10 +23,11 @@
     date: f.date,
     kcal: Number(f.kcal) || 0,
     protein_g: Number(f.protein_g) || 0,
-    hour: f.created_at ? new Date(f.created_at).getHours() : 12,
   })));
 
   const pat = $derived(nutritionPatterns(entries, proteinTarget, { minDays: 5 }));
+  const rhythm = $derived(eatingRhythm($_food as any[], $todayDate));
+  const hh = (min: number) => String(Math.floor(min / 60)).padStart(2, '0');
 </script>
 
 {#if pat.daysLogged >= 5}
@@ -45,8 +47,8 @@
         <div class="np-l">weekend kcal gap</div>
       </div>
       <div class="np-stat">
-        <div class="np-v" class:warn={pat.lateNightKcalPct != null && pat.lateNightKcalPct >= 30}>{pat.lateNightKcalPct ?? '—'}%</div>
-        <div class="np-l">kcal after 8pm</div>
+        <div class="np-v">{rhythm ? `${hh(rhythm.first)}–${hh(rhythm.last + 59)}` : '—'}</div>
+        <div class="np-l">usual eating hours</div>
       </div>
     </div>
     <div class="np-insights">

@@ -21,7 +21,7 @@
 
 import { CUES, type Plans, type PlanCue } from './plans.ts';
 
-export type NudgeKey = 'no-food' | 'protein-short' | 'train-day' | 'plan' | 'weigh-in';
+export type NudgeKey = 'protein-short' | 'train-day' | 'plan' | 'weigh-in';
 
 export interface Nudge {
   key: NudgeKey;
@@ -66,8 +66,10 @@ export interface SituationInput {
  */
 export const MAX_NUDGES_PER_DAY = 2;
 
+// No "nothing logged yet" nudge: an empty log at 14:00 is a fast as often as
+// a gap, and the clock can't tell which. Someone eating 15:00–22:00 by design
+// got told off every day.
 const T = {
-  noFood: 14 * 60,        // 14:00 — half the day gone with nothing logged
   trainDay: 17 * 60 + 30, // 17:30 — before the evening is spoken for
   proteinShort: 19 * 60,  // 19:00 — one meal left to fix it, not a post-mortem
   weighIn: 7 * 60 + 30,   // tomorrow morning, when a weigh-in is actually possible
@@ -87,16 +89,6 @@ export function situationalNudges(input: SituationInput): Nudge[] {
     nowMinutes, proteinG, proteinTargetG, foodEntriesToday, isTrainingDay,
     workoutLoggedToday, daysSinceWeighIn,
   } = input;
-
-  // Nothing logged at all — the single most consequential gap, because every
-  // other number in the app degrades without it.
-  if (foodEntriesToday === 0) {
-    out.push({
-      key: 'no-food', atMinutes: T.noFood, priority: 70,
-      title: 'Nothing logged yet today',
-      body: 'Half the day is gone. Log what you have eaten so far — even roughly. A guessed day beats a missing one.',
-    });
-  }
 
   // Protein short with time left to do something about it.
   if (proteinTargetG != null && proteinTargetG > 0 && foodEntriesToday > 0 && !input.hold) {

@@ -247,8 +247,6 @@
       proteinSoFar: todayTotals.protein,
       carbsSoFar: todayTotals.carbs,
       fatSoFar: todayTotals.fat,
-      mealsLogged: todayFoods.length,
-      hour: new Date().getHours(),
       direction: goalDirection(currentWeightKg, goalKg ?? 0),
       weekAfter: restOfWeek(todayTotals.kcal),
     })

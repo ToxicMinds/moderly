@@ -3,18 +3,16 @@
 // The food log already knows every meal's macros and the clock time it was
 // logged. foodCoach.ts speaks to a single day; this steps back and finds the
 // repeating PATTERNS across weeks that quietly decide adherence: how reliably
-// protein lands, whether the weekend erases the weekday deficit, and how much of
-// the day's calories arrive late at night (the classic silent surplus). Each is
-// something you can act on without any new tracking.
+// protein lands and whether the weekend erases the weekday deficit. Each is
+// something you can act on without any new tracking. When in the day the food
+// lands is not judged here: a late meal is often the plan (rhythm.ts learns it).
 //
-// Pure — no Svelte/Dexie — unit-tested in selfcheck.js. The caller supplies each
-// entry's LOCAL hour (0-23) so late-night detection isn't fooled by UTC.
+// Pure — no Svelte/Dexie — unit-tested in selfcheck.js.
 
 export interface FoodEntry {
   date: string;          // YMD
   kcal: number;
   protein_g: number;
-  hour: number;          // local hour the entry was logged, 0-23
 }
 
 export interface NutritionPatterns {
@@ -28,12 +26,8 @@ export interface NutritionPatterns {
   weekdayAvgKcal: number | null;
   weekendAvgKcal: number | null;
   weekendGapKcal: number | null;     // weekend − weekday
-  lateNightKcalPct: number | null;   // share of calories logged 20:00–03:59
   insights: string[];                // prioritised, plain-language findings
 }
-
-const LATE_START = 20; // 8pm
-const LATE_END = 4;    // 4am (exclusive)
 
 function dow(ymd: string): number {
   const [y, m, d] = ymd.split('-').map(Number);
@@ -49,13 +43,10 @@ export function nutritionPatterns(
 
   // Aggregate per day.
   const byDay = new Map<string, { kcal: number; protein: number }>();
-  let lateKcal = 0, totalKcal = 0;
   for (const e of entries) {
     const d = byDay.get(e.date) || { kcal: 0, protein: 0 };
     d.kcal += e.kcal || 0; d.protein += e.protein_g || 0;
     byDay.set(e.date, d);
-    totalKcal += e.kcal || 0;
-    if (e.hour >= LATE_START || e.hour < LATE_END) lateKcal += e.kcal || 0;
   }
 
   const days = [...byDay.entries()];
@@ -63,8 +54,7 @@ export function nutritionPatterns(
   const empty: NutritionPatterns = {
     daysLogged, avgKcal: null, avgProtein: null, proteinTarget,
     proteinDaysHit: 0, proteinHitPct: null, proteinCV: null,
-    weekdayAvgKcal: null, weekendAvgKcal: null, weekendGapKcal: null,
-    lateNightKcalPct: null, insights: [],
+    weekdayAvgKcal: null, weekendAvgKcal: null, weekendGapKcal: null, insights: [],
   };
   if (daysLogged < minDays) return empty;
 
@@ -89,8 +79,6 @@ export function nutritionPatterns(
   const weekendAvgKcal = weN ? Math.round(weSum / weN) : null;
   const weekendGapKcal = (weekdayAvgKcal != null && weekendAvgKcal != null) ? weekendAvgKcal - weekdayAvgKcal : null;
 
-  const lateNightKcalPct = totalKcal > 0 ? Math.round((lateKcal / totalKcal) * 100) : null;
-
   // Prioritised, actionable insights.
   const insights: string[] = [];
   if (proteinHitPct != null) {
@@ -99,13 +87,11 @@ export function nutritionPatterns(
   }
   if (proteinCV != null && proteinCV >= 35) insights.push(`Protein is swingy day-to-day (±${proteinCV}%). Steadier daily protein beats big-then-nothing.`);
   if (weekendGapKcal != null && weN >= 2 && wdN >= 2 && weekendGapKcal >= 300) insights.push(`Weekends run ~${weekendGapKcal} kcal/day above weekdays — that can erase the week's deficit in two days.`);
-  if (lateNightKcalPct != null && lateNightKcalPct >= 30) insights.push(`~${lateNightKcalPct}% of your calories land after 8pm. Front-loading the day tends to curb the late surplus.`);
   if (insights.length === 0) insights.push('No problem patterns jump out — intake looks consistent across the week.');
 
   return {
     daysLogged, avgKcal, avgProtein, proteinTarget,
     proteinDaysHit, proteinHitPct, proteinCV,
-    weekdayAvgKcal, weekendAvgKcal, weekendGapKcal,
-    lateNightKcalPct, insights,
+    weekdayAvgKcal, weekendAvgKcal, weekendGapKcal, insights,
   };
 }
