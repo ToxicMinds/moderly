@@ -12,7 +12,7 @@
 // Providers come from ../_shared/llm.ts: it called gemini-flash-latest alone,
 // with no timeout, and that model was taking 25 s+ to say "ok" (2026-10-16).
 import { ask, corsHeaders, extractJson, json } from '../_shared/llm.ts';
-import { signedIn } from '../_shared/auth.ts';
+import { gate } from '../_shared/auth.ts';
 
 // Asking for structured output natively is far more reliable than begging for
 // JSON in the prompt and then stripping code fences off the answer.
@@ -57,7 +57,8 @@ Deno.serve(async (req: Request) => {
   if (req.method !== 'POST') {
     return new Response('Method not allowed', { status: 405, headers: corsHeaders });
   }
-  if (!(await signedIn(req))) return json({ error: 'Sign in to use this.' }, 401);
+  const refused = await gate(req, 'ai');
+  if (refused) return refused;
 
   try {
     const body = await req.json();
