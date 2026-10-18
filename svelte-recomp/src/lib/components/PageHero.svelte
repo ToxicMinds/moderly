@@ -53,8 +53,8 @@
   .phero-stats>div{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
     border-left:1px solid var(--border);padding:0 4px;min-width:0}
   .phero-stats>div:first-child{border-left:none}
-  .phero-stats b{font-family:var(--font-display);font-size:1.5rem;font-weight:800;line-height:1;
-    color:var(--text);font-variant-numeric:tabular-nums;white-space:nowrap}
+  .phero-stats b{font-family:var(--font-display);font-size:1.5rem;font-weight:700;line-height:1;
+    color:var(--text);font-variant-numeric:lining-nums tabular-nums;white-space:nowrap}
   .phero-stats span{font-size:0.6875rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
     color:var(--muted);text-align:center;line-height:1.2}
 </style>

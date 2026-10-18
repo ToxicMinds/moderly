@@ -110,12 +110,12 @@
 <style>
   .focus-wrap { margin-bottom: 16px; }
   .focus-hd { display: flex; align-items: center; gap: 8px; margin-bottom: 9px; }
-  .focus-title { font-family: var(--font-display); font-size: 0.875rem; font-weight: 800; text-transform: uppercase; letter-spacing: .14em; color: var(--muted); }
+  .focus-title { font-family: var(--font-label); font-size: 0.875rem; font-weight:700; text-transform: uppercase; letter-spacing:.08em; color: var(--muted); }
   .focus-dot { width: 7px; height: 7px; border-radius: 50%; box-shadow: 0 0 8px currentColor; }
   .focus-dot.sm { width: 6px; height: 6px; }
   .focus-x { background: transparent; border: none; color: var(--muted); font-size: 0.875rem; cursor: pointer; padding: 4px 6px; line-height: 1; border-radius: var(--r-sm); -webkit-tap-highlight-color: transparent; }
   .focus-x:active { transform: scale(.9); color: var(--text); }
-  .focus-chip { display: flex; align-items: center; gap: 7px; width: 100%; justify-content: center; background: transparent; border: 1px dashed var(--border2); border-radius: var(--r-md); padding: 8px; color: var(--muted); font-family: var(--font-display); font-size: 0.8125rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; cursor: pointer; margin-bottom: 16px; -webkit-tap-highlight-color: transparent; }
+  .focus-chip { display: flex; align-items: center; gap: 7px; width: 100%; justify-content: center; background: transparent; border: 1px dashed var(--border2); border-radius: var(--r-md); padding: 8px; color: var(--muted); font-family: var(--font-label); font-size: 0.8125rem; font-weight: 700; letter-spacing:.08em; text-transform: uppercase; cursor: pointer; margin-bottom: 16px; -webkit-tap-highlight-color: transparent; }
   .focus-chip:active { transform: scale(.99); border-color: var(--text); }
 
   .hero {

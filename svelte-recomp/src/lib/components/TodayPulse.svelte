@@ -62,10 +62,10 @@
 {/snippet}
 
 <style>
-  .ph-streak{flex-shrink:0;font-family:var(--font-display);font-size:0.9375rem;font-weight:700;
+  .ph-streak{flex-shrink:0;font-family:var(--font-label);font-size:0.9375rem;font-weight:700;
     text-transform:uppercase;letter-spacing:.08em;color:var(--muted);
     border:1px solid var(--border2);border-radius:var(--r-sm);padding:4px 9px;white-space:nowrap}
-  .ph-streak b{font-family:var(--font-led);font-style:italic;font-weight:700;font-size:1rem;color:var(--text);margin-left:4px}
+  .ph-streak b{font-family:var(--font-display);font-weight:700;font-size:1.25rem;color:var(--text);margin-left:4px}
   .ph-streak.full b{color:var(--led-good)}
 
   /* Day-one checklist. Four taps, each one a real first action — this is what

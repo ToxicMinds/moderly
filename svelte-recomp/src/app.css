@@ -3,59 +3,61 @@
 /* TYPE — self-hosted (static/fonts, precached by the service worker, so it
    works offline and inside the APK). Latin + Latin-Ext: Slovak and Czech
    diacritics render in the same face as everything else.
-     Big Shoulders Display — condensed athletic display face, for titles and
-       labels. Used with restraint.
-     Atkinson Hyperlegible Next — designed for legibility first; the app's
-       recurring complaint was "the font is WAY too small".
-     DSEG7 — a real seven-segment face, for the LED readouts only. */
-@font-face{font-family:'Big Shoulders Display';src:url('/fonts/bigshoulders-latin.woff2') format('woff2');font-weight:100 900;font-display:swap;unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
-@font-face{font-family:'Big Shoulders Display';src:url('/fonts/bigshoulders-latin-ext.woff2') format('woff2');font-weight:100 900;font-display:swap;unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C4,U+2113,U+2C60-2C7F,U+A720-A7FF}
+     Cormorant Garamond — the name, headings and numbers: a classical serif,
+       like the engraving on a brass balance. Lining figures (set on <html>).
+     Atkinson Hyperlegible Next — everything read, labels included; designed
+       for legibility first ("the font is WAY too small" was the old complaint). */
+@font-face{font-family:'Cormorant Garamond';src:url('/fonts/cormorant-latin.woff2') format('woff2');font-weight:300 700;font-display:swap;unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:'Cormorant Garamond';src:url('/fonts/cormorant-latin-ext.woff2') format('woff2');font-weight:300 700;font-display:swap;unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C4,U+2113,U+2C60-2C7F,U+A720-A7FF}
 @font-face{font-family:'Atkinson Hyperlegible Next';src:url('/fonts/atkinson-latin.woff2') format('woff2');font-weight:200 800;font-display:swap;unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
 @font-face{font-family:'Atkinson Hyperlegible Next';src:url('/fonts/atkinson-latin-ext.woff2') format('woff2');font-weight:200 800;font-display:swap;unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C4,U+2113,U+2C60-2C7F,U+A720-A7FF}
-@font-face{font-family:'DSEG7';src:url('/fonts/dseg7-bolditalic.woff2') format('woff2');font-weight:700;font-style:italic;font-display:block}
 
-/* THE SYSTEM — a gym, not a gadget.
-   Surfaces are the matte rubber floor and the steel of the rack; text is chalk.
-   Chrome is monochrome on purpose: COLOUR MEANS DATA. The only colour on screen
-   comes from a verdict — the LED tones below — the way a gym's interval clock
-   glows green, amber or red. Nothing is blurred, nothing floats on glass. */
+/* THE SYSTEM — Moderly: an evening instrument.
+   Ink-blue night, brass and verdigris: the colours of an old balance scale.
+   Brass is the brand (the name, the active tab, the number while there is no
+   verdict yet). The verdict tones only ever mean data: verdigris on pace,
+   steel blue fine, copper "look here", and never red for a bad week. Solid
+   surfaces, nothing blurred, nothing floats on glass. */
 :root{
-  --bg:#111316;--bg2:#191c20;--bg3:#22262b;
-  --border:#2b3036;--border2:#3a4048;
-  --text:#ece9e2;--muted:#8e939b;
-  /* LED tones — the verdict palette. */
-  --led-good:#31f28a;--led-ok:#4da3ff;--led-warn:#ffb020;--led-bad:#ff3b47;
-  /* Interactive accent = chalk. (Named --amber for history: every page already
+  --bg:#101826;--bg2:#182337;--bg3:#1E2B42;
+  --border:#2A3854;--border2:#3A4B6E;
+  --text:#EDE7DA;--muted:#9AA6B8;
+  --brass:#C9A54E;
+  /* Verdict tones. */
+  --led-good:#4FB59A;--led-ok:#7FA7D9;--led-warn:#DD7F4E;--led-bad:#E0605A;
+  /* Interactive accent = brass. (Named --amber for history: every page already
      reads it, so the whole app re-themes from here.) */
-  --amber:#ece9e2;--amber2:#ffffff;--ab:rgba(236,233,226,.08);
-  --red:#ff5a65;--rb:rgba(255,59,71,.12);
-  --green:#31f28a;--green2:#7cf7b5;--gb:rgba(49,242,138,.10);
-  --blue:#4da3ff;--bb:rgba(77,163,255,.12);
-  --purple:#b79cff;--pb:rgba(183,156,255,.12);
-  --grad-amber:linear-gradient(180deg,#f6f4ee,#dcd8ce);
-  --grad-green:linear-gradient(180deg,#5cf6a4,#26d877);
+  --amber:#C9A54E;--amber2:#E2C47A;--ab:rgba(201,165,78,.12);
+  --red:#E0605A;--rb:rgba(224,96,90,.12);
+  --green:#4FB59A;--green2:#7DCBB5;--gb:rgba(79,181,154,.12);
+  --blue:#7FA7D9;--bb:rgba(127,167,217,.12);
+  --purple:#C9A54E;--pb:rgba(201,165,78,.12);
+  --grad-amber:linear-gradient(180deg,#D3B05C,#C29B44);
+  --grad-green:linear-gradient(180deg,#5DC1A6,#45A98F);
   /* Legacy glass tokens, now solid: components that used them get panels. */
   --glass:var(--bg2);--glass-2:var(--bg3);--glass-brd:var(--border);
   --glass-hi:transparent;--glass-sheen:linear-gradient(transparent,transparent);
   --blur:none;
   --shadow-sm:none;--shadow-md:none;--shadow-glow:none;
   --r-sm:6px;--r-md:10px;--r-lg:14px;
-  --font-display:'Big Shoulders Display','Arial Narrow',system-ui,sans-serif;
+  --font-display:'Cormorant Garamond',Georgia,'Times New Roman',serif;
+  --font-label:var(--font-body);
   --font-body:'Atkinson Hyperlegible Next',system-ui,-apple-system,'Segoe UI',sans-serif;
-  --font-led:'DSEG7',ui-monospace,monospace;
   --nav-h:60px;--top-h:52px;
   --sb:env(safe-area-inset-bottom,0px);
   --st:env(safe-area-inset-top,0px);
   --ease:cubic-bezier(.22,1,.36,1);
 }
 [data-theme="light"]{
-  --bg:#edeef0;--bg2:#ffffff;--bg3:#e4e6ea;--border:#d5d8de;--border2:#bfc4cc;
-  --text:#15171a;--muted:#5e646d;
-  --led-good:#0e9f55;--led-ok:#1f6fd1;--led-warn:#b86e00;--led-bad:#d11f2e;
-  --amber:#15171a;--amber2:#000000;--ab:rgba(21,23,26,.06);
-  --red:#d11f2e;--rb:rgba(209,31,46,.08);--green:#0e9f55;--gb:rgba(14,159,85,.08);
-  --blue:#1f6fd1;--bb:rgba(31,111,209,.08);
-  --grad-amber:linear-gradient(180deg,#2a2d32,#15171a);
+  --bg:#F1F2F4;--bg2:#ffffff;--bg3:#E6E8EC;--border:#D3D7DE;--border2:#BBC1CB;
+  --text:#101826;--muted:#4E5A6B;
+  --brass:#8A6A1F;
+  --led-good:#2C7F69;--led-ok:#3B6BA8;--led-warn:#B05A26;--led-bad:#B83A34;
+  --amber:#8A6A1F;--amber2:#6E5417;--ab:rgba(138,106,31,.10);
+  --red:#B83A34;--rb:rgba(184,58,52,.08);--green:#2C7F69;--gb:rgba(44,127,105,.08);
+  --blue:#3B6BA8;--bb:rgba(59,107,168,.08);
+  --purple:#8A6A1F;--pb:rgba(138,106,31,.08);
+  --grad-amber:linear-gradient(180deg,#9A7A2C,#8A6A1F);
 }
 
 /* TEXT SIZE.
@@ -68,7 +70,7 @@
    safe-area floors. Those are physical touch targets and notch clearances;
    growing them with the text is how a "bigger font" setting turns into a
    broken layout. Text grows, chrome stays put. */
-html{font-size:calc(16px * var(--ui-scale,1))}
+html{font-size:calc(16px * var(--ui-scale,1));font-variant-numeric:lining-nums}
 html,body{height:100%;overflow:hidden;-webkit-text-size-adjust:100%}
 body{
   font-family:var(--font-body);
@@ -94,13 +96,13 @@ body::before{
 .tone-ok{--band:var(--led-ok);--band2:var(--led-ok)}
 .tone-warn{--band:var(--led-warn);--band2:var(--led-warn)}
 .tone-bad{--band:var(--led-bad);--band2:var(--led-bad)}
-/* No verdict yet glows in the brand colour, not dead grey: "too close to call"
-   is a state, not a fault, and an all-grey hero read as broken. */
-.tone-na{--band:var(--purple);--band2:var(--purple)}
+/* No verdict yet is the brand's brass, not dead grey: "too close to call"
+   is a state, not a fault. */
+.tone-na{--band:var(--brass);--band2:var(--brass)}
 
 .btn{border:none;border-radius:var(--r-md);padding:13px 18px;font-size:0.9375rem;font-weight:800;cursor:pointer;transition:transform .12s var(--ease),opacity .15s,background .15s;font-family:inherit;line-height:1;letter-spacing:.01em}
 .btn:active{transform:scale(.97)}
-.bp{background:var(--text);color:var(--bg)}
+.bp{background:var(--amber);color:var(--bg)}
 .bp:active{opacity:.9}
 .bg_{background:transparent;color:var(--text);border:1px solid var(--border2)}
 .bg_:active{background:var(--bg3)}
@@ -109,14 +111,14 @@ body::before{
 .bfl{width:100%;margin-bottom:8px;display:block;text-align:center}
 .btn:disabled{opacity:.4;cursor:default;transform:none}
 
-.page-hd{font-family:var(--font-display);font-size:2.25rem;font-weight:900;text-transform:uppercase;margin-bottom:2px;letter-spacing:.005em;line-height:.95;color:var(--text)}
+.page-hd{font-family:var(--font-display);font-size:2.25rem;font-weight:700;margin-bottom:2px;letter-spacing:0;line-height:1.05;color:var(--text)}
 .page-sub{font-size:0.8125rem;color:var(--muted);margin-bottom:18px}
 
 .card{
   background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);
   padding:16px;margin-bottom:12px;transition:border-color .2s,transform .2s var(--ease);
 }
-.card-lbl{font-family:var(--font-display);font-size:0.875rem;font-weight:800;text-transform:uppercase;letter-spacing:.14em;color:var(--muted);margin-bottom:10px}
+.card-lbl{font-family:var(--font-label);font-size:0.875rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:10px}
 .card-link{font-size:0.75rem;font-weight:800;color:var(--text);text-decoration:none;margin-bottom:10px}
 .card-tap{cursor:pointer;-webkit-tap-highlight-color:transparent}
 .card-tap:hover{border-color:var(--border2)}
@@ -143,13 +145,13 @@ input:focus,select:focus,textarea:focus{border-color:var(--text);box-shadow:0 0 
 
 .srow{display:flex;gap:8px;margin-bottom:14px}
 .scard{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);padding:12px 10px;flex:1;text-align:center}
-.sval{font-family:var(--font-display);font-size:1.75rem;font-weight:900;color:var(--text);display:block;line-height:1;font-variant-numeric:tabular-nums}
+.sval{font-family:var(--font-display);font-size:1.75rem;font-weight:700;color:var(--text);display:block;line-height:1;font-variant-numeric:lining-nums tabular-nums}
 .slbl{font-size:0.6875rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-top:4px;display:block;font-weight:700}
 
 .rcard{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);padding:14px 15px;margin-bottom:9px;cursor:pointer;transition:border-color .15s,transform .15s var(--ease)}
 .rcard:active{border-color:var(--text);transform:scale(.99)}
 
-h3{font-family:var(--font-display);font-size:0.9375rem;font-weight:800;text-transform:uppercase;letter-spacing:.14em;color:var(--muted);margin:22px 0 10px}
+h3{font-family:var(--font-label);font-size:0.9375rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:22px 0 10px}
 strong{color:var(--text);font-weight:800}
 
 .tog{position:relative;width:46px;height:26px;background:var(--bg3);border:1px solid var(--border2);border-radius:13px;cursor:pointer;transition:background .25s var(--ease);flex-shrink:0}
@@ -159,7 +161,7 @@ strong{color:var(--text);font-weight:800}
 
 .dchips{display:flex;gap:6px;flex-wrap:wrap}
 .dc{flex:1;min-width:34px;height:36px;border-radius:var(--r-sm);border:1px solid var(--border2);background:var(--bg3);color:var(--muted);display:flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:800;cursor:pointer;transition:all .15s var(--ease);user-select:none}
-.dc.on{background:var(--text);border-color:transparent;color:var(--bg)}
+.dc.on{background:var(--amber);border-color:transparent;color:var(--bg)}
 .dc:active{transform:scale(.94)}
 
 .gi{display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--border);font-size:0.875rem;transition:opacity .2s}
@@ -168,11 +170,11 @@ strong{color:var(--text);font-weight:800}
 .gchk{width:22px;height:22px;border-radius:var(--r-sm);border:2px solid var(--border2);background:var(--bg3);flex-shrink:0;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s var(--ease)}
 .gchk.on{background:var(--led-good);border-color:transparent;color:#06110b}
 .gn{flex:1;line-height:1.4}
-.gp{font-size:0.75rem;color:var(--text);font-weight:800;white-space:nowrap;font-variant-numeric:tabular-nums}
+.gp{font-size:0.75rem;color:var(--text);font-weight:800;white-space:nowrap;font-variant-numeric:lining-nums tabular-nums}
 
 .tab-row{display:flex;gap:4px;margin-bottom:14px;background:var(--bg2);padding:4px;border-radius:var(--r-md);border:1px solid var(--border)}
 .tab{flex:1;padding:9px 0;border:none;background:none;border-radius:var(--r-sm);font-size:0.8125rem;font-weight:800;color:var(--muted);cursor:pointer;text-align:center;transition:all .2s var(--ease);font-family:inherit}
-.tab.on{background:var(--text);color:var(--bg)}
+.tab.on{background:var(--amber);color:var(--bg)}
 
 .moverlay{position:fixed;inset:0;background:rgba(5,6,8,.72);z-index:200;display:none;align-items:flex-end;opacity:0;transition:opacity .25s var(--ease)}
 .moverlay.open{display:flex;opacity:1}
@@ -193,23 +195,23 @@ strong{color:var(--text);font-weight:800}
 
 .week-tabs{display:flex;gap:4px;margin-bottom:14px;background:var(--bg2);padding:4px;border-radius:var(--r-md);border:1px solid var(--border)}
 .wtab{flex:1;padding:9px 0;border:none;background:none;border-radius:var(--r-sm);font-size:0.8125rem;font-weight:800;color:var(--muted);cursor:pointer;text-align:center;transition:all .2s var(--ease);font-family:inherit}
-.wtab.on{background:var(--text);color:var(--bg)}
+.wtab.on{background:var(--amber);color:var(--bg)}
 
 .chart-box{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r-md);padding:9px;margin:8px 0;overflow:hidden}
 .pbar-wrap{background:var(--bg3);border-radius:2px;height:8px;overflow:hidden;margin:7px 0}
-.pbar{height:100%;border-radius:2px;background:var(--text);transition:width .6s var(--ease)}
+.pbar{height:100%;border-radius:2px;background:var(--amber);transition:width .6s var(--ease)}
 
 .water-drops{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
 .drop{width:32px;height:32px;border-radius:50%;border:2px solid var(--border2);background:var(--bg3);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:0.9375rem;transition:all .2s var(--ease)}
 .drop.on{background:var(--led-ok);border-color:transparent;transform:scale(1.05)}
 
 .acard{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);padding:14px 15px;margin-bottom:9px}
-.atime{font-family:var(--font-display);font-size:2rem;font-weight:900;color:var(--text);font-variant-numeric:tabular-nums;line-height:1}
+.atime{font-family:var(--font-display);font-size:2rem;font-weight:700;color:var(--text);font-variant-numeric:lining-nums tabular-nums;line-height:1}
 .atitle{font-size:0.9375rem;color:var(--text);font-weight:800;margin-top:4px}
 .amsg{font-size:0.8125rem;color:var(--muted);margin-top:2px}
 
 .strk-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);padding:13px;margin-bottom:10px;text-align:center}
-.strk-val{font-family:var(--font-display);font-size:2rem;font-weight:900;color:var(--text);display:block;line-height:1}
+.strk-val{font-family:var(--font-display);font-size:2rem;font-weight:700;color:var(--text);display:block;line-height:1}
 .strk-lbl{font-size:0.6875rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-top:5px;font-weight:700}
 
 .ex-sets-row{display:flex;gap:8px;margin-bottom:9px}
@@ -232,7 +234,7 @@ strong{color:var(--text);font-weight:800}
 .food-list{margin-top:4px}
 .food-item{display:flex;justify-content:space-between;align-items:center;padding:8px 0;background:var(--bg2)}
 .fi-name{font-size:0.9375rem;font-weight:700;color:var(--text)}
-.fi-macros{font-size:0.75rem;color:var(--muted);margin-top:1px;font-variant-numeric:tabular-nums}
+.fi-macros{font-size:0.75rem;color:var(--muted);margin-top:1px;font-variant-numeric:lining-nums tabular-nums}
 .fi-rm{color:var(--muted);cursor:pointer;font-size:0.875rem;padding:4px 6px}
 .fi-repeat{flex-shrink:0;background:var(--bg3);border:1px solid var(--border2);color:var(--text);border-radius:var(--r-sm);width:36px;height:36px;font-size:1rem;cursor:pointer;display:flex;align-items:center;justify-content:center}
 .fi-repeat:disabled{opacity:.5;cursor:default}
@@ -244,7 +246,7 @@ strong{color:var(--text);font-weight:800}
 .hist-day:first-of-type{border-top:none}
 .hist-item{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:3px 0 3px 8px}
 .hist-name{font-size:0.8125rem;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.hist-macros{font-size:0.75rem;color:var(--muted);flex-shrink:0;font-variant-numeric:tabular-nums}
+.hist-macros{font-size:0.75rem;color:var(--muted);flex-shrink:0;font-variant-numeric:lining-nums tabular-nums}
 
 /* Swipe-to-reveal-actions (see $lib/actions/swipe.ts): a row sits on top
    of an actions strip (e.g. Delete) that's revealed by dragging the row

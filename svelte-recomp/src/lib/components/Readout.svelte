@@ -1,11 +1,10 @@
 <script lang="ts">
-  // The scoreboard readout — the one bold element on every tab. A recessed
-  // black LED panel, like a gym's interval clock: seven-segment digits lit over
-  // their own unlit 8s, and a 20-cell bar that lights cell by cell. On entry,
-  // and whenever the data changes, the number counts and the cells light
-  // together, the board powering on. Colour comes from `tone` (the verdict
-  // palette in app.css) and only ever means data. The panel stays black in the
-  // light theme too: a scoreboard is black in daylight.
+  // The measure: each tab's one number in brass serif, and a measuring rule
+  // under it whose ticks light as the number gets there (twenty, every fifth
+  // long, like a rule's centimetres). On entry, and whenever the data changes,
+  // the number counts and the ticks light together. Colour comes from `tone`
+  // (the verdict palette in app.css) and only ever means data; no verdict yet
+  // is the brand's brass.
   type Tone = 'good' | 'ok' | 'warn' | 'bad' | 'na';
   let { value = '', unit = '', caption = '', pct = null, tone = 'na' } = $props<{
     value?: string | number; unit?: string; caption?: string; pct?: number | null; tone?: Tone;
@@ -23,13 +22,8 @@
   });
   const shownUnit = $derived(unit || parsed?.suffix || '');
 
-  // The unlit segments: the final value's shape with every digit an 8, at
-  // least three digits wide, so the board never changes size as it counts.
-  const ghost = $derived.by(() => {
-    const g = (parsed ? parsed.num.toFixed(parsed.decimals) : '--').replace(/[0-9-]/g, '8');
-    return '8'.repeat(Math.max(0, 3 - g.replace('.', '').length)) + g;
-  });
-
+  // A hero number is never red: a bad week is copper, "look here", not an
+  // alarm (red read as guilt, and a big serif zero in red shouts).
   // easeOutCubic over 850 ms. The *From mirrors are plain locals, not state,
   // so reading them as the start point doesn't make the effect depend on the
   // values it writes.
@@ -60,43 +54,30 @@
   const CELLS = Array.from({ length: 20 }, (_, i) => i);
 </script>
 
-<div class="ro tone-{tone}" role="img" aria-label={`${value}${unit ? ' ' + unit : ''}${caption ? ', ' + caption : ''}`}>
+<div class="ro tone-{tone === 'bad' ? 'warn' : tone}" role="img" aria-label={`${value}${unit ? ' ' + unit : ''}${caption ? ', ' + caption : ''}`}>
   <div class="ro-main">
-    <span class="ro-led">
-      <span class="ro-ghost">{ghost}</span>
-      <span class="ro-digits">{digits}</span>
-    </span>
+    <span class="ro-num">{digits}</span>
     <span class="ro-side">
       {#if shownUnit}<span class="ro-unit">{shownUnit}</span>{/if}
       {#if caption}<span class="ro-cap">{caption}</span>{/if}
     </span>
   </div>
   {#if pct != null}
-    <div class="ro-bar">{#each CELLS as i}<i class:on={i < lit}></i>{/each}</div>
+    <div class="ro-rule">{#each CELLS as i}<i class:on={i < lit}></i>{/each}</div>
   {/if}
 </div>
 
 <style>
-  .ro{
-    /* Bright LEDs in both themes. Re-declared here so the .tone-* rule on this
-       same element resolves --band against them, not the light theme's inks. */
-    --led-good:#31f28a;--led-ok:#4da3ff;--led-warn:#ffb020;--led-bad:#ff3b47;--muted:#6f747c;
-    background:#08090a;border:1px solid #000;border-radius:var(--r-md);
-    box-shadow:inset 0 2px 14px rgba(0,0,0,.75),0 1px 0 rgba(255,255,255,.05);
-    padding:12px 14px 13px;color:#d9d6ce;
-  }
-  .ro-main{display:flex;align-items:flex-end;flex-wrap:wrap;gap:4px 12px}
-  .ro-led{display:inline-grid;font-family:var(--font-led);font-style:italic;font-weight:700;
-    font-size:4.25rem;line-height:1;letter-spacing:.03em}
-  .ro-led>span{grid-area:1/1;justify-self:end;white-space:pre}
-  .ro-ghost{color:var(--band);opacity:.09}
-  .ro-digits{color:var(--band);
-    text-shadow:0 0 2px color-mix(in srgb,var(--band) 80%,transparent),0 0 16px color-mix(in srgb,var(--band) 55%,transparent)}
-  .ro-side{display:flex;flex-direction:column;gap:3px;padding-bottom:4px;min-width:0}
-  .ro-unit{font-family:var(--font-display);font-size:1.75rem;font-weight:800;line-height:1;color:#ece9e2}
-  .ro-cap{font-family:var(--font-display);font-size:0.9375rem;font-weight:700;line-height:1.15;
-    text-transform:uppercase;letter-spacing:.06em;color:#9a9ea5;text-wrap:balance}
-  .ro-bar{display:grid;grid-template-columns:repeat(20,1fr);gap:3px;margin-top:12px}
-  .ro-bar i{height:8px;border-radius:1px;background:color-mix(in srgb,var(--band) 13%,#000)}
-  .ro-bar i.on{background:var(--band);box-shadow:0 0 7px color-mix(in srgb,var(--band) 55%,transparent)}
+  .ro{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);padding:14px 18px;color:var(--text)}
+  .ro-main{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 12px}
+  .ro-num{font-family:var(--font-display);font-weight:700;font-size:4.75rem;line-height:.95;letter-spacing:-.01em;
+    color:var(--band);font-variant-numeric:lining-nums tabular-nums;white-space:pre}
+  .ro-side{display:flex;flex-direction:column;gap:3px;min-width:0}
+  .ro-unit{font-family:var(--font-body);font-size:1.0625rem;font-weight:700;line-height:1;color:var(--text)}
+  .ro-cap{font-family:var(--font-label);font-size:0.75rem;font-weight:700;line-height:1.3;
+    text-transform:uppercase;letter-spacing:.09em;color:var(--muted);text-wrap:balance}
+  .ro-rule{display:grid;grid-template-columns:repeat(20,1fr);align-items:end;height:14px;margin-top:12px;border-bottom:2px solid var(--border2)}
+  .ro-rule i{justify-self:center;width:2px;height:7px;border-radius:1px 1px 0 0;background:var(--border2)}
+  .ro-rule i:nth-child(5n){height:13px}
+  .ro-rule i.on{background:var(--band)}
 </style>

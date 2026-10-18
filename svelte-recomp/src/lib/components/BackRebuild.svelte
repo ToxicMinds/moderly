@@ -182,18 +182,18 @@
 <style>
   .br{position:relative}
   .br-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
-  .br-eyebrow{font-family:var(--font-display,inherit);font-size:0.75rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
-  .br-week{font-size:0.8125rem;font-weight:800;color:var(--text);font-variant-numeric:tabular-nums}
-  .br-phase{font-family:var(--font-display,inherit);font-size:1.75rem;font-weight:900;line-height:1;letter-spacing:-.01em;text-transform:uppercase;color:var(--text);margin:6px 0 10px}
+  .br-eyebrow{font-family:var(--font-label);font-size:0.75rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+  .br-week{font-size:0.8125rem;font-weight:800;color:var(--text);font-variant-numeric:lining-nums tabular-nums}
+  .br-phase{font-family:var(--font-display);font-size:1.75rem;font-weight:700;line-height:1;letter-spacing:0;color:var(--text);margin:6px 0 10px}
   .br-weeks{display:grid;grid-template-columns:repeat(6,1fr);gap:4px;margin-bottom:12px}
   .br-weeks span{height:6px;border-radius:2px;background:var(--bg3)}
   .br-weeks span.done{background:var(--muted)}
-  .br-weeks span.now{background:var(--text)}
+  .br-weeks span.now{background:var(--amber)}
   .br-goal{font-size:0.875rem;line-height:1.5;color:var(--text);margin:0 0 6px}
   .br-effort{font-size:0.8125rem;line-height:1.45;color:var(--muted);margin:0 0 14px}
   .br-q{font-size:0.8125rem;font-weight:700;color:var(--text);margin-bottom:8px}
   .br-rate{display:grid;grid-template-columns:repeat(11,1fr);gap:3px;margin-bottom:10px}
-  .br-n{height:38px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-weight:800;font-size:0.8125rem;cursor:pointer;font-variant-numeric:tabular-nums;padding:0}
+  .br-n{height:38px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-weight:800;font-size:0.8125rem;cursor:pointer;font-variant-numeric:lining-nums tabular-nums;padding:0}
   .br-n.on[data-band='good']{background:var(--led-good,#31f28a);color:#06110b;border-color:transparent}
   .br-n.on[data-band='warn']{background:var(--led-warn,#ffb020);color:#1a1000;border-color:transparent}
   .br-n.on[data-band='bad']{background:var(--led-bad,#ff3b47);color:#fff;border-color:transparent}
@@ -202,7 +202,7 @@
   .br-dot{flex-shrink:0;width:10px;height:10px;border-radius:50%;margin-top:4px;background:var(--band,#8d9098);box-shadow:0 0 10px var(--band,transparent)}
   .br-advice b,.br-rules b{display:block;font-size:0.875rem;color:var(--text)}
   .br-advice p,.br-rules p{margin:2px 0 0;font-size:0.8125rem;line-height:1.45;color:var(--muted)}
-  .br-today{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;text-align:left;background:var(--text);color:var(--bg);border:none;border-radius:var(--r-md,10px);padding:12px 14px;margin-bottom:8px;cursor:pointer;font-family:inherit}
+  .br-today{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;text-align:left;background:var(--amber);color:var(--bg);border:none;border-radius:var(--r-md,10px);padding:12px 14px;margin-bottom:8px;cursor:pointer;font-family:inherit}
   .br-today span{display:flex;flex-direction:column;gap:1px}
   .br-today em{font-style:normal;font-size:0.6875rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;opacity:.7}
   .br-today b{font-size:1rem}
@@ -218,7 +218,7 @@
   .br-videos{display:flex;flex-direction:column;align-items:flex-start;gap:8px;padding:10px 0}
   .br-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
   .br-later{margin-top:-2px}
-  .br-dhead{font-family:var(--font-display,inherit);font-size:1.5rem;font-weight:900;text-transform:uppercase;color:var(--text);margin-bottom:4px}
+  .br-dhead{font-family:var(--font-display);font-size:1.5rem;font-weight:700;color:var(--text);margin-bottom:4px}
   .br-dex{border-top:1px solid var(--border);padding:12px 0}
   .br-dex-top{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
   .br-dex-top b{font-size:0.9375rem;color:var(--text)}

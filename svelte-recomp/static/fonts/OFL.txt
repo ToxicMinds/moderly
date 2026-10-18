@@ -4,11 +4,8 @@ Their notices, as read from the font files:
 Atkinson Hyperlegible Next (atkinson-latin.woff2, atkinson-latin-ext.woff2)
 Copyright 2020-2024 The Atkinson Hyperlegible Next Project Authors (https://github.com/googlefonts/atkinson-hyperlegible-next)
 
-Big Shoulders Display (bigshoulders-latin.woff2, bigshoulders-latin-ext.woff2)
-Copyright 2019 The Big Shoulders Project Authors (https://github.com/xotypeco/big_shoulders)
-
-DSEG7 Classic (dseg7-bolditalic.woff2, unmodified)
-Copyright (c) 2018, keshikan (http://www.keshikan.net), with Reserved Font Name "DSEG".
+Cormorant Garamond (cormorant-latin.woff2, cormorant-latin-ext.woff2)
+Copyright 2015 The Cormorant Project Authors (github.com/CatharsisFonts/Cormorant)
 
 This Font Software is licensed under the SIL Open Font License, Version 1.1.
 This license is copied below, and is also available with a FAQ at:

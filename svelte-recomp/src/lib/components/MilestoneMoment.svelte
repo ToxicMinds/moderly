@@ -60,13 +60,13 @@
 
 <style>
   .mm{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r-lg);padding:18px 16px 14px;margin-bottom:14px;text-align:left}
-  .mm-led{font-family:var(--font-led);font-size:3.25rem;line-height:1;color:var(--led-good);letter-spacing:.02em;margin-bottom:10px}
-  .mm-h{font-family:var(--font-display);font-size:1.5rem;font-weight:800;text-transform:uppercase;color:var(--text);margin:0 0 8px;letter-spacing:.01em}
+  .mm-led{font-family:var(--font-display);font-weight:700;font-size:3.5rem;line-height:1;color:var(--led-good);letter-spacing:.02em;margin-bottom:10px}
+  .mm-h{font-family:var(--font-display);font-size:1.5rem;font-weight:700;color:var(--text);margin:0 0 8px;letter-spacing:0}
   .mm-p{font-size:0.9375rem;line-height:1.5;color:var(--text);margin:0 0 8px}
   .mm-why{font-size:0.9375rem;line-height:1.5;color:var(--muted);font-style:italic;margin:0 0 12px}
-  .mm-lbl{font-family:var(--font-display);font-size:0.8125rem;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);margin:4px 0 6px}
+  .mm-lbl{font-family:var(--font-label);font-size:0.8125rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:4px 0 6px}
   .mm-stops{display:flex;flex-wrap:wrap;gap:8px}
-  .mm-stop{font-family:var(--font-display);font-size:1.125rem;font-weight:800;color:var(--text);cursor:pointer;
+  .mm-stop{font-family:var(--font-display);font-size:1.125rem;font-weight:700;color:var(--text);cursor:pointer;
     background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r-sm);padding:8px 14px}
   .mm-stop:active{transform:scale(.97)}
   .mm-later{display:block;margin-top:12px;background:none;border:none;padding:0;font:inherit;font-size:0.8125rem;font-weight:700;color:var(--muted);

@@ -114,7 +114,7 @@
     width:34px;height:34px;border-radius:var(--r-sm);
     display:flex;align-items:center;justify-content:center;
     font-size:1.1rem;font-weight:800;color:var(--bg);
-    background:var(--text);
+    background:var(--amber);
     animation:nuBob 1.8s ease-in-out infinite;
   }
   .nu-body{flex:1;min-width:0}
@@ -126,7 +126,7 @@
     border:none;cursor:pointer;font-family:inherit;font-weight:800;
     font-size:0.8125rem;color:var(--bg);text-decoration:none;
     display:inline-flex;align-items:center;justify-content:center;
-    background:var(--text);
+    background:var(--amber);
     border-radius:var(--r-sm);padding:9px 14px;min-height:40px;
     transition:transform .12s;
   }

@@ -1148,6 +1148,21 @@ check('the update dot never says "up to date" while the phone app is behind', as
   assert.match(badge, /else if \(appBehind\)[\s\S]*?else \{\s*showToast\(`Up to date/, '"Up to date" only after both checks');
 });
 
+check('every notification wears the Moderly mark: the balance, in brass', async () => {
+  // The briefing and hold (MomentReceiver), every alarm and reminder (Capacitor
+  // LocalNotifications, both copies of its config) and web push.
+  const { readFileSync, existsSync } = await import('node:fs');
+  assert.ok(existsSync('android/app/src/main/res/drawable/ic_stat_moderly.xml'));
+  const rx = readFileSync('android/app/src/main/java/com/toxicminds/recompos/MomentReceiver.java', 'utf8');
+  assert.match(rx, /setSmallIcon\(R\.drawable\.ic_stat_moderly\)\s*\.setColor\(0xFFC9A54E\)/);
+  for (const f of ['capacitor.config.json', 'android/app/src/main/assets/capacitor.config.json']) {
+    const ln = JSON.parse(readFileSync(f, 'utf8')).plugins?.LocalNotifications;
+    assert.deepEqual(ln, { smallIcon: 'ic_stat_moderly', iconColor: '#C9A54E' }, f);
+  }
+  const sw = readFileSync('src/service-worker.ts', 'utf8');
+  assert.ok(!/badge: base \+ '\/icon\.svg'/.test(sw) && existsSync('static/badge-96.png'), 'a monochrome PNG badge, not the colour SVG');
+});
+
 check('the native build number matches the gradle versionCode', async () => {
   const { readFileSync } = await import('node:fs');
   const gradle = readFileSync('android/app/build.gradle', 'utf8').match(/versionCode\s+(\d+)/);

@@ -112,8 +112,8 @@ self.addEventListener('message', (event) => {
       try {
         await self.registration.showNotification(alarm.title, {
           body: alarm.msg || '',
-          icon: base + '/icon.svg',
-          badge: base + '/icon.svg',
+          icon: base + '/icon-192.png',
+          badge: base + '/badge-96.png',
           vibrate: [400, 150, 400, 150, 400, 150, 400],
           tag: `local-${alarm.id}`,
           requireInteraction: true
@@ -136,8 +136,8 @@ self.addEventListener('push', (event) => {
     Promise.all([
       self.registration.showNotification(payload.title || 'Moderly', {
         body: payload.body || '',
-        icon: base + '/icon.svg',
-        badge: base + '/icon.svg',
+        icon: base + '/icon-192.png',
+        badge: base + '/badge-96.png',
         vibrate: [400, 150, 400, 150, 400, 150, 400],
         requireInteraction: true,
         tag: payload.tag || 'recompos',

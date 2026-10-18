@@ -330,7 +330,8 @@ public class MomentReceiver extends BroadcastReceiver {
         int nl = body.indexOf('\n');
         Intent open = ctx.getPackageManager().getLaunchIntentForPackage(ctx.getPackageName());
         NotificationCompat.Builder n = new NotificationCompat.Builder(ctx, channel)
-            .setSmallIcon(evening ? R.drawable.ic_stat_evening : R.drawable.ic_stat_morning)
+            .setSmallIcon(R.drawable.ic_stat_moderly)
+            .setColor(0xFFC9A54E) // brass: the mark and the buttons, like every Moderly notification
             .setContentTitle(m.title)
             .setContentText(nl > 0 ? body.substring(0, nl) : body)
             .setStyle(new NotificationCompat.BigTextStyle().bigText(body))

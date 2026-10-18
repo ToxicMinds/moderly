@@ -46,12 +46,12 @@
 
 <style>
   .wj-month{font-size:0.8125rem;color:var(--muted);padding:12px 0 2px;border-bottom:1px solid var(--border)}
-  .wj-month b{font-family:var(--font-display);font-size:0.9375rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--text)}
+  .wj-month b{font-family:var(--font-label);font-size:0.9375rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text)}
   .wj-row{padding:10px 0;border-bottom:1px solid var(--border)}
   .wj-row:last-child{border-bottom:none}
   .wj-top{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
-  .wj-date{font-family:var(--font-display);font-size:0.9375rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--text)}
-  .wj-kg{font-family:var(--font-display);font-size:1.0625rem;font-weight:800;color:var(--text);font-variant-numeric:tabular-nums}
+  .wj-date{font-family:var(--font-label);font-size:0.9375rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text)}
+  .wj-kg{font-family:var(--font-display);font-size:1.0625rem;font-weight:700;color:var(--text);font-variant-numeric:lining-nums tabular-nums}
   .wj-kg em{font-style:normal;font-size:0.8125rem;margin-left:6px;color:var(--muted)}
   .wj-kg em.down{color:var(--led-good)}
   .wj-kg em.up{color:var(--led-warn)}

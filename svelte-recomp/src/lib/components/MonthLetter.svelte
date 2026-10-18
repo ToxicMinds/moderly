@@ -60,10 +60,10 @@
 
 <style>
   .ml{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r-lg);padding:16px 16px 12px;margin-bottom:14px}
-  .ml-h{font-family:var(--font-display);font-size:1.375rem;font-weight:800;text-transform:uppercase;color:var(--text);letter-spacing:.01em;margin-bottom:8px}
+  .ml-h{font-family:var(--font-display);font-size:1.375rem;font-weight:700;color:var(--text);letter-spacing:0;margin-bottom:8px}
   .ml-p{font-size:0.9375rem;line-height:1.5;color:var(--text);margin:0 0 6px}
   .ml-stop b{color:var(--led-good)}
-  .ml-lbl{font-family:var(--font-display);font-size:0.8125rem;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);margin:12px 0 6px}
+  .ml-lbl{font-family:var(--font-label);font-size:0.8125rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:12px 0 6px}
   .ml-note{font-size:0.9375rem;line-height:1.5;color:var(--text);padding-left:10px;border-left:2px solid var(--border2);margin-bottom:8px}
   .ml-note span{display:block;font-size:0.75rem;color:var(--muted)}
   .ml-close{display:block;margin-top:8px;background:none;border:none;padding:0;font:inherit;font-size:0.8125rem;font-weight:700;color:var(--muted);

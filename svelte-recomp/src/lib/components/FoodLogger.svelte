@@ -421,7 +421,7 @@
   .lg-protein b{color:var(--text)}
   .lg-chip-p em{color:var(--led-good)}
   .lg-results,.lg-quick,.lg-review{margin-top:8px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg,14px);padding:4px;overflow:hidden}
-  .lg-sec{font-family:var(--font-display,inherit);font-size:0.75rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);padding:12px 10px 4px}
+  .lg-sec{font-family:var(--font-label);font-size:0.75rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:12px 10px 4px}
   .lg-spin{font-family:var(--font-body,inherit);letter-spacing:0;text-transform:none;font-weight:600;color:var(--led-ok,#4da3ff)}
   .lg-row{display:flex;flex-direction:column;align-items:flex-start;gap:1px;width:100%;background:none;border:none;border-radius:var(--r-md,10px);padding:10px;text-align:left;cursor:pointer;color:var(--text);font-family:inherit}
   .lg-row:active,.lg-row:hover{background:var(--bg3)}
@@ -449,7 +449,7 @@
   .lg-src{font-size:0.75rem;color:var(--muted);margin:3px 0 10px;line-height:1.4}
   .lg-portions{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:12px}
   .chip{background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:999px;padding:7px 12px;font-size:0.8125rem;font-weight:650;cursor:pointer;font-family:inherit}
-  .chip.on{background:var(--text);color:var(--bg);border-color:var(--text)}
+  .chip.on{background:var(--amber);color:var(--bg);border-color:var(--amber)}
   .lg-grams{display:flex;align-items:center;gap:4px}
   .lg-grams input{width:84px;padding:7px 9px;text-align:right}
   .lg-grams span{font-size:0.8125rem;color:var(--muted)}
@@ -457,12 +457,12 @@
   .lg-items li{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);font-size:0.8125rem}
   .lg-it-n{flex:1;min-width:0;color:var(--text)}
   .lg-it-n em{font-style:normal;color:var(--muted)}
-  .lg-it-k{font-variant-numeric:tabular-nums;color:var(--muted)}
+  .lg-it-k{font-variant-numeric:lining-nums tabular-nums;color:var(--muted)}
   .lg-it-x{background:none;border:none;color:var(--muted);font-size:1.125rem;cursor:pointer;width:32px;height:32px}
   .lg-total{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin:2px 0 12px}
-  .lg-total b{font-family:var(--font-display,inherit);font-size:2.25rem;font-weight:900;letter-spacing:-.02em;line-height:1;color:var(--text);font-variant-numeric:tabular-nums}
+  .lg-total b{font-family:var(--font-display);font-size:2.25rem;font-weight:700;letter-spacing:-.02em;line-height:1;color:var(--text);font-variant-numeric:lining-nums tabular-nums}
   .lg-total span{font-size:0.8125rem;color:var(--muted);margin-right:6px}
-  .lg-total i{font-style:normal;font-size:0.875rem;font-weight:700;color:var(--text);background:var(--bg3);border-radius:6px;padding:3px 7px;font-variant-numeric:tabular-nums}
+  .lg-total i{font-style:normal;font-size:0.875rem;font-weight:700;color:var(--text);background:var(--bg3);border-radius:6px;padding:3px 7px;font-variant-numeric:lining-nums tabular-nums}
   .lg-manual{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:8px 0 12px}
   .lg-manual label{display:flex;flex-direction:column;gap:3px}
   .lg-manual span{font-size:0.6875rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}

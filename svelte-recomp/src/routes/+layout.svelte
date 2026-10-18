@@ -49,7 +49,7 @@
   // in amber, and an amber tint on every page for weeks would say it on the
   // food log and the training screen too, where it helps nobody.
   $effect(() => {
-    const aura = $todayPulse.tone === 'good' ? 'rgba(49,242,138,.10)' : 'transparent';
+    const aura = $todayPulse.tone === 'good' ? 'rgba(79,181,154,.10)' : 'transparent';
     document.documentElement.style.setProperty('--aura', aura);
   });
 
@@ -565,11 +565,11 @@
 </div>
 
 <style>
-  .cw-h{font-family:var(--font-display);font-size:1.75rem;font-weight:800;color:var(--text);margin-bottom:8px}
+  .cw-h{font-family:var(--font-display);font-size:1.75rem;font-weight:700;color:var(--text);margin-bottom:8px}
   .cw-p{font-size:0.875rem;line-height:1.5;color:var(--text);margin:0 0 14px}
   .cw-no{margin-top:8px}
 #topbar{background:var(--bg);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:calc(var(--st) + 10px) 18px 12px;min-height:calc(var(--st) + var(--top-h));z-index:50;flex-shrink:0}
-#topbar-title{font-family:var(--font-display);font-size:22px;font-weight:900;text-transform:uppercase;letter-spacing:.04em;line-height:1;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#topbar-title{font-family:var(--font-display);font-size:26px;font-weight:700;letter-spacing:0;line-height:1;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   /* The topbar is chrome, so it is pinned in px and does NOT follow --ui-scale.
      At the largest text size a scaled brand mark plus the buttons is wider than
      a 360px phone, and what gets pushed off the edge is Sign out and the
@@ -578,12 +578,12 @@
   .icn-btn{width:36px;height:36px;flex-shrink:0;border-radius:var(--r-sm);border:1px solid var(--border2);background:var(--bg2);color:var(--text);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s var(--ease);font-size:16px;text-decoration:none}
 .icn-btn:active{transform:scale(.9);border-color:var(--text)}
   .icn-btn svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-  .menu-h{font-family:var(--font-display);font-size:1.5rem;font-weight:800;text-transform:uppercase;color:var(--text);margin-bottom:14px;letter-spacing:.01em}
+  .menu-h{font-family:var(--font-display);font-size:1.5rem;font-weight:700;color:var(--text);margin-bottom:14px;letter-spacing:0}
   .menu-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)}
   .menu-lbl{font-size:0.9375rem;font-weight:700;color:var(--text)}
   .menu-sizes{display:flex;gap:6px}
   .menu-size{width:42px;height:36px;border-radius:var(--r-sm);border:1px solid var(--border2);background:var(--bg3);color:var(--muted);font-weight:800;cursor:pointer;font-family:inherit}
-  .menu-size.on{background:var(--text);color:var(--bg);border-color:transparent}
+  .menu-size.on{background:var(--amber);color:var(--bg);border-color:transparent}
   .menu-item{display:flex;align-items:center;justify-content:space-between;width:100%;gap:12px;padding:14px 0;border:none;border-bottom:1px solid var(--border);background:none;color:var(--text);font-size:0.9375rem;font-weight:700;cursor:pointer;font-family:inherit}
   .menu-item .menu-val{color:var(--muted);font-weight:600}
   .menu-item.danger{color:var(--red);border-bottom:none}

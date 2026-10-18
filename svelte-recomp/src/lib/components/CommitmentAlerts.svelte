@@ -62,9 +62,9 @@
     transition:transform .18s var(--ease)}
   .ca:active{transform:scale(.99)}
   .ca-line{border-left-color:var(--band)}
-  .ca-k{font-family:var(--font-display);font-size:0.875rem;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:var(--muted)}
+  .ca-k{font-family:var(--font-label);font-size:0.875rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
   .ca-line .ca-k{color:var(--band)}
-  .ca-k b{font-family:var(--font-led);font-style:italic;letter-spacing:0;margin-left:6px}
+  .ca-k b{font-family:var(--font-display);font-size:1.125rem;letter-spacing:0;margin-left:6px}
   .ca-t{font-size:0.9375rem;font-weight:700;line-height:1.4;color:var(--text)}
   .ca-f{font-size:0.75rem;line-height:1.45;color:var(--muted)}
   .ca-fix{align-self:flex-start;margin-top:4px}

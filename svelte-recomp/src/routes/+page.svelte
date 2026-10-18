@@ -367,7 +367,7 @@
   .mw-trend{font-size:0.8125rem;color:var(--muted)}
   .mw-trend b{font-family:var(--font-display);font-size:1.125rem;color:var(--text)}
   .mw-row{display:flex;gap:8px}
-  .mw-row input{flex:1;min-width:0;font-size:1.25rem;font-weight:700;text-align:center;font-variant-numeric:tabular-nums}
+  .mw-row input{flex:1;min-width:0;font-size:1.25rem;font-weight:700;text-align:center;font-variant-numeric:lining-nums tabular-nums}
   .mw-row .btn{flex-shrink:0;min-width:88px}
   .mw-hint{font-size:0.75rem;color:var(--muted);margin-top:7px;line-height:1.45}
   .mw-err,.mw-msg{font-size:0.75rem;margin-top:6px;color:var(--led-good)}
@@ -381,16 +381,16 @@
     background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-md);padding:9px 11px;text-align:left;
     transition:transform .18s var(--ease),border-color .15s}
   .cm-chip:active{transform:scale(.97)}
-  .cm-chip span{font-family:var(--font-display);font-size:0.75rem;font-weight:800;text-transform:uppercase;letter-spacing:.14em;color:var(--muted)}
-  .cm-chip b{font-family:var(--font-display);font-size:1.25rem;font-weight:800;line-height:1;color:var(--text);white-space:nowrap}
+  .cm-chip span{font-family:var(--font-label);font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+  .cm-chip b{font-family:var(--font-display);font-size:1.25rem;font-weight:700;line-height:1;color:var(--text);white-space:nowrap}
   .cm-chip b.cm-todo{color:var(--muted);text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--border2)}
   .cm-goal-in{text-align:center;min-width:0}
   .td{padding:6px 14px}
   .td-row{display:flex;align-items:baseline;gap:12px;padding:9px 0;cursor:pointer;-webkit-tap-highlight-color:transparent}
   .td-row + .td-sub + .td-row{border-top:1px solid var(--border);margin-top:9px}
-  .td-k{font-family:var(--font-display);font-size:0.8125rem;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);min-width:76px}
+  .td-k{font-family:var(--font-label);font-size:0.8125rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);min-width:76px}
   .td-v{flex:1;min-width:0;font-size:0.9375rem;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .td-v b{font-family:var(--font-display);font-size:1.25rem;font-weight:800}
+  .td-v b{font-family:var(--font-display);font-size:1.25rem;font-weight:700}
   .td-sub{font-size:0.75rem;color:var(--muted);margin:-6px 0 0 88px}
   .td-go{color:var(--muted);font-size:1.25rem;line-height:1}
   .td-done{color:var(--led-good);font-weight:700;font-size:0.8125rem}

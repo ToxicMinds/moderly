@@ -642,7 +642,7 @@
   .ob{padding:24px 20px 40px;max-width:460px;margin:0 auto}
   .ob-gap{margin-top:16px}
   .ob-stops{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 4px}
-  .ob-stop{font-family:var(--font-display);font-size:1rem;font-weight:800;color:var(--text);cursor:pointer;
+  .ob-stop{font-family:var(--font-display);font-size:1rem;font-weight:700;color:var(--text);cursor:pointer;
     background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r-sm);padding:8px 14px}
   .ob-stop.on{border-color:var(--amber);background:var(--ab)}
   .ob-use{background:none;border:none;padding:6px 0 0;font:inherit;font-size:0.8125rem;font-weight:700;color:var(--text);

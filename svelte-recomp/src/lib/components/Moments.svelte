@@ -165,11 +165,11 @@
 
 <style>
   .mb{margin-bottom:14px}
-  .mb-h{font-family:var(--font-display);font-size:1.25rem;font-weight:800;text-transform:uppercase;color:var(--text);letter-spacing:.01em;line-height:1.1}
+  .mb-h{font-family:var(--font-display);font-size:1.25rem;font-weight:700;color:var(--text);letter-spacing:0;line-height:1.1}
   .mb-lede{font-size:0.8125rem;line-height:1.5;color:var(--muted);margin:10px 0 0}
   .mb-note{font-size:0.8125rem;color:var(--text);margin-top:10px}
   .mb-lbl{margin-top:12px}
-  .mb-tag{font-family:var(--font-display);font-size:0.75rem;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);margin:14px 0 6px}
+  .mb-tag{font-family:var(--font-label);font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:14px 0 6px}
   /* Drawn as the notification it will be. */
   .mb-note-card{background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r-md);padding:10px 12px}
   .mb-app{font-size:0.6875rem;color:var(--muted);margin-bottom:3px}

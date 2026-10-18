@@ -169,11 +169,11 @@
 </Modal>
 
 <style>
-  .cm-h{font-family:var(--font-display);font-size:1.5rem;font-weight:800;text-transform:uppercase;color:var(--text);margin-bottom:8px;letter-spacing:.01em}
+  .cm-h{font-family:var(--font-display);font-size:1.5rem;font-weight:700;color:var(--text);margin-bottom:8px;letter-spacing:0}
   .cm-lede{font-size:0.875rem;line-height:1.5;color:var(--text);margin:0 0 8px}
   .cm-why{font-size:0.8125rem;line-height:1.5;color:var(--muted);margin:0 0 14px}
-  .cm-lbl{display:block;font-family:var(--font-display);font-size:0.875rem;font-weight:800;text-transform:uppercase;
-    letter-spacing:.12em;color:var(--muted);margin:12px 0 6px}
+  .cm-lbl{display:block;font-family:var(--font-label);font-size:0.875rem;font-weight:700;text-transform:uppercase;
+    letter-spacing:.08em;color:var(--muted);margin:12px 0 6px}
   .cm-hint{font-size:0.75rem;color:var(--muted);margin-top:6px;line-height:1.45}
   .cm-use{background:none;border:none;padding:6px 0 0;font:inherit;font-size:0.8125rem;font-weight:700;color:var(--text);
     text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--border2);cursor:pointer}
@@ -183,7 +183,7 @@
   .cm-turn{font-size:0.875rem;line-height:1.5;color:var(--text);margin-top:12px;padding:11px 12px;
     background:var(--bg3);border-left:3px solid var(--led-ok);border-radius:var(--r-sm) var(--r-md) var(--r-md) var(--r-sm)}
   .cm-stops{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
-  .cm-stop{font-family:var(--font-display);font-size:1rem;font-weight:800;color:var(--text);cursor:pointer;
+  .cm-stop{font-family:var(--font-display);font-size:1rem;font-weight:700;color:var(--text);cursor:pointer;
     background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r-sm);padding:6px 12px}
   .cm-stop.on{border-color:var(--text)}
   .pl-row textarea{resize:vertical}
