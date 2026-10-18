@@ -36,7 +36,8 @@ export async function saveMomentInputs(ctx: MomentContext): Promise<void> {
       try {
         if (it.type === 'weight') {
           if (get(confirmWeight)?.id === it.id) continue; // already asking
-          await saveWeighIn(ctx.uid, it.kg, { ...weighCtx(ctx), today: it.date });
+          // Sent twice from the notification when far from the trend: answered.
+          await saveWeighIn(ctx.uid, it.kg, { ...weighCtx(ctx), today: it.date, confirmed: !!it.confirmed });
         } else if (it.type === 'back') {
           await upsertRecord('daily_logs', { user_id: ctx.uid, date: it.date, back_pain: it.value });
         } else if (it.type === 'meal') {

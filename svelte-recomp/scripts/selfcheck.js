@@ -1098,6 +1098,17 @@ check('alarms are armed from the shell, not only from the Alarms page', async ()
     'otherwise an alarm synced from another device is never armed until you open and edit it');
 });
 
+check('a weight typed on the notification gets its answer on the first line, and the app’s typo range', async () => {
+  // A refused "66666" was said only at the bottom, so it looked taken; and the
+  // phone said "Logged" of weights the app would then ask about.
+  const { readFileSync } = await import('node:fs');
+  const rx = readFileSync('android/app/src/main/java/com/toxicminds/recompos/MomentReceiver.java', 'utf8');
+  assert.match(rx, /if \(!note\.isEmpty\(\)\) text\.append\(note\)[\s\S]*?append\("Logged: "\)[\s\S]*?append\(m\.body\)/, 'answer, then logged, then the briefing');
+  assert.match(rx, /MomentClock\.weighVerdict\(kg, range, lastFar\)/);
+  assert.match(readFileSync('src/lib/stores/moments.ts', 'utf8'), /weighRange: [^\n]*\n[^\n]*OFF_TREND_KG/, 'one threshold, the app’s');
+  assert.match(readFileSync('src/lib/momentActions.ts', 'utf8'), /confirmed: !!it\.confirmed/);
+});
+
 check('every call the app makes on the Moments plugin exists in the APK', async () => {
   // A missing method only fails on the phone, after an install.
   const { readFileSync } = await import('node:fs');

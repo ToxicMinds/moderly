@@ -17,6 +17,7 @@ import { usualBreakfast, type QuickFood } from '$lib/quickAdd';
 import { shiftYmd } from '$lib/date';
 import { lastMonth, monthLetter } from '$lib/week';
 import { forecastHere } from '$lib/weather';
+import { OFF_TREND_KG } from '$lib/scale';
 
 /** user_settings.briefing: the morning switch and time, and the evening's. */
 export interface MomentSetting { on: boolean; after: string; hold: boolean }
@@ -38,7 +39,12 @@ export async function refreshForecast(ask = false): Promise<void> {
 
 /** What the morning briefing's buttons do: weigh in, rate the back while a
  *  program runs, log the usual breakfast when there is one. */
-export interface MomentActions { weigh: boolean; back: boolean; meal: { label: string; kcal: number; items: QuickFood[] } | null }
+export interface MomentActions {
+  weigh: boolean; back: boolean; meal: { label: string; kcal: number; items: QuickFood[] } | null;
+  /** The weights the app saves without asking (trend ± OFF_TREND_KG); the
+   *  phone asks before taking one outside it, as the app does. */
+  weighRange: [number, number] | null;
+}
 
 /** The morning briefing written for today and tomorrow, with its buttons. */
 export const briefings: Readable<Array<Briefing & { actions: MomentActions }>> = derived(
@@ -67,7 +73,11 @@ export const briefings: Readable<Array<Briefing & { actions: MomentActions }>> =
           letter,
           badmintonRule: badmintonRule(program, date),
         }),
-        actions: { weigh: true, back: rateBack, meal: usual ? { label: 'Usual breakfast', kcal: usual.kcal, items: usual.items } : null },
+        actions: {
+          weigh: true, back: rateBack, meal: usual ? { label: 'Usual breakfast', kcal: usual.kcal, items: usual.items } : null,
+          weighRange: $body.currentKg != null
+            ? [Math.round(($body.currentKg - OFF_TREND_KG) * 10) / 10, Math.round(($body.currentKg + OFF_TREND_KG) * 10) / 10] as [number, number] : null,
+        },
       };
     });
   },

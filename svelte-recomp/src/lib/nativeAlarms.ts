@@ -219,7 +219,7 @@ export async function scheduleNudges(nudges: Nudge[], now: Date = new Date()): P
 export interface MomentPayload {
   date: string; key: 'morning' | 'evening'; after: number; until: number; title: string; body: string;
   /** The briefing's buttons (build 8+; older builds ignore them). */
-  actions?: { weigh: boolean; back: boolean; meal: { label: string; kcal: number; items: unknown[] } | null };
+  actions?: { weigh: boolean; back: boolean; meal: { label: string; kcal: number; items: unknown[] } | null; weighRange?: [number, number] | null };
 }
 export interface MomentsState { on: boolean; morning?: { shown?: string; postedAt?: number }; evening?: { shown?: string; postedAt?: number } }
 
@@ -301,7 +301,7 @@ export async function momentsStatus(): Promise<MomentsState | null> {
 // nothing is lost to an app that was closed, offline or killed mid-save.
 
 export type MomentInput =
-  | { id: string; date: string; at: string; type: 'weight'; kg: number }
+  | { id: string; date: string; at: string; type: 'weight'; kg: number; confirmed?: boolean }
   | { id: string; date: string; at: string; type: 'back'; value: number }
   | { id: string; date: string; at: string; type: 'meal'; items: Array<{ name: string; kcal: number; protein_g: number; carbs_g: number; fat_g: number; grams?: number | null }> };
 

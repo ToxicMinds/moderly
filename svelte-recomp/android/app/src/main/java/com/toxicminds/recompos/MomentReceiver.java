@@ -127,14 +127,29 @@ public class MomentReceiver extends BroadcastReceiver {
             JSONObject item = new JSONObject().put("id", System.currentTimeMillis() + "-" + intent.getAction().hashCode())
                 .put("date", date).put("at", java.time.Instant.now().toString());
             String a = intent.getAction();
+            String farKey = "far:" + date + ":" + key;
             if (ACT_WEIGHT.equals(a)) {
                 Double kg = MomentClock.parseKg(typed);
                 if (kg == null) {
-                    p.edit().putString(noteKey, "“" + typed + "” isn’t a weight. Try again, like 112.4.").commit();
+                    p.edit().putString(noteKey, "“" + typed + "” isn’t a weight. Type it like 112.4.").commit();
+                    repost(ctx, p, date, key);
+                    return;
+                }
+                // The app asks before saving a weight far from the trend; ask
+                // here the same way, so "Logged" is never said of one it may refuse.
+                JSONObject acts = moment.optJSONObject("actions");
+                JSONArray r = acts != null ? acts.optJSONArray("weighRange") : null;
+                double[] range = r != null && r.length() == 2 ? new double[] { r.optDouble(0), r.optDouble(1) } : null;
+                Double lastFar = p.contains(farKey) ? (double) p.getFloat(farKey, 0f) : null;
+                int v = MomentClock.weighVerdict(kg, range, lastFar);
+                if (v == MomentClock.KG_FAR) {
+                    p.edit().putFloat(farKey, kg.floatValue())
+                        .putString(noteKey, kg + " kg is far from your trend. If it’s right, send it again.").commit();
                     repost(ctx, p, date, key);
                     return;
                 }
                 item.put("type", "weight").put("kg", kg);
+                if (v == MomentClock.KG_CONFIRMED) item.put("confirmed", true);
                 acted.put("weight", kg + " kg");
             } else if (ACT_BACK.equals(a)) {
                 Integer n = MomentClock.parseRating(typed);
@@ -154,7 +169,7 @@ public class MomentReceiver extends BroadcastReceiver {
             synchronized (QUEUE) {
                 JSONArray queue = new JSONArray(p.getString("pending", "[]"));
                 queue.put(item);
-                p.edit().putString("pending", queue.toString()).putString(actedKey, acted.toString()).remove(noteKey).commit();
+                p.edit().putString("pending", queue.toString()).putString(actedKey, acted.toString()).remove(noteKey).remove(farKey).commit();
             }
             MomentsPlugin.emit(item);
         } catch (Exception e) {
@@ -297,18 +312,20 @@ public class MomentReceiver extends BroadcastReceiver {
         ch.enableVibration(true);
         nm.createNotificationChannel(ch);
 
-        // What was already done from this notification, and what was said back.
+        // What was already done from this notification, and what was said back:
+        // first, so the one line a collapsed notification shows is the answer
+        // to what was just typed (at the bottom, a refused "66666" looked taken).
         SharedPreferences p = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
         JSONObject acted = json(p.getString("acted:" + m.date + ":" + m.key, "{}"));
         String note = p.getString("note:" + m.date + ":" + m.key, "");
-        StringBuilder text = new StringBuilder(m.body);
         StringBuilder done = new StringBuilder();
         for (String k : new String[] { "weight", "back", "meal" }) {
             if (acted.has(k)) done.append(done.length() > 0 ? " · " : "").append(acted.optString(k));
         }
-        if (done.length() > 0) text.append("\nLogged: ").append(done);
-        if (!note.isEmpty()) text.append("\n").append(note);
-        String body = text.toString();
+        StringBuilder text = new StringBuilder();
+        if (!note.isEmpty()) text.append(note).append("\n");
+        if (done.length() > 0) text.append("Logged: ").append(done).append("\n");
+        String body = text.append(m.body).toString();
 
         int nl = body.indexOf('\n');
         Intent open = ctx.getPackageManager().getLaunchIntentForPackage(ctx.getPackageName());

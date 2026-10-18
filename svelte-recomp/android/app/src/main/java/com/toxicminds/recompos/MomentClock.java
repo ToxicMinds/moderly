@@ -88,6 +88,16 @@ final class MomentClock {
         return n <= 10 ? n : null;
     }
 
+    /** A typed weight against the app's trend range [lo, hi] (the app asks
+     *  before saving anything outside it): fine, far (ask), or the same far
+     *  value sent a second time, which is the answer. */
+    static final int KG_OK = 0, KG_FAR = 1, KG_CONFIRMED = 2;
+
+    static int weighVerdict(double kg, double[] range, Double lastFar) {
+        if (range == null || (kg >= range[0] && kg <= range[1])) return KG_OK;
+        return lastFar != null && Math.abs(lastFar - kg) < 0.05 ? KG_CONFIRMED : KG_FAR;
+    }
+
     public static void main(String[] args) {
         String sat = "2026-10-17", sun = "2026-10-18";
         List<Moment> day = new ArrayList<>();
@@ -124,6 +134,10 @@ final class MomentClock {
         check(parseKg("112.34") == 112.3, "to a tenth, like the scale");
         check(parseRating("3") == 3 && parseRating("10") == 10 && parseRating("0") == 0 && parseRating("4/10") == 4, "a rating");
         check(parseRating("11") == null && parseRating("-1") == null && parseRating("three") == null, "not a rating");
+        double[] range = { 109.6, 116.6 };
+        check(weighVerdict(113.0, range, null) == KG_OK && weighVerdict(66.6, null, null) == KG_OK, "near the trend, or no trend yet: fine");
+        check(weighVerdict(141.3, range, null) == KG_FAR && weighVerdict(141.3, range, 114.0) == KG_FAR, "far: ask first");
+        check(weighVerdict(141.3, range, 141.3) == KG_CONFIRMED, "the same far value again: that's the answer");
         System.out.println("MomentClock: ok");
     }
 
