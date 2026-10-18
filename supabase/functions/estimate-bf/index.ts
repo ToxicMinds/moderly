@@ -5,7 +5,7 @@
 // the app it failed twice over. It now uses the shared hedged provider chain
 // (../_shared/llm.ts) and the standard CORS handling.
 
-import { ask, corsHeaders, extractJson, imageFrom, json } from '../_shared/llm.ts';
+import { ask, corsHeaders, extractJson, GEMINI_PAID, imageFrom, json } from '../_shared/llm.ts';
 import { gate } from '../_shared/auth.ts';
 
 const prompt = (gender: string) => `You are a physique and body-composition coach analysing a single photo.
@@ -46,6 +46,9 @@ function parse(text: string) {
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
   if (req.method !== 'POST') return new Response('Method not allowed', { status: 405, headers: corsHeaders });
+  // A body photo is the most private thing anyone sends Moderly. It goes only
+  // to Gemini's paid tier, where Google doesn't use it or have people read it.
+  if (!GEMINI_PAID) return json({ error: 'Body-fat estimates from photos are off until Moderly’s AI runs on a private tier, so nobody at Google can see your photos. You can still enter a body-fat % yourself.' }, 503);
   const refused = await gate(req, 'ai');
   if (refused) return refused;
 

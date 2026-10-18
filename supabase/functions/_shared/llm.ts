@@ -3,8 +3,13 @@
 // or retired provider costs seconds instead of the feature:
 //
 //   1. Gemini (our key)  best quality; fast models with thinking minimised
-//   2. Kilo gateway      keyless free tier — other companies' models; text + vision
+//   2. Kilo gateway      keyless free tier — other companies' models; text only
 //   3. Pollinations      keyless; text only
+//
+// Photos go to Gemini alone (decided 2026-10-18): a food or body photo is too
+// personal to send through a free gateway whose data handling we can't check.
+// When Gemini is busy, a photo estimate fails and the person can describe the
+// food in words instead, which every provider can answer.
 //
 // WHY (2026-10-16): each function called ONE hardcoded Gemini model with no
 // timeout. Measured from this project's edge runtime that day,
@@ -27,8 +32,6 @@ const KILO_URL = 'https://api.kilo.ai/api/gateway/chat/completions';
 // Measured on a Slovak dish: beam-free 3 s, kilo-auto 7 s, nemotron-super 6.5 s.
 // Free model lists churn; a dead one fails fast (404/429) and the next is tried.
 const KILO_TEXT = ['reflection/beam-free', 'kilo-auto/free', 'nvidia/nemotron-3-super-120b-a12b:free'];
-// openrouter/free read a curved Slovak yogurt label exactly; nemotron-vl returned nulls.
-const KILO_VISION = ['openrouter/free', 'dots-studio/dots-3-note-preview:free'];
 const POLLINATIONS_URL = 'https://text.pollinations.ai/openai';
 
 export const corsHeaders = {
@@ -195,7 +198,7 @@ function openAiCompatible(name: string, url: string, vision: boolean, models: (a
 
 const PROVIDERS: Provider[] = [
   gemini,
-  openAiCompatible('kilo', KILO_URL, true, (a) => (a.image ? KILO_VISION : KILO_TEXT)),
+  openAiCompatible('kilo', KILO_URL, false, () => KILO_TEXT),
   // Its anonymous model reasons before answering and the tier caps output, so a
   // long answer (a recipe) came back empty with finish_reason "length" until
   // reasoning was turned down. (max_tokens is a paid feature: HTTP 402.)
@@ -208,6 +211,11 @@ const PROVIDERS: Provider[] = [
  * Refusal to end the race with that answer. `only` narrows the chain by
  * provider name so each fallback can be exercised on its own.
  */
+/** Google's paid tier is switched on for the key (the GEMINI_TIER=paid secret).
+ *  On the free tier Google may use what's sent to improve its products, and
+ *  people there may read it; body photos are not sent until this is true. */
+export const GEMINI_PAID: boolean = (globalThis as any).Deno?.env.get('GEMINI_TIER') === 'paid';
+
 export function ask<T>(a: Ask, parse: (text: string) => T, opts: Options = {}): Promise<{ value: T; provider: string }> {
   const providers = PROVIDERS.filter((p) => (!a.image || p.vision) && (!opts.only || opts.only.includes(p.name)));
   const stagger = opts.staggerMs ?? (a.image ? 9_000 : 6_000);

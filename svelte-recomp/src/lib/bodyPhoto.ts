@@ -35,7 +35,12 @@ export async function analyzeBodyPhoto(imageDataUrl: string, gender: string): Pr
   const { data, error } = await supabase.functions.invoke('estimate-bf', {
     body: { image: imageDataUrl, gender },
   });
-  if (error) return { estimate: 'Analysis failed', percent: null, regions: [], summary: null, error: error.message || String(error) };
+  if (error) {
+    // The function's own words (why it refused) beat "non-2xx status code".
+    let msg: string | undefined;
+    try { msg = (await (error as any)?.context?.json())?.error; } catch { /* no body */ }
+    return { estimate: 'Analysis failed', percent: null, regions: [], summary: null, error: msg || error.message || String(error) };
+  }
   if (data?.error) return { estimate: 'Analysis failed', percent: null, regions: [], summary: null, error: data.error };
   const percent = typeof data?.percent === 'number' ? data.percent : null;
   return {
