@@ -14,6 +14,7 @@
 //   POST {"code": "8585002503541"}   -> {"hits": [one product]}   (barcode fallback)
 
 import { corsHeaders, json } from '../_shared/llm.ts';
+import { signedIn } from '../_shared/auth.ts';
 
 const SAL = 'https://search.openfoodfacts.org/search';
 const FIELDS = [
@@ -32,6 +33,7 @@ async function sal(q: string, size: number): Promise<Record<string, unknown>[]> 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
   if (req.method !== 'POST') return new Response('Method not allowed', { status: 405, headers: corsHeaders });
+  if (!(await signedIn(req))) return json({ error: 'Sign in to use this.' }, 401);
   let body: any;
   try { body = await req.json(); } catch { return json({ error: 'Send JSON.' }, 400); }
 

@@ -1108,6 +1108,22 @@ check('every call the app makes on the Moments plugin exists in the APK', async 
   for (const m of called) assert.match(java, new RegExp(`@PluginMethod\\s+public void ${m}\\(PluginCall`), `MomentsPlugin.${m}`);
 });
 
+check('every function that spends AI or search quota asks for a signed-in user first', async () => {
+  // verify_jwt lets the public anon key through: it is a valid JWT, and it
+  // ships in the web app. Only a user behind the token may spend the quota.
+  const { readFileSync, readdirSync } = await import('node:fs');
+  const dir = '../supabase/functions';
+  const spenders = readdirSync(dir).filter((f) => !f.startsWith('_'))
+    .filter((f) => /_shared\/llm\.ts/.test(readFileSync(`${dir}/${f}/index.ts`, 'utf8')));
+  assert.ok(spenders.length >= 4, `found ${spenders}`);
+  for (const f of spenders) {
+    const src = readFileSync(`${dir}/${f}/index.ts`, 'utf8');
+    const gate = src.indexOf('await signedIn(req)');
+    assert.ok(gate > 0, `${f} must check signedIn`);
+    assert.ok(gate < src.indexOf('req.json()') || src.indexOf('req.json()') < 0, `${f}: before reading the body`);
+  }
+});
+
 check('the native build number matches the gradle versionCode', async () => {
   const { readFileSync } = await import('node:fs');
   const gradle = readFileSync('android/app/build.gradle', 'utf8').match(/versionCode\s+(\d+)/);

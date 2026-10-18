@@ -6,6 +6,7 @@
 // (../_shared/llm.ts) and the standard CORS handling.
 
 import { ask, corsHeaders, extractJson, imageFrom, json } from '../_shared/llm.ts';
+import { signedIn } from '../_shared/auth.ts';
 
 const prompt = (gender: string) => `You are a physique and body-composition coach analysing a single photo.
 Gender: ${gender}
@@ -45,6 +46,7 @@ function parse(text: string) {
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
   if (req.method !== 'POST') return new Response('Method not allowed', { status: 405, headers: corsHeaders });
+  if (!(await signedIn(req))) return json({ error: 'Sign in to use this.' }, 401);
 
   let body: any;
   try { body = await req.json(); } catch { return json({ error: 'Send JSON.' }, 400); }

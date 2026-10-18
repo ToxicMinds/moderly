@@ -9,6 +9,7 @@
 //   add "only": ["pollinations"] to exercise one fallback on its own.
 
 import { ask, corsHeaders, extractJson, imageFrom, json, Refusal } from '../_shared/llm.ts';
+import { signedIn } from '../_shared/auth.ts';
 
 type Macros = { kcal: number; protein_g: number; carbs_g: number; fat_g: number };
 type Item = Macros & { name: string; grams: number | null };
@@ -96,6 +97,7 @@ function parseLabel(text: string) {
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
   if (req.method !== 'POST') return new Response('Method not allowed', { status: 405, headers: corsHeaders });
+  if (!(await signedIn(req))) return json({ error: 'Sign in to use this.' }, 401);
 
   let body: any;
   try { body = await req.json(); } catch { return json({ error: 'Send JSON.' }, 400); }
