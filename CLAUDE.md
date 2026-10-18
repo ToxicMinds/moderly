@@ -74,9 +74,11 @@ vercel --prod --yes --token "$VERCEL_TOKEN"
   Don't offer one again.
 - Use `/usr/local/bin/vercel`. `npx vercel` fails here (Node 25 vs the CLI engine range).
 - Quote `"$VERCEL_TOKEN"` — unquoted trips the CLI's "contents are invalid" check.
-- The live app is **`svelte-recomp.vercel.app`**. `recompos.vercel.app` is a different,
-  older project on the same account; checking it after a deploy shows stale HTML and
-  looks like a failure.
+- The live app is **`svelte-recomp.vercel.app`** (the APK's `server.url`), also served
+  at **`recompos-app.vercel.app`** (a free second name added 2026-10-18 for sharing and
+  SEO; same deployment). `recompos.vercel.app` is NOT ours: a different Next.js
+  "RecompOS" outside this Vercel account (verified 2026-10-18). Checking it after a
+  deploy shows unrelated HTML and looks like a failure.
 - Verify: `curl -sI https://svelte-recomp.vercel.app/ | grep -i '^age'`. A large `age`
   means the deploy didn't land.
 - The `vercel` MCP tools are authed to a different account and cannot see this project.
