@@ -7,7 +7,7 @@
   import { liveProfile } from '$lib/stores/live';
   import { editing, saveMilestone, saveLine } from '$lib/commitments';
   import { todayDate } from '$lib/stores/refresh';
-  import { wt, wtNum, wtShortU } from '$lib/units';
+  import { changeWord, dwtNum, wt, wtNum, wtShortU } from '$lib/units';
   import { activePlan, cleanPlans, type PlanMoment } from '$lib/plans';
 
   let { moment }: { moment: Omit<PlanMoment, 'overLine'> } = $props();
@@ -42,10 +42,10 @@
   </div>
 {:else if over && $line}
   <button class="ca ca-line tone-{$line.zone === 'well-over' ? 'bad' : 'warn'}" onclick={() => editing.set('line')}>
-    <span class="ca-k">{$line.zone === 'well-over' ? 'Well over your ceiling' : 'Over your ceiling'} <b>+{$line.overKg.toFixed(1)}</b> kg</span>
+    <span class="ca-k">{$line.zone === 'well-over' ? 'Well over your ceiling' : 'Over your ceiling'} <b>+{dwtNum($line.overKg)}</b> {changeWord()}</span>
     <span class="ca-t">{plans.line ?? 'You haven’t decided what happens now. Decide it once, here.'}</span>
     {#if why}<span class="ca-why">You said: “{why}”</span>{/if}
-    <span class="ca-f">Trend {$line.trendKg.toFixed(1)} · ceiling {$line.kg.toFixed(1)}. One week over is a signal, not a verdict.</span>
+    <span class="ca-f">Trend {wtNum($line.trendKg)} · ceiling {wtNum($line.kg)}. One week over is a signal, not a verdict.</span>
   </button>
 {/if}
 

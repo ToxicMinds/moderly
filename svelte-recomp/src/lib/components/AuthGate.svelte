@@ -93,7 +93,7 @@
     {/if}
 
     <footer class="ag-links">
-      <a href="/privacy.html">Privacy</a> · <a href="https://github.com/ToxicMinds/moderly" target="_blank" rel="noopener noreferrer">Open source</a>
+      <a href="/about/">How it works</a> · <a href="/privacy.html">Privacy</a> · <a href="https://github.com/ToxicMinds/moderly" target="_blank" rel="noopener noreferrer">Open source</a>
     </footer>
   </div>
 </div>

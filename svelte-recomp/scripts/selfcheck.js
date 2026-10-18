@@ -2801,6 +2801,12 @@ check('nutrition patterns: low protein and a weekend blowout surface; the hour e
   assert.ok(!r.insights.some((x) => /8pm|late|front-load/i.test(x)), 'a 22:00 meal is often the plan, not a problem');
 });
 
+check('the Food hero praises protein when it’s hit and never colours a day still in progress', async () => {
+  const { readFileSync } = await import('node:fs');
+  const page = readFileSync('src/routes/recipes/+page.svelte', 'utf8');
+  assert.match(page, /const fuelTone: 'good' \| 'na' = \$derived\(proteinTargetG && proteinPct >= 100 \? 'good' : 'na'\);/);
+});
+
 check('the coach never judges protein by the clock: the log can’t say when food was eaten', async () => {
   const { buildDailyFocus } = await import('../src/lib/coach.ts');
   const input = {
@@ -3964,7 +3970,7 @@ check('body weight is never printed as raw kg: it goes through units.ts', async 
     if (LIFTING.test(f)) continue;
     readFileSync(f, 'utf8').split('\n').forEach((line, i) => {
       if (/^\s*(\/\/|\*|<!--)/.test(line)) return;
-      if (/(toFixed\(\d\)|\}) ?kg\b/.test(line)) bad.push(`${f}:${i + 1}`);
+      if (/(toFixed\(\d\)|\})(<\/b>)? ?kg\b/.test(line) || /([kK]g|[wW]eight|trend)\??\.toFixed\(/.test(line) && /\.svelte$/.test(f)) bad.push(`${f}:${i + 1}`);
     });
   }
   assert.deepEqual(bad, [], 'use wt()/dwt() from units.ts');

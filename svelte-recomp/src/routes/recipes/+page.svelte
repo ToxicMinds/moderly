@@ -352,13 +352,10 @@
   // fat or muscle, so it leads. The orb fills with today's protein vs target.
   const proteinPct = $derived(proteinTargetG ? Math.round((todayTotals.protein / proteinTargetG) * 100) : 0);
   const fuelPct = $derived(Math.min(100, proteinPct));
-  const fuelTone: 'good' | 'ok' | 'warn' | 'bad' | 'na' = $derived(
-    !proteinTargetG ? 'na'
-    : proteinPct >= 100 ? 'good'
-    : proteinPct >= 65 ? 'ok'
-    : proteinPct >= 35 ? 'warn'
-    : 'bad'
-  );
+  // Praised when it's hit, never judged on the way: half a day's protein at
+  // noon is a fasting morning, not a shortfall (the first user eats from 15:00),
+  // and the hero turned copper every morning until the first meal.
+  const fuelTone: 'good' | 'na' = $derived(proteinTargetG && proteinPct >= 100 ? 'good' : 'na');
   const fuelStory = $derived.by(() => {
     if (!proteinTargetG) return 'Set a goal to see targets';
     const left = Math.max(0, Math.round(proteinTargetG - todayTotals.protein));

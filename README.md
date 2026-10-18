@@ -13,7 +13,8 @@ The name comes from an old Greek idea, *metron ariston*: moderation is best.
 **Use it:** [moderly.vercel.app](https://moderly.vercel.app) in any browser (add it to
 your home screen), or the Android app from
 [Releases](https://github.com/ToxicMinds/moderly/releases/tag/recompos-app-latest),
-installed by hand for now.
+installed by hand for now. No account needed to start. **How it works:**
+[moderly.vercel.app/about](https://moderly.vercel.app/about/).
 
 ## What it does
 
@@ -32,6 +33,8 @@ installed by hand for now.
 - **Training that respects your body.** Your own weekly plan, or a guided six-week
   return after a back injury, paced by how it feels each morning.
 - **Health Connect** on Android: steps, sleep and workouts from your watch.
+- **For anyone:** start without an account and save it later; kilograms, pounds or
+  stone; a walking week if you don't go to a gym. For adults (18+).
 
 ## Principles
 
@@ -47,8 +50,11 @@ installed by hand for now.
   account can read and change only its own rows.
 - No ads, no third-party trackers, no data sold.
 - AI is used only when you ask for it (an estimate from a photo or a description, a
-  recipe). That request goes to Google Gemini, or to free fallback providers when
-  Gemini is busy.
+  recipe). It goes to Google Gemini; words (never photos) may go to free fallback
+  providers when Gemini is busy. Body-fat estimates from photos stay off until the
+  key is on Gemini's paid tier (set the `GEMINI_TIER=paid` secret), because on the
+  free tier Google may read what is sent.
+- Trials (no email yet) unused for 30 days are deleted, nightly.
 - Export everything at any time: Settings → Export my data.
 
 ## Run your own
