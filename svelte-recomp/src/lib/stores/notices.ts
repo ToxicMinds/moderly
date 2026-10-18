@@ -77,3 +77,6 @@ export function markNoticesRead() {
 
 /** True when something is currently wrong enough to warrant the badge. */
 export const hasProblems = derived(notices, ($n) => $n.some((x) => x.level === 'error'));
+
+/** The "Save your account" sheet, opened from Settings or Today's reminder. */
+export const saveAccountOpen = writable(false);

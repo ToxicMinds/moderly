@@ -13,6 +13,7 @@
 // who it was. Nothing leaves the device unless a human taps send.
 
 import type { WeeklyReview } from './weeklyReview.ts';
+import { dwt } from './units.ts';
 
 export interface ShareOptions {
   /** Include the raw bodyweight. Off by default — a weight is the single most
@@ -41,10 +42,10 @@ export function weeklySummaryText(review: WeeklyReview, opts: ShareOptions = {})
   lines.push('');
 
   if (review.weightChangeKg != null) {
-    const kg = Math.abs(review.weightChangeKg).toFixed(1);
+    const kg = dwt(review.weightChangeKg);
     lines.push(
-      review.weightChangeKg < -0.05 ? `⬇ Down ${kg} kg`
-      : review.weightChangeKg > 0.05 ? `⬆ Up ${kg} kg`
+      review.weightChangeKg < -0.05 ? `⬇ Down ${kg}`
+      : review.weightChangeKg > 0.05 ? `⬆ Up ${kg}`
       : '➡ Weight held steady'
     );
   }

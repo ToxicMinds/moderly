@@ -12,7 +12,7 @@
 // wrong and a birth year never does.
 
 export type Sex = 'male' | 'female';
-export type Units = 'metric' | 'imperial';
+export type Units = 'metric' | 'imperial' | 'stone';
 export type ActivityLevel = 'sedentary' | 'light' | 'moderate' | 'active' | 'very_active';
 
 export interface Profile {
@@ -81,12 +81,6 @@ export function cmToFtIn(cm: number): { ft: number; inch: number } {
 }
 export function ftInToCm(ft: number, inch: number): number {
   return (ft * 12 + inch) * CM_PER_INCH;
-}
-
-/** Format a weight for display in the user's chosen units. */
-export function formatWeight(kg: number | null | undefined, units: Units = 'metric'): string {
-  if (kg == null) return '—';
-  return units === 'imperial' ? `${kgToLb(kg).toFixed(1)} lb` : `${kg.toFixed(1)} kg`;
 }
 
 /**

@@ -5,6 +5,7 @@
 // comes with an actual calorie target and a realistic timeline attached.
 
 import { KCAL_PER_KG } from './adaptiveTdee.ts';
+import { wtShortU } from './units.ts';
 
 export interface TdeeInput {
   weightKg: number;
@@ -151,13 +152,13 @@ export function projectGoalWithTdee(tdee: number, currentKg: number, targetKg: n
 export function projectionSummary(proj: GoalProjection, proteinG?: number): string {
   const protein = proteinG ? ` Protein ~${proteinG} g/day${proj.direction === 'gain' ? ' to build with.' : ' to hold muscle.'}` : '';
   if (proj.direction === 'maintain') {
-    return `Hold ${proj.targetKg} kg — maintenance ~${proj.tdee} kcal, target intake ~${proj.targetIntakeKcal} kcal/day.${protein}`;
+    return `Hold ${wtShortU(proj.targetKg)} — maintenance ~${proj.tdee} kcal, target intake ~${proj.targetIntakeKcal} kcal/day.${protein}`;
   }
   const verb = proj.direction === 'gain' ? 'Build up to' : 'Cut to';
   const swing = proj.direction === 'gain'
     ? `${Math.abs(proj.dailyEnergyDeltaKcal)} kcal surplus`
     : `${Math.abs(proj.dailyEnergyDeltaKcal)} kcal deficit`;
-  return `${verb} ${proj.targetKg} kg — maintenance ~${proj.tdee} kcal, target intake ~${proj.targetIntakeKcal} kcal/day (${swing}), ~${proj.weeksToGoal} weeks.${protein}`;
+  return `${verb} ${wtShortU(proj.targetKg)} — maintenance ~${proj.tdee} kcal, target intake ~${proj.targetIntakeKcal} kcal/day (${swing}), ~${proj.weeksToGoal} weeks.${protein}`;
 }
 
 /**

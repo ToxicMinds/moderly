@@ -18,6 +18,12 @@
   import { liveProfile } from '$lib/stores/live';
   import { todayDate } from '$lib/stores/refresh';
   import { haptic } from '$lib/haptics';
+  import WeightInput from './WeightInput.svelte';
+  import { dwt, unitWord, weightUnit, wt, wtShort, wtShortU } from '$lib/units';
+
+  // "Next stop, kg"; in stone the boxes say st and lb themselves.
+  const inUnit = weightUnit() === 'st' ? '' : `, ${unitWord()}`;
+  const margin = weightUnit() === 'kg' ? 'a kilo' : 'about 2 lb';
 
   const _profile = liveProfile();
   const plans = $derived(cleanPlans(($_profile as any)?.plans));
@@ -25,9 +31,9 @@
   const trend = $derived($body.currentKg);
   const height = $derived(($_profile as any)?.height_cm ? +($_profile as any).height_cm : null);
 
-  let lineKg = $state('');
+  let lineKg = $state<number | null>(null);
   let linePlan = $state('');
-  let nextKg = $state('');
+  let nextKg = $state<number | null>(null);
   let draft = $state<Plans>({});
   let whyDraft = $state('');
   let saving = $state(false);
@@ -40,20 +46,20 @@
     untrack(() => {
       error = '';
       if (open === 'line') {
-        lineKg = $line && !$line.misdrawn ? $line.kg.toFixed(1) : trend != null ? suggestLine(trend).toFixed(1) : '';
+        lineKg = $line && !$line.misdrawn ? $line.kg : trend != null ? suggestLine(trend) : null;
         linePlan = plans.line ?? '';
       } else if (open === 'plans') {
         draft = { ...plans };
         whyDraft = (($_profile as any)?.why ?? '').trim();
       } else if (open === 'next') {
-        nextKg = $body.next ? String($body.next.kg) : '';
+        nextKg = $body.next ? $body.next.kg : null;
       }
     });
   });
 
   // A "ceiling" under where you are is a target: offer it as the next stop.
-  const ceilingIsTarget = $derived(trend != null && parseFloat(lineKg) > 0 && parseFloat(lineKg) < trend - 0.5);
-  const nextPreview = $derived(parseFloat(nextKg) > 0 ? milestoneState({ kg: parseFloat(nextKg), set: '' }, trend, height) : null);
+  const ceilingIsTarget = $derived(trend != null && lineKg != null && lineKg < trend - 0.5);
+  const nextPreview = $derived(nextKg != null ? milestoneState({ kg: nextKg, set: '' }, trend, height) : null);
   const stops = $derived(trend != null ? suggestStops(trend, height, $body.goalKg) : []);
 
   const close = () => editing.set(null);
@@ -73,9 +79,8 @@
     }
   }
 
-  const weight = (v: string) => {
-    const kg = parseFloat(v);
-    if (!(kg > 30 && kg < 400)) throw new Error('that isn’t a weight');
+  const weight = (kg: number | null) => {
+    if (kg == null || !(kg > 30 && kg < 400)) throw new Error('that isn’t a weight');
     return kg;
   };
   const keepLine = () => run(async () => {
@@ -102,16 +107,16 @@
     A weight below you, on the way to your goal — near enough to steer by on a Friday night. When the
     trend gets there, pick the next one.
   </p>
-  <label class="cm-lbl" for="cm-next-kg">Next stop, kg</label>
-  <input id="cm-next-kg" type="number" inputmode="decimal" step="0.1" bind:value={nextKg}>
+  <label class="cm-lbl" for="cm-next-kg">Next stop{inUnit}</label>
+  <WeightInput id="cm-next-kg" bind:kg={nextKg} label="Next stop" />
   {#if nextPreview}
     <div class="cm-hint">
-      {#if nextPreview.toGoKg != null}{nextPreview.toGoKg > 0 ? `${nextPreview.toGoKg.toFixed(1)} kg below your trend` : 'Already there'}{/if}{#if nextPreview.bmi != null}{' · '}BMI {nextPreview.bmi.toFixed(1)}{/if}{#if nextPreview.meaning}{' · '}{nextPreview.meaning}{/if}
+      {#if nextPreview.toGoKg != null}{nextPreview.toGoKg > 0 ? `${dwt(nextPreview.toGoKg)} below your trend` : 'Already there'}{/if}{#if nextPreview.bmi != null}{' · '}BMI {nextPreview.bmi.toFixed(1)}{/if}{#if nextPreview.meaning}{' · '}{nextPreview.meaning}{/if}
     </div>
   {/if}
   {#if stops.length}
     <div class="cm-stops">
-      {#each stops as k}<button type="button" class="cm-stop" class:on={parseFloat(nextKg) === k} onclick={() => (nextKg = String(k))}>{k}</button>{/each}
+      {#each stops as k}<button type="button" class="cm-stop" class:on={nextKg === k} onclick={() => (nextKg = k)}>{wtShort(k)}</button>{/each}
     </div>
   {/if}
   <button class="btn bp bfl cm-go" onclick={keepNext} disabled={saving}>{saving ? 'Saving…' : 'Save my next stop'}</button>
@@ -122,20 +127,20 @@
 <Modal open={$editing === 'line'} onclose={close}>
   <div class="cm-h">Your ceiling</div>
   <p class="cm-lede">
-    The weight your trend doesn't go back above. It sits a kilo above where you are now. Each time a lower
-    trend holds for a week, the ceiling comes down to a kilo above it, and it never goes back up on its own.
+    The weight your trend doesn't go back above. It sits {margin} above where you are now. Each time a lower
+    trend holds for a week, the ceiling comes down to {margin} above it, and it never goes back up on its own.
   </p>
   <p class="cm-why">
     It's the system from the trial that taught people to keep weight off (STOP Regain): weigh most mornings,
     and decide now what you'll do the day the trend goes over it.
   </p>
-  <label class="cm-lbl" for="cm-line-kg">Ceiling, kg</label>
-  <input id="cm-line-kg" type="number" inputmode="decimal" step="0.1" bind:value={lineKg}>
-  {#if trend != null}<div class="cm-hint">Your trend today: {trend.toFixed(1)} kg{#if $line?.heldLowKg != null}{' · '}lowest held trend {$line.heldLowKg.toFixed(1)} kg{/if}</div>{/if}
+  <label class="cm-lbl" for="cm-line-kg">Ceiling{inUnit}</label>
+  <WeightInput id="cm-line-kg" bind:kg={lineKg} label="Ceiling" />
+  {#if trend != null}<div class="cm-hint">Your trend today: {wt(trend)}{#if $line?.heldLowKg != null}{' · '}lowest held trend {wt($line.heldLowKg)}{/if}</div>{/if}
   {#if ceilingIsTarget}
     <div class="cm-turn">
-      <b>{lineKg} is below where you are.</b> A ceiling sits above you; a weight you're heading down to is a next stop.
-      <button class="btn bp bfl cm-go" onclick={lineAsNextStop} disabled={saving}>Make {lineKg} my next stop</button>
+      <b>{wt(lineKg)} is below where you are.</b> A ceiling sits above you; a weight you're heading down to is a next stop.
+      <button class="btn bp bfl cm-go" onclick={lineAsNextStop} disabled={saving}>Make {wtShortU(lineKg)} my next stop</button>
     </div>
   {:else}
     <label class="cm-lbl" for="cm-line-plan">If my trend goes over it, I'll…</label>

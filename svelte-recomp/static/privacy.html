@@ -39,7 +39,8 @@ delete your account at any time, in the app.</p>
 <h2>What Moderly stores</h2>
 <ul>
 <li><strong>Your account:</strong> your email address, and your password stored as a hash
-by the sign-in service.</li>
+by the sign-in service. If you start without an email (a trial), there is no email until
+you save the account.</li>
 <li><strong>What you enter:</strong> weigh-ins, food, training, your plans and notes, weekly
 check-ins, back ratings and your settings, including your goal and the reason you wrote
 for it.</li>
@@ -47,7 +48,8 @@ for it.</li>
 resting heart rate, heart-rate variability, and workouts with their duration, energy,
 distance and average heart rate.</li>
 <li><strong>Photos you choose to keep</strong> (progress photos and body-fat check
-photos): stored privately; only your account can open them.</li>
+photos): stored privately; only your account can open them. Trials can't keep photos; saving
+the account unlocks them.</li>
 <li><strong>Error reports:</strong> when something breaks, a short technical report (the
 error, the screen, the app version and the kind of device), so it can be fixed.</li>
 <li><strong>Web notifications</strong>, if you turn them on in a browser: the address your
@@ -59,10 +61,15 @@ the app works offline. The app itself is served by Vercel.</p>
 <h2>What leaves Moderly, and when</h2>
 <p>Only when you use the feature:</p>
 <ul>
-<li><strong>An AI estimate</strong> (food from a photo or a description, body fat from a
-photo, a recipe idea): sent to Google's Gemini API, or, when Gemini is busy, to Kilo's AI
-gateway (text and photos) or Pollinations (text only). Moderly does not keep a photo sent
-only for an estimate.</li>
+<li><strong>An AI estimate</strong> (food from a photo or a description, a recipe idea):
+sent to Google's Gemini API. Moderly uses Gemini's free tier for now, and on the free tier
+Google may use what is sent to improve its products, and people at Google may read it.
+Photos go only to Gemini. A text request (a description, a recipe) may go to Kilo's AI
+gateway or Pollinations when Gemini is busy. Moderly does not keep a photo sent only for an
+estimate.</li>
+<li><strong>Body fat from a photo</strong> is switched off until Moderly's AI runs on
+Gemini's paid tier, where Google doesn't use what is sent to improve its products. Until
+then no body photo leaves Moderly.</li>
 <li><strong>Food search and barcodes:</strong> your search words go to Open Food Facts.</li>
 <li><strong>The weather in the morning briefing:</strong> your approximate location,
 rounded to about a kilometre, goes to Open-Meteo. Moderly does not store it.</li>
@@ -79,6 +86,10 @@ Data Protection Regulation. Moderly uses it only with your explicit consent, giv
 you create your account, and only to run the app for you. You can withdraw that consent
 at any time by deleting your account.</p>
 
+<h2>Who it's for</h2>
+<p>Adults. Moderly is for people 18 and over: weight loss under 18 belongs with a doctor, and
+the AI services it uses are for adults only.</p>
+
 <h2>Your rights</h2>
 <ul>
 <li><strong>See and take everything:</strong> Settings → Export my data (JSON or a
@@ -93,11 +104,16 @@ authority; in Slovakia, the Úrad na ochranu osobných údajov.</li>
 </ul>
 
 <h2>How long it's kept</h2>
-<p>For as long as you have an account. Deleting the account deletes it.</p>
+<p>For as long as you have an account. Deleting the account deletes it. A trial that isn't
+used for 30 days is deleted with everything in it.</p>
 
 <h2>Who runs Moderly</h2>
-<p>Moderly is open source (<a href="https://github.com/ToxicMinds/moderly">AGPL-3.0</a>),
-run by its maintainer. You can read exactly what it does with your data in its code.</p>
+<p>Moderly is run by Nikhil Shanbhag, in Slovakia, who is responsible for your data (the
+controller). To reach him, use the
+<a href="https://github.com/ToxicMinds/moderly/security/advisories/new">private report form</a>;
+only he can read it. Moderly is open source
+(<a href="https://github.com/ToxicMinds/moderly">AGPL-3.0</a>), so you can read exactly what it
+does with your data in its code.</p>
 </main>
 </body>
 </html>

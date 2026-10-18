@@ -6,6 +6,7 @@
 
 import type { StrengthLog, StrengthSet } from './strength';
 import { weightVerdict } from './insights.ts';
+import { dwt } from './units.ts';
 
 export interface WeeklyReviewInput {
   today: string; // YYYY-MM-DD
@@ -120,7 +121,7 @@ export function weeklyReview(input: WeeklyReviewInput): WeeklyReview {
   const wins: string[] = [];
   const adjustments: string[] = [];
 
-  if (weightChangeKg != null && weightChangeKg < -0.1) wins.push(`Trend down ${Math.abs(weightChangeKg)} kg this week.`);
+  if (weightChangeKg != null && weightChangeKg < -0.1) wins.push(`Trend down ${dwt(weightChangeKg)} this week.`);
   if (avgProtein != null && avgProtein >= input.proteinTargetG * 0.9) wins.push(`Protein averaged ${avgProtein} g/day — right on target.`);
   if (tonnageDeltaPct != null && tonnageDeltaPct >= 3) wins.push(`Training volume up ${tonnageDeltaPct}% vs last week — progressive overload is working.`);
   if (avgSteps != null && avgSteps >= 8000) wins.push(`${avgSteps.toLocaleString()} steps/day average — strong NEAT.`);

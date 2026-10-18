@@ -8,6 +8,12 @@ import { NeedsConfirm, saveWeighIn } from '$lib/weighIn';
 import { saveFoods } from '$lib/foodLog';
 import { upsertRecord } from '$lib/stores/sync';
 import { notYetLogged } from '$lib/quickAdd';
+import { parseWt } from '$lib/units';
+
+/** What was typed on the notification is in the person's own unit (the
+ *  briefing's weighRange is too): pounds, or for stone users the pounds they
+ *  typed. Kilograms pass through unchanged. */
+export const nativeKg = (it: { kg: number }): number => parseWt(String(it.kg)) ?? it.kg;
 
 type WeightInput = Extract<MomentInput, { type: 'weight' }>;
 
@@ -37,7 +43,7 @@ export async function saveMomentInputs(ctx: MomentContext): Promise<void> {
         if (it.type === 'weight') {
           if (get(confirmWeight)?.id === it.id) continue; // already asking
           // Sent twice from the notification when far from the trend: answered.
-          await saveWeighIn(ctx.uid, it.kg, { ...weighCtx(ctx), today: it.date, confirmed: !!it.confirmed });
+          await saveWeighIn(ctx.uid, nativeKg(it), { ...weighCtx(ctx), today: it.date, confirmed: !!it.confirmed });
         } else if (it.type === 'back') {
           await upsertRecord('daily_logs', { user_id: ctx.uid, date: it.date, back_pain: it.value });
         } else if (it.type === 'meal') {
@@ -65,7 +71,7 @@ export async function saveMomentInputs(ctx: MomentContext): Promise<void> {
 export async function answerWeight(ctx: MomentContext, save: boolean): Promise<void> {
   const it = get(confirmWeight);
   if (!it) return;
-  if (save) await saveWeighIn(ctx.uid, it.kg, { ...weighCtx(ctx), today: it.date, confirmed: true });
+  if (save) await saveWeighIn(ctx.uid, nativeKg(it), { ...weighCtx(ctx), today: it.date, confirmed: true });
   await momentsAck([it.id]);
   confirmWeight.set(null);
 }

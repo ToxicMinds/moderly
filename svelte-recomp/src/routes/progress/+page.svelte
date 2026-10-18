@@ -13,6 +13,7 @@
   import { shiftYmd } from '$lib/date';
   import { proteinByTrainingDay, watchAgreement } from '$lib/insights';
   import MiniChart from '$lib/components/MiniChart.svelte';
+  import { changeWord, dwt, dwtNum, toUnit, unitWord, weightUnit, wtNum, wtShort } from '$lib/units';
   import WeeklyReview from '$lib/components/WeeklyReview.svelte';
   import BodyGoals from '$lib/components/BodyGoals.svelte';
   import ProgressPhotos from '$lib/components/ProgressPhotos.svelte';
@@ -125,8 +126,8 @@
   const compositionSeries = $derived.by(() => {
     const pts = [...bodyFatPoints].sort((a, b) => a.date.localeCompare(b.date));
     return {
-      fat: pts.map((p) => ({ date: p.date, value: +fatMass(p.weightKg, p.bfPct).toFixed(1) })),
-      lean: pts.map((p) => ({ date: p.date, value: +leanMass(p.weightKg, p.bfPct).toFixed(1) }))
+      fat: pts.map((p) => ({ date: p.date, value: +toUnit(fatMass(p.weightKg, p.bfPct)).toFixed(1) })),
+      lean: pts.map((p) => ({ date: p.date, value: +toUnit(leanMass(p.weightKg, p.bfPct)).toFixed(1) }))
     };
   });
 
@@ -136,7 +137,7 @@
   });
 
 
-  function kg(n: number) { return `${Math.abs(n).toFixed(2)} kg`; }
+  function kg(n: number) { return dwt(n, 2); }
   const rateWord = $derived(wv && wv.rateKgPerWeek >= 0 ? 'down' : 'up');
 
   // Does protein collapse on the days the body is actually repairing? Keyed on
@@ -188,12 +189,12 @@
 
 <PageHero title="Progress" sub="Is the weight coming off fat, or muscle?"
   tone={journeyTone} pct={journeyPct}
-  value={currentWeight != null ? currentWeight.toFixed(1) : '—'}
-  caption={goalKg != null ? `kg trend → ${goalKg} goal` : 'kg trend'}
+  value={currentWeight != null ? wtNum(currentWeight) : '—'}
+  caption={`${weightUnit() === 'st' ? '' : `${unitWord()} `}trend${goalKg != null ? ` → ${wtShort(goalKg)} goal` : ''}`}
   story={verdict.headline}
   stats={[
-    { v: changeToDate != null ? `${changeToDate >= 0 ? '−' : '+'}${Math.abs(changeToDate).toFixed(1)}` : '—', l: 'kg to date' },
-    { v: wv ? `${wv.rateKgPerWeek >= 0 ? '−' : '+'}${Math.abs(wv.rateKgPerWeek).toFixed(2)}` : '—', l: 'kg / week' },
+    { v: changeToDate != null ? `${changeToDate >= 0 ? '−' : '+'}${dwtNum(changeToDate)}` : '—', l: `${changeWord()} to date` },
+    { v: wv ? `${wv.rateKgPerWeek >= 0 ? '−' : '+'}${dwtNum(wv.rateKgPerWeek, 2)}` : '—', l: `${changeWord()} / week` },
     { v: strengthArrow, l: 'strength' }
   ]} />
 
@@ -210,7 +211,7 @@
         Your weight is going <strong>{rateWord} {kg(wv.rateKgPerWeek)}</strong> a week.
       </div>
       <div class="trust-body">
-        Your weigh-ins scatter about <b>&plusmn;{wv.scatterKg.toFixed(1)} kg</b> around that line,
+        Your weigh-ins scatter about <b>&plusmn;{dwt(wv.scatterKg)}</b> around that line,
         so the true rate is between <b>{kg(Math.min(Math.abs(wv.loKgPerWeek), Math.abs(wv.hiKgPerWeek)))}</b> and <b>{kg(Math.max(Math.abs(wv.loKgPerWeek), Math.abs(wv.hiKgPerWeek)))}</b> a week.
         That range doesn't include zero — so this is a real trend, not scale noise.
       </div>
@@ -228,10 +229,10 @@
         Not losing at your planned pace.
       </div>
       <div class="trust-body">
-        Across {wv.n} weigh-ins your readings scatter <b>&plusmn;{wv.scatterKg.toFixed(1)} kg</b>, which
+        Across {wv.n} weigh-ins your readings scatter <b>&plusmn;{dwt(wv.scatterKg)}</b>, which
         puts the real rate between <b>{kg(wv.loKgPerWeek)} {wv.loKgPerWeek >= 0 ? 'down' : 'up'}</b> and
         <b>{kg(wv.hiKgPerWeek)} {wv.hiKgPerWeek >= 0 ? 'down' : 'up'}</b> a week. Your plan is
-        <b>{$body.target.planKgPerWeek?.toFixed(2)} kg down</b> — outside that range. A little loss or none,
+        <b>{$body.target.planKgPerWeek != null ? dwt($body.target.planKgPerWeek, 2) : '—'} down</b> — outside that range. A little loss or none,
         it isn't the plan.
       </div>
     {:else}
@@ -239,7 +240,7 @@
         Can't call it yet — the noise is bigger than the signal.
       </div>
       <div class="trust-body">
-        Across {wv.n} weigh-ins your readings scatter <b>&plusmn;{wv.scatterKg.toFixed(1)} kg</b>
+        Across {wv.n} weigh-ins your readings scatter <b>&plusmn;{dwt(wv.scatterKg)}</b>
         around the trend line. That puts the real rate somewhere between
         <b>{kg(wv.loKgPerWeek)} {wv.loKgPerWeek >= 0 ? 'down' : 'up'}</b> and
         <b>{kg(wv.hiKgPerWeek)} {wv.hiKgPerWeek >= 0 ? 'down' : 'up'}</b> per week —
@@ -313,12 +314,12 @@
     <div class="card-lbl">Measured body composition</div>
     <div class="comp-split">
       <div class="comp-box">
-        <div class="comp-v good">{verdict.composition.fatKg > 0 ? '−' : '+'}{Math.abs(verdict.composition.fatKg).toFixed(1)} kg</div>
+        <div class="comp-v good">{verdict.composition.fatKg > 0 ? '−' : '+'}{dwt(verdict.composition.fatKg)}</div>
         <div class="comp-l">fat</div>
       </div>
       <div class="comp-box">
         <div class="comp-v" class:bad={verdict.composition.leanKg > 0.5}>
-          {verdict.composition.leanKg > 0 ? '−' : '+'}{Math.abs(verdict.composition.leanKg).toFixed(1)} kg
+          {verdict.composition.leanKg > 0 ? '−' : '+'}{dwt(verdict.composition.leanKg)}
         </div>
         <div class="comp-l">lean mass</div>
       </div>
@@ -387,9 +388,9 @@
   {#if verdict.composition && compositionSeries.fat.length >= 2}
     <div class="card">
       <div class="card-lbl">Fat mass vs lean mass</div>
-      <MiniChart data={compositionSeries.fat} color="var(--red)" unit=" kg fat" />
+      <MiniChart data={compositionSeries.fat} color="var(--red)" unit={` ${changeWord()} fat`} />
       <div style="margin-top:12px"></div>
-      <MiniChart data={compositionSeries.lean} color="var(--green, #2ecc71)" unit=" kg lean" />
+      <MiniChart data={compositionSeries.lean} color="var(--green, #2ecc71)" unit={` ${changeWord()} lean`} />
       <div class="comp-foot">
         The shape you want: the red line falling, the green line flat or rising.
       </div>

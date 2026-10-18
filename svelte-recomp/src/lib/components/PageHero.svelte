@@ -28,7 +28,7 @@
     {@render aside?.()}
   </header>
 
-  <Readout {value} {unit} {caption} {pct} {tone} {beam} />
+  {#if value !== '' || beam}<Readout {value} {unit} {caption} {pct} {tone} {beam} />{/if}
 
   {#if story}<p class="phero-story">{story}</p>{/if}
 

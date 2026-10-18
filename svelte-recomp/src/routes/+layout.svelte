@@ -3,8 +3,10 @@
   import BottomNav from '$lib/components/BottomNav.svelte';
   import AuthGate from '$lib/components/AuthGate.svelte';
   import { syncStatus } from '$lib/stores/sync';
-  import { user, authReady, initAuth, signOut, deleteAccount } from '$lib/stores/user';
-  import { initSync, destroySync } from '$lib/stores/sync';
+  import { user, authReady, initAuth, signOut, deleteAccount, isTrial } from '$lib/stores/user';
+  import SaveAccount from '$lib/components/SaveAccount.svelte';
+  import { saveAccountOpen } from '$lib/stores/notices';
+  import { initSync, destroySync, upsertRecord } from '$lib/stores/sync';
   import { subscribeWebPush } from '$lib/push';
   import { playAlarmMelody } from '$lib/alarmSound';
   import { initAppUpdate } from '$lib/stores/appUpdate';
@@ -24,7 +26,7 @@
   import { liveProfile, liveProfileLoaded, liveAlarms, liveFoodLogs, liveWeights, liveWorkoutLogs, liveGoal, liveSchedule } from '$lib/stores/live';
   import { scheduleNativeAlarms, scheduleNudges, isNativeApp, momentsSupport, armMoments, disarmMoments, type AlarmRow } from '$lib/nativeAlarms';
   import { moments, momentSetting, refreshForecast } from '$lib/stores/moments';
-  import { saveMomentInputs, confirmWeight, answerWeight, type MomentContext } from '$lib/momentActions';
+  import { saveMomentInputs, confirmWeight, answerWeight, nativeKg, type MomentContext } from '$lib/momentActions';
   import { onMomentsInput } from '$lib/nativeAlarms';
   import { offTrend } from '$lib/scale';
   import { badmintonRule } from '$lib/program';
@@ -35,6 +37,7 @@
   import { setWatchBrand } from '$lib/health/healthConnect';
   import { todayPulse } from '$lib/stores/body';
   import { body } from '$lib/stores/body';
+  import { dwt, wt } from '$lib/units';
   import { initHaptics, hapticsEnabled, setHapticsEnabled, haptic } from '$lib/haptics';
 
   let { children }: { children: import('svelte').Snippet } = $props();
@@ -114,6 +117,18 @@
   // profileLoaded so the form never flashes before user_settings arrives.
   const _profile = liveProfile();
   const _profileLoaded = liveProfileLoaded();
+  // Every screen re-draws when the unit changes (units.ts is plain state, not
+  // a store, so the pages are keyed on it instead).
+  const unitsKey = $derived((($_profile as any)?.units as string | undefined) ?? 'metric');
+  const UNIT_CHOICES = [{ v: 'metric', l: 'kg' }, { v: 'imperial', l: 'lb' }, { v: 'stone', l: 'st' }] as const;
+  let unitsErr = $state('');
+  async function chooseUnits(v: string) {
+    unitsErr = '';
+    const id = $user?.id;
+    if (!id || v === unitsKey) return;
+    try { await upsertRecord('user_settings', { user_id: id, units: v, updated_at: new Date().toISOString() }); }
+    catch (e: any) { unitsErr = 'Could not change units: ' + (e?.message || String(e)).slice(0, 100); }
+  }
   let onboardingDone = $state(false);
   const needsOnboarding = $derived(
     $_profileLoaded && !onboardingDone && !isComplete($_profile)
@@ -269,7 +284,7 @@
     document.addEventListener('visibilitychange', back);
     return () => { off(); document.removeEventListener('visibilitychange', back); };
   });
-  const confirmOff = $derived($confirmWeight ? offTrend($confirmWeight.kg, $body.currentKg) : null);
+  const confirmOff = $derived($confirmWeight ? offTrend(nativeKg($confirmWeight), $body.currentKg) : null);
 
   $effect(() => {
     if (!$user || !isNativeApp()) return;
@@ -451,9 +466,11 @@
            yet, they'd otherwise be stuck staring at first-run setup with no way
            to say "no, I already have an account". Re-pulling from the server
            usually clears it outright. -->
-      <button class="ob-recover" onclick={doRefresh} disabled={$refreshing}>
-        {$refreshing ? 'Checking…' : 'Already have an account? Re-check my data →'}
-      </button>
+      {#if !$isTrial}
+        <button class="ob-recover" onclick={doRefresh} disabled={$refreshing}>
+          {$refreshing ? 'Checking…' : 'Already have an account? Re-check my data →'}
+        </button>
+      {/if}
       <Onboarding onDone={() => (onboardingDone = true)} />
     </main>
   {:else}
@@ -485,19 +502,26 @@
        next time; only the buttons decide. -->
   <Modal open={!!$confirmWeight} onclose={() => confirmWeight.set(null)}>
     {#if $confirmWeight}
-      <div class="cw-h">{$confirmWeight.kg} kg?</div>
+      <div class="cw-h">{wt(nativeKg($confirmWeight))}?</div>
       <p class="cw-p">
         You typed it on the notification{$confirmWeight.date !== $body.today ? ` on ${$confirmWeight.date}` : ''}. It's
-        {confirmOff != null ? `${Math.abs(confirmOff).toFixed(1)} kg ${confirmOff > 0 ? 'above' : 'below'}` : 'far from'} your trend
-        {$body.currentKg != null ? `of ${$body.currentKg.toFixed(1)} kg` : ''}. Scales misread and fingers slip.
+        {confirmOff != null ? `${dwt(confirmOff)} ${confirmOff > 0 ? 'above' : 'below'}` : 'far from'} your trend
+        {$body.currentKg != null ? `of ${wt($body.currentKg)}` : ''}. Scales misread and fingers slip.
       </p>
-      <button class="btn bp bfl" onclick={() => answerWeight(untrack(momentCtx), true)}>Save {$confirmWeight.kg} kg</button>
+      <button class="btn bp bfl" onclick={() => answerWeight(untrack(momentCtx), true)}>Save {wt(nativeKg($confirmWeight))}</button>
       <button class="btn bg_ bfl cw-no" onclick={() => answerWeight(untrack(momentCtx), false)}>It was a typo: don't save it</button>
     {/if}
   </Modal>
 
+  <SaveAccount open={$saveAccountOpen} onclose={() => saveAccountOpen.set(false)} />
+
   <Modal open={menuOpen} onclose={() => (menuOpen = false)}>
     <div class="menu-h">Settings</div>
+    {#if $isTrial}
+      <button class="menu-item menu-save" onclick={() => { menuOpen = false; saveAccountOpen.set(true); }}>
+        <span>Save my account</span><span class="menu-val">Keep it if you lose this device</span>
+      </button>
+    {/if}
     <div class="menu-row">
       <span class="menu-lbl">Text size</span>
       <div class="menu-sizes">
@@ -506,6 +530,15 @@
         {/each}
       </div>
     </div>
+    <div class="menu-row">
+      <span class="menu-lbl">Weight in</span>
+      <div class="menu-sizes">
+        {#each UNIT_CHOICES as c}
+          <button class="menu-size" class:on={unitsKey === c.v} onclick={() => chooseUnits(c.v)}>{c.l}</button>
+        {/each}
+      </div>
+    </div>
+    {#if unitsErr}<div class="menu-note">{unitsErr}</div>{/if}
     <button class="menu-item" onclick={toggleTheme}>
       <span>Theme</span><span class="menu-val">☀️ / 🌙</span>
     </button>
@@ -529,9 +562,11 @@
     <a class="menu-item" href="https://github.com/ToxicMinds/moderly" target="_blank" rel="noopener noreferrer">
       <span>Source code</span><span class="menu-val">AGPL-3.0 ↗</span>
     </a>
-    <button class="menu-item danger" onclick={signOut}>
-      <span>Sign out</span><span class="menu-val">⎋</span>
-    </button>
+    {#if !$isTrial}
+      <button class="menu-item danger" onclick={signOut}>
+        <span>Sign out</span><span class="menu-val">⎋</span>
+      </button>
+    {/if}
     <button class="menu-item danger" onclick={() => { menuOpen = false; deleteText = ''; deleteErr = ''; deleteOpen = true; }}>
       <span>Delete my account</span><span class="menu-val">Everything, for good</span>
     </button>
@@ -570,7 +605,7 @@
     }}
   >
     <svelte:boundary onerror={(e) => { console.error('Render error:', e); crashMsg = (e as any)?.message || String(e); recordError((e as any)?.message || String(e), { stack: (e as any)?.stack, kind: 'render' }); }}>
-      {@render children()}
+      {#key unitsKey}{@render children()}{/key}
       {#snippet failed(error, reset)}
         <div class="crash-box">
           <div style="font-size:2rem;margin-bottom:8px">⚠️</div>
@@ -627,6 +662,7 @@
   .menu-item{display:flex;text-decoration:none;align-items:center;justify-content:space-between;width:100%;gap:12px;padding:14px 0;border:none;border-bottom:1px solid var(--border);background:none;color:var(--text);font-size:0.9375rem;font-weight:700;cursor:pointer;font-family:inherit}
   .menu-item .menu-val{color:var(--muted);font-weight:600}
   .menu-item.danger{color:var(--red);border-bottom:none}
+  .menu-item.menu-save{color:var(--amber)}
   .menu-item:disabled{opacity:.55}
   /* Says what actually left the app and where it went — an export you can't
      confirm is an export you don't trust. */

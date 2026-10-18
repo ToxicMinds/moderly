@@ -8,6 +8,7 @@
 // than parroting numbers the watch already shows.
 //
 // Pure + framework-free so it's trivially unit-testable and reusable.
+import { changeWord, dwt, dwtNum, wt, wtShortU } from './units.ts';
 
 export type Severity = 'bad' | 'warn' | 'good' | 'info';
 
@@ -200,9 +201,11 @@ export function buildDailyFocus(i: CoachInput): FocusItem[] {
   if (i.currentWeight != null) {
     const w = i.currentWeight;
     const href = '/progress#body-goals';
-    const lostCtx = i.totalLostKg != null && i.totalLostKg >= 3 ? ` You're ${i.totalLostKg} kg down since you started.` : '';
-    const rate = Math.abs(i.rateKgPerWeek).toFixed(2);
-    const plan = i.planKgPerWeek != null ? `${i.planKgPerWeek.toFixed(1)} kg a week` : 'your plan';
+    const lostCtx = i.totalLostKg != null && i.totalLostKg >= 3 ? ` You're ${dwt(i.totalLostKg)} down since you started.` : '';
+    const rate = dwt(i.rateKgPerWeek, 2);
+    const rateNum = dwtNum(i.rateKgPerWeek, 2);
+    const perWk = `${changeWord()}/wk`;
+    const plan = i.planKgPerWeek != null ? `${dwt(i.planKgPerWeek)} a week` : 'your plan';
     // The arithmetic first, the room second — never "log more": the target is
     // set in the log's own units, so a log that leaves the oil out still works.
     const why = i.stall
@@ -211,38 +214,38 @@ export function buildDailyFocus(i: CoachInput): FocusItem[] {
     if (w <= i.goalKg) {
       items.push({
         id: 'weight-goal', href, severity: 'good', icon: '🎯', title: 'Goal weight reached',
-        msg: `You're at ${w} kg — you've reached your ${i.goalKg} kg target. Shift the mission to recomp: hold calories near maintenance and let training reshape you.`,
+        msg: `You're at ${wt(w)} — you've reached your ${wtShortU(i.goalKg)} target. Shift the mission to recomp: hold calories near maintenance and let training reshape you.`,
       });
     } else if (i.pace === 'gaining') {
       items.push({
         id: 'weight-up', href: '/progress#why-stalled', severity: 'warn', icon: '📈', title: 'Trending up',
-        msg: `The five-week trend is rising — ${rate} kg a week, more than the scale's day-to-day noise can explain.${why}`,
-        metric: `+${rate} kg/wk`,
+        msg: `The five-week trend is rising — ${rate} a week, more than the scale's day-to-day noise can explain.${why}`,
+        metric: `+${rateNum} ${perWk}`,
       });
     } else if (i.pace === 'stalled') {
       items.push({
-        id: 'weight-plateau', href: '/progress#why-stalled', severity: 'warn', icon: '⚖️', title: `Not losing — holding near ${w} kg`,
+        id: 'weight-plateau', href: '/progress#why-stalled', severity: 'warn', icon: '⚖️', title: `Not losing — holding near ${wt(w, 0)}`,
         msg: `Five weeks of weigh-ins rule out ${plan}; the trend is flat.${why}`,
-        metric: `${i.rateKgPerWeek >= 0 ? '−' : '+'}${rate} kg/wk`,
+        metric: `${i.rateKgPerWeek >= 0 ? '−' : '+'}${rateNum} ${perWk}`,
       });
     } else if (i.pace === 'slower') {
       items.push({
         id: 'weight-slow', href, severity: 'info', icon: '📉', title: 'Losing, slower than planned',
-        msg: `Real loss — ${rate} kg a week — but under ${plan}.${i.weeksToGoal ? ` At this pace: ~${i.weeksToGoal} weeks to ${i.goalKg} kg.` : ''} If that's fine, change nothing; if not, trim ~200 kcal a day.`,
-        metric: `−${rate} kg/wk`,
+        msg: `Real loss — ${rate} a week — but under ${plan}.${i.weeksToGoal ? ` At this pace: ~${i.weeksToGoal} weeks to ${wtShortU(i.goalKg)}.` : ''} If that's fine, change nothing; if not, trim ~200 kcal a day.`,
+        metric: `−${rateNum} ${perWk}`,
       });
     } else if (i.pace === 'faster') {
       items.push({
         id: 'weight-fast', href, severity: 'info', icon: '🔥', title: 'Losing quickly',
-        msg: `${rate} kg a week — well over ${plan}. Keep protein high and keep lifting heavy so what's leaving is fat, not muscle, and ease off if energy or sleep tanks.`,
-        metric: `−${rate} kg/wk`,
+        msg: `${rate} a week — well over ${plan}. Keep protein high and keep lifting heavy so what's leaving is fat, not muscle, and ease off if energy or sleep tanks.`,
+        metric: `−${rateNum} ${perWk}`,
       });
     } else if (i.pace === 'on-pace') {
-      const wk = i.weeksToGoal ? `~${i.weeksToGoal} weeks to ${i.goalKg} kg` : `heading to ${i.goalKg} kg`;
+      const wk = i.weeksToGoal ? `~${i.weeksToGoal} weeks to ${wtShortU(i.goalKg)}` : `heading to ${wtShortU(i.goalKg)}`;
       items.push({
         id: 'weight-ontrack', href, severity: 'good', icon: '📉', title: 'On pace',
-        msg: `${rate} kg a week, on plan.${lostCtx} ${wk}. Keep doing exactly this.`,
-        metric: `−${rate} kg/wk`,
+        msg: `${rate} a week, on plan.${lostCtx} ${wk}. Keep doing exactly this.`,
+        metric: `−${rateNum} ${perWk}`,
       });
     } else {
       const n = i.weighInsNeeded;
@@ -308,7 +311,7 @@ export function buildDailyFocus(i: CoachInput): FocusItem[] {
         severity: 'good',
         icon: '✅',
         title: 'Calories on budget',
-        msg: `Averaging ${avg} kcal — right on your ${target} target. This is the discipline that gets you to ${i.goalKg} kg. Stay boring.`,
+        msg: `Averaging ${avg} kcal — right on your ${target} target. This is the discipline that gets you to ${wtShortU(i.goalKg)}. Stay boring.`,
         metric,
       });
     }

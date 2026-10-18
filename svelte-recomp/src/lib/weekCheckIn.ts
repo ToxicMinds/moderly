@@ -17,6 +17,7 @@
 // (keyed by the week's Monday), so it inherits that table's existing RLS rather
 // than adding a new table to the sync surface.
 
+import { dwt } from './units.ts';
 export type Effort = 'easy' | 'right' | 'brutal';
 export type Hunger = 'fine' | 'manageable' | 'constant';
 export type Adherence = 'nailed' | 'mostly' | 'struggled';
@@ -138,7 +139,7 @@ export function checkInAdjustment(answers: CheckInAnswers, ctx: CheckInContext):
   if (answers.hunger === 'constant') {
     if (lossPct != null && lossPct >= FAST_LOSS_PCT) {
       kcalDelta += 200;
-      reasons.push(`You were hungry all week and lost ${lossKg!.toFixed(1)} kg — that's faster than ${FAST_LOSS_PCT}%/wk, so there is room to eat more without slowing the goal.`);
+      reasons.push(`You were hungry all week and lost ${dwt(lossKg!)} — that's faster than ${FAST_LOSS_PCT}%/wk, so there is room to eat more without slowing the goal.`);
     } else if (proteinShort) {
       // Adding calories to a low-protein week fixes the symptom and not the cause.
       reasons.push(`Constant hunger on ${Math.round(ctx.avgProteinG!)} g protein against a ${ctx.proteinTargetG} g target — protein and fibre are what make a deficit tolerable. Fix that before adding calories.`);

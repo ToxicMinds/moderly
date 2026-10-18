@@ -1,13 +1,10 @@
 <script lang="ts">
   import { liveWeights, liveGoal, liveGoalReason, liveSchedule, liveWorkoutSessions, liveSessionCompletions, liveDailySteps, liveBiometrics, liveWorkoutLogs, liveActivitySessions, liveDailyLogs } from '$lib/stores/live';
   import { upsertRecord } from '$lib/stores/sync';
-  import { userId } from '$lib/stores/user';
+  import { userId, user, isTrial } from '$lib/stores/user';
+  import { saveAccountOpen } from '$lib/stores/notices';
   import { liveProfile } from '$lib/stores/live';
   import { DEFAULT_SESSIONS } from '$lib/data/workoutPlanDefaults';
-  import { buildSchedule } from '$lib/data/planTemplates';
-
-  // Neutral fallback only — the real week comes from the user's own schedule.
-  const FALLBACK_SCHEDULE = buildSchedule({ templateId: 'gym3' });
   import { base } from '$app/paths';
   import { cardNav } from '$lib/actions/cardNav';
   import { morningsThisWeek } from '$lib/scale';
@@ -29,6 +26,8 @@
   import { shiftYmd } from '$lib/date';
   import { programActive, badmintonRule } from '$lib/program';
   import { nowTick, todayDate } from '$lib/stores/refresh';
+  import WeightInput from '$lib/components/WeightInput.svelte';
+  import { changeWord, wt, wtNum, wtShortU } from '$lib/units';
 
   const dayIdx = $derived(new Date($nowTick).getDay());
   const today = $derived($todayDate);
@@ -60,8 +59,8 @@
   const _sessions = liveWorkoutSessions();
   const _completions = liveSessionCompletions();
   const todaySchedule = $derived.by(() => {
-    const sched = $_schedule.length > 0 ? $_schedule : FALLBACK_SCHEDULE;
-    return sched.find((d: any) => d.day_of_week === dayIdx) ?? null;
+    // No week chosen yet (Train asks): no session to show, never a made-up one.
+    return ($_schedule as any[]).find((d: any) => d.day_of_week === dayIdx) ?? null;
   });
   const todaySession = $derived.by(() => {
     if (!todaySchedule?.session_key) return null;
@@ -75,13 +74,25 @@
   // morning, never the whole count, and Monday starts fresh.
   const mornings = $derived(morningsThisWeek($_weights as any[], today));
 
+  // A trial with something worth keeping (three weigh-ins, or two days in)
+  // is reminded, quietly, that it lives on this one device. "Later" rests it
+  // for a week.
+  const LATER_KEY = 'recompos.saveLater';
+  let laterAt = $state(0);
+  try { laterAt = Number(localStorage.getItem(LATER_KEY)) || 0; } catch { /* storage disabled */ }
+  const askToSave = $derived($isTrial && Date.now() - laterAt > 7 * 864e5 && (
+    ($_weights as any[]).length >= 3 || Date.now() - Date.parse($user?.created_at ?? '') > 2 * 864e5));
+  function saveLater() {
+    laterAt = Date.now();
+    try { localStorage.setItem(LATER_KEY, String(laterAt)); } catch { /* storage disabled */ }
+  }
+
   let editingGoal = $state(false);
-  let goalInput = $state('');
+  let goalEditKg = $state<number | null>(null);
 
   async function saveGoal() {
-    if (!uid || !goalInput) return;
-    const g = parseFloat(goalInput);
-    if (!g || g <= 0) return;
+    if (!uid || goalEditKg == null) { editingGoal = false; return; }
+    const g = goalEditKg;
     try {
       await upsertRecord('user_settings', { user_id: uid, goal_kg: g, updated_at: new Date().toISOString() });
       editingGoal = false;
@@ -91,7 +102,7 @@
   let uid = $state('');
   userId.subscribe((v) => { if (v) uid = v; });
 
-  let weight = $state('');
+  let weightKg = $state<number | null>(null);
   let saving = $state(false);
   let saveMsg = $state('');
   /** A reading far off the trend, waiting for its second tap. */
@@ -105,7 +116,7 @@
   // the headline, never as the record.
   const lastWeighIn = $derived(($_weights as any[]).at(-1) ?? null);
   const lastWeighLabel = $derived(lastWeighIn
-    ? `${lastWeighIn.weight} on ${new Date(lastWeighIn.date + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}`
+    ? `${wtNum(+lastWeighIn.weight)} on ${new Date(lastWeighIn.date + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}`
     : null);
 
 
@@ -118,17 +129,17 @@
     saving = true;
     saveMsg = '';
     try {
-      if (what === 'weight' && weight) {
-        const kg = parseFloat(weight);
+      if (what === 'weight' && weightKg != null) {
+        const kg = weightKg;
         await saveWeighIn(uid, kg, {
           today, weights: $_weights as any[], goalKg: $body.goalKg, trendKg: currentKg, confirmed: confirmKg === kg,
           startKg: ($_profile as any)?.start_kg != null ? +($_profile as any).start_kg : null,
         });
-        weight = '';
+        weightKg = null;
         confirmKg = null;
       }
     } catch (e: any) {
-      if (e instanceof NeedsConfirm) { confirmKg = parseFloat(weight); saveMsg = e.message; return; }
+      if (e instanceof NeedsConfirm) { confirmKg = weightKg; saveMsg = e.message; return; }
       console.error('Log failed:', e);
       saveMsg = 'Save failed: ' + (e?.message || e?.error_description || String(e)).slice(0, 150);
     } finally {
@@ -280,21 +291,29 @@
      month of 13 weigh-ins left it a kilo wide either way — so the scale gets the
      top of the screen until today's reading is in, then shrinks to one line. -->
 {#if todayWeighIn}
-  <div class="mw-done">Weighed <b>{todayWeighIn.weight}</b> today{#if currentKg != null}{' · '}trend <b>{currentKg.toFixed(1)}</b> kg{/if}{#if $line && !$line.misdrawn}{' · '}ceiling <b class="mw-line z-{$line.zone}">{$line.kg.toFixed(1)}</b>{/if}</div>
+  <div class="mw-done">Weighed <b>{wtNum(+todayWeighIn.weight)}</b> today{#if currentKg != null}{' · '}trend <b>{wtNum(currentKg)}</b> {changeWord()}{/if}{#if $line && !$line.misdrawn}{' · '}ceiling <b class="mw-line z-{$line.zone}">{wtNum($line.kg)}</b>{/if}</div>
 {:else}
   <div class="card mw">
     <div class="mw-top">
       <label class="card-lbl" for="ql-weight">Morning weigh-in</label>
-      {#if currentKg != null}<span class="mw-trend">trend <b>{currentKg.toFixed(1)}</b> kg{#if $line && !$line.misdrawn}{' · '}ceiling <b class="mw-line z-{$line.zone}">{$line.kg.toFixed(1)}</b>{/if}</span>{/if}
+      {#if currentKg != null}<span class="mw-trend">trend <b>{wtNum(currentKg)}</b> {changeWord()}{#if $line && !$line.misdrawn}{' · '}ceiling <b class="mw-line z-{$line.zone}">{wtNum($line.kg)}</b>{/if}</span>{/if}
     </div>
     <div class="mw-row">
-      <input id="ql-weight" type="number" inputmode="decimal" step="0.1" bind:value={weight}
-        placeholder={currentKg != null ? currentKg.toFixed(1) : 'kg'}
-        onkeydown={(e) => e.key === 'Enter' && saveEntry('weight')}>
-      <button class="btn bp" onclick={() => saveEntry('weight')} disabled={saving || !weight}>{saving ? 'Saving…' : 'Save'}</button>
+      <WeightInput id="ql-weight" bind:kg={weightKg} hint={currentKg} label="This morning’s weight" onenter={() => saveEntry('weight')} />
+      <button class="btn bp" onclick={() => saveEntry('weight')} disabled={saving || weightKg == null}>{saving ? 'Saving…' : 'Save'}</button>
     </div>
     {#if saveMsg}<div class="mw-err">{saveMsg}</div>{/if}
     <p class="mw-hint">{#if lastWeighLabel}Last reading {lastWeighLabel}.{' '}{/if}Same time, before food or drink. One morning is noise; the trend — the line through five weeks of mornings — is the number.</p>
+  </div>
+{/if}
+
+{#if askToSave}
+  <div class="card sv">
+    <p class="sv-t"><b>Keep what you've started.</b> This trial lives on this device only. Save it with an email and it's yours on any phone.</p>
+    <div class="sv-row">
+      <button class="btn bp bsm" onclick={() => saveAccountOpen.set(true)}>Save my account</button>
+      <button class="sv-later" onclick={saveLater}>Later</button>
+    </div>
   </div>
 {/if}
 
@@ -335,7 +354,7 @@
     {Math.round(coachTodayProtein ?? 0)} of {$body.proteinTargetG} g protein{#if todaySteps != null}{' · '}{todaySteps.toLocaleString()} steps{/if}
   </div>
   <div class="td-row" use:cardNav={`${base}/workouts`}>
-    <span class="td-k">{dayInfo.kind === 'gym' ? 'Gym' : dayInfo.kind === 'active' ? dayInfo.label : 'Rest'}</span>
+    <span class="td-k">{dayInfo.kind === 'gym' ? 'Gym' : dayInfo.kind === 'active' ? dayInfo.label : $_schedule.length ? 'Rest' : 'Move'}</span>
     <span class="td-v">
       {#if todaySession}{todaySession.name}{:else if dayInfo.label === 'Badminton' && bRule}{bRule.text[0].toUpperCase() + bRule.text.slice(1)}{:else if dayInfo.kind === 'active'}{todaySchedule?.time ? `at ${todaySchedule.time}` : 'today'}{:else}A walk counts{/if}{#if trainedToday}{' '}<span class="td-done">✓ done</span>{/if}
     </span>
@@ -347,27 +366,30 @@
      ceiling above you that you don't go back over, and what you'll do when the
      hard moments come. -->
 <div class="cm-row">
-  <button class="cm-chip" onclick={() => editing.set('next')}><span>Next stop</span><b class:cm-todo={!$body.next}>{$body.next ? `${$body.next.kg} kg${$body.next.reached ? ' ✓' : ''}` : 'Set'}</b></button>
+  <button class="cm-chip" onclick={() => editing.set('next')}><span>Next stop</span><b class:cm-todo={!$body.next}>{$body.next ? `${wtShortU($body.next.kg)}${$body.next.reached ? ' ✓' : ''}` : 'Set'}</b></button>
   {#if editingGoal}
     <!-- svelte-ignore a11y_autofocus -->
-    <input class="cm-goal-in" type="number" step="0.5" bind:value={goalInput} aria-label="Goal weight, kg"
-      onkeydown={(e) => e.key === 'Enter' && saveGoal()} onblur={saveGoal} autofocus>
+    <WeightInput class="cm-goal-in" bind:kg={goalEditKg} label="Goal weight" onenter={saveGoal} onblur={saveGoal} autofocus />
   {:else}
-    <button class="cm-chip" onclick={() => { editingGoal = true; goalInput = GOAL_KG.toString(); }}><span>Goal</span><b>{GOAL_KG} kg</b></button>
+    <button class="cm-chip" onclick={() => { editingGoal = true; goalEditKg = GOAL_KG || null; }}><span>Goal</span><b>{wtShortU(GOAL_KG)}</b></button>
   {/if}
-  <button class="cm-chip" onclick={() => editing.set('line')}><span>Ceiling</span><b class:cm-todo={!$line || $line.misdrawn}>{$line && !$line.misdrawn ? `${$line.kg.toFixed(1)} kg` : 'Set'}</b></button>
+  <button class="cm-chip" onclick={() => editing.set('line')}><span>Ceiling</span><b class:cm-todo={!$line || $line.misdrawn}>{$line && !$line.misdrawn ? wt($line.kg) : 'Set'}</b></button>
   <button class="cm-chip" onclick={() => editing.set('plans')}><span>Plans</span><b class:cm-todo={!planCount}>{planCount || 'Make'}</b></button>
 </div>
 <Commitments />
 
 <style>
   .mw{padding:13px 14px}
+  .sv{padding:13px 14px;background:color-mix(in srgb,var(--amber) 8%,var(--bg2))}
+  .sv-t{font-size:0.875rem;line-height:1.5;color:var(--text);margin:0 0 10px}
+  .sv-row{display:flex;align-items:center;gap:14px}
+  .sv-later{background:none;border:none;font:inherit;font-size:0.8125rem;font-weight:700;color:var(--muted);cursor:pointer;text-decoration:underline;text-underline-offset:3px}
   .mw-top{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:8px}
   .mw-top .card-lbl{margin:0}
   .mw-trend{font-size:0.8125rem;color:var(--muted)}
   .mw-trend b{font-family:var(--font-display);font-size:1.125rem;color:var(--text)}
   .mw-row{display:flex;gap:8px}
-  .mw-row input{flex:1;min-width:0;font-size:1.25rem;font-weight:700;text-align:center;font-variant-numeric:lining-nums tabular-nums}
+  .mw-row :global(input){flex:1;min-width:0;font-size:1.25rem;font-weight:700;text-align:center;font-variant-numeric:lining-nums tabular-nums}
   .mw-row .btn{flex-shrink:0;min-width:88px}
   .mw-hint{font-size:0.75rem;color:var(--muted);margin-top:7px;line-height:1.45}
   .mw-err,.mw-msg{font-size:0.75rem;margin-top:6px;color:var(--led-good)}
@@ -384,7 +406,7 @@
   .cm-chip span{font-family:var(--font-label);font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
   .cm-chip b{font-family:var(--font-display);font-size:1.25rem;font-weight:700;line-height:1;color:var(--text);white-space:nowrap}
   .cm-chip b.cm-todo{color:var(--muted);text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--border2)}
-  .cm-goal-in{text-align:center;min-width:0}
+  :global(.cm-goal-in){text-align:center;min-width:0}
   .td{padding:6px 14px}
   .td-row{display:flex;align-items:baseline;gap:12px;padding:9px 0;cursor:pointer;-webkit-tap-highlight-color:transparent}
   .td-row + .td-sub + .td-row{border-top:1px solid var(--border);margin-top:9px}

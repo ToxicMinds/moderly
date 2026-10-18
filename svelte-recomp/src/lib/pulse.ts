@@ -12,6 +12,7 @@
 import { goalDirection } from './coach.ts';
 import type { Pace, WeightVerdict } from './insights.ts';
 import type { MilestoneState } from './milestone.ts';
+import { changeWord, dwt, dwtNum, unitWord, weightUnit, wt, wtShort } from './units.ts';
 
 /** Never 'bad': a bad week is amber. "Blown" is the thought that makes it so. */
 export type PulseTone = 'good' | 'ok' | 'warn' | 'na';
@@ -47,8 +48,6 @@ export interface Pulse {
   beam: { tilt: number; left: string; right: string } | null;
 }
 
-const kg1 = (n: number) => Math.abs(n).toFixed(1);
-
 export function pulse(i: PulseInput): Pulse {
   const w = i.weight;
   const trend = w?.trendKg ?? null;
@@ -65,10 +64,14 @@ export function pulse(i: PulseInput): Pulse {
   const rate = sure ? w!.rateKgPerWeek : null;
 
   const toGo = kg != null && target != null ? kg - target : null;
-  const caption = trend == null ? (kg != null ? 'kg · not a trend yet' : '')
-    : toGo == null ? 'kg trend'
-    : Math.abs(toGo) < 0.05 ? `kg trend · at ${target}`
-    : `kg trend · ${kg1(toGo)} to ${target}`;
+  // In stone the number itself says "st", and the distance reads in pounds.
+  const st = weightUnit() === 'st';
+  const u = st ? '' : `${unitWord()} `;
+  const goal = target != null ? wtShort(target) : '';
+  const caption = trend == null ? (kg != null ? (st ? 'not a trend yet' : `${unitWord()} · not a trend yet`) : '')
+    : toGo == null ? `${u}trend`
+    : Math.abs(toGo) < 0.05 ? `${u}trend · at ${goal}`
+    : `${u}trend · ${st ? dwt(toGo) : dwtNum(toGo)} to ${goal}`;
   const pct = trend != null && target != null && from != null && Math.abs(from - target) >= 0.1
     ? Math.max(0, Math.min(100, ((from - trend) / (from - target)) * 100))
     : null;
@@ -82,27 +85,27 @@ export function pulse(i: PulseInput): Pulse {
       : n && n <= 7 ? `${n} more morning${n === 1 ? '' : 's'} on the scale and the trend can say how fast it’s moving.`
       // Months of mornings, a gentle plan and a swinging scale: what IS known.
       : trend != null && plan != null && (w?.n ?? 0) >= 14
-        ? `Holding around ${Math.round(trend)} kg. A ${plan.toFixed(1)} kg-a-week loss takes a few more weeks of mornings to show through the day-to-day swings.`
+        ? `Holding around ${wt(trend, 0)}. A ${dwt(plan)}-a-week loss takes a few more weeks of mornings to show through the day-to-day swings.`
       : 'A few more weeks of mornings on the scale and the trend can say how fast it’s moving.';
   } else {
-    const r = kg1(rate);
+    const r = dwt(rate);
     const toward = toGo != null && (dir === 'lose' ? rate > 0 : dir === 'gain' ? rate < 0 : false);
     const weeks = toward && Math.abs(rate) >= 0.05 ? Math.ceil(Math.abs(toGo!) / Math.abs(rate)) : null;
-    const eta = weeks != null && weeks <= 156 ? ` At that pace, ${target} in about ${weeks} week${weeks === 1 ? '' : 's'}.` : '';
+    const eta = weeks != null && weeks <= 156 ? ` At that pace, ${goal} in about ${weeks} week${weeks === 1 ? '' : 's'}.` : '';
     if (dir === 'gain') {
       tone = w!.hiKgPerWeek < 0 ? 'good' : w!.loKgPerWeek > 0 ? 'warn' : 'ok';
-      story = rate < 0 ? `Up ${r} kg a week.${eta}` : rate > 0.05 ? `Down ${r} kg a week, and the goal is up.` : 'The trend isn’t climbing yet.';
+      story = rate < 0 ? `Up ${r} a week.${eta}` : rate > 0.05 ? `Down ${r} a week, and the goal is up.` : 'The trend isn’t climbing yet.';
     } else if (dir === 'maintain') {
       tone = Math.abs(rate) <= 0.25 ? 'good' : 'warn';
-      story = tone === 'good' ? 'Holding at your goal.' : `${rate > 0 ? 'Down' : 'Up'} ${r} kg a week, away from your goal.`;
+      story = tone === 'good' ? 'Holding at your goal.' : `${rate > 0 ? 'Down' : 'Up'} ${r} a week, away from your goal.`;
     } else {
       tone = i.pace === 'on-pace' || i.pace === 'faster' ? 'good' : i.pace === 'slower' ? 'ok'
         : i.pace === 'stalled' || i.pace === 'gaining' ? 'warn' : 'na';
       story = i.pace === 'stalled' ? 'The trend is flat right now.'
-        : rate < 0 ? `Up ${r} kg a week right now.`
-        : i.pace === 'faster' ? `Down ${r} kg a week, faster than the plan. Keep the protein up.${eta}`
-        : i.pace === 'slower' ? `Down ${r} kg a week, slower than the plan.${eta}`
-        : `Down ${r} kg a week.${eta}`;
+        : rate < 0 ? `Up ${r} a week right now.`
+        : i.pace === 'faster' ? `Down ${r} a week, faster than the plan. Keep the protein up.${eta}`
+        : i.pace === 'slower' ? `Down ${r} a week, slower than the plan.${eta}`
+        : `Down ${r} a week.${eta}`;
     }
   }
 
@@ -116,16 +119,16 @@ export function pulse(i: PulseInput): Pulse {
 
   const lost = i.firstKg != null && kg != null ? i.firstKg - kg : null;
   const stats = [
-    { v: lost == null ? '—' : `${lost >= 0 ? '−' : '+'}${kg1(lost)}`, l: 'kg so far' },
-    { v: rate == null ? '—' : `${rate >= 0 ? '−' : '+'}${Math.abs(rate).toFixed(2)}`, l: 'kg / week' },
+    { v: lost == null ? '—' : `${lost >= 0 ? '−' : '+'}${dwtNum(lost)}`, l: `${changeWord()} so far` },
+    { v: rate == null ? '—' : `${rate >= 0 ? '−' : '+'}${dwtNum(rate, 2)}`, l: `${changeWord()} / week` },
     stop && i.goalKg != null && kg != null
-      ? { v: kg1(kg - i.goalKg), l: `kg to ${i.goalKg}` }
-      : { v: i.goalKg != null ? String(i.goalKg) : '—', l: 'goal kg' },
+      ? { v: dwtNum(kg - i.goalKg), l: `${changeWord()} to ${wtShort(i.goalKg)}` }
+      : { v: i.goalKg != null ? wtShort(i.goalKg) : '—', l: st ? 'goal' : `goal ${unitWord()}` },
   ];
   const toward = rate == null || target == null || kg == null ? 0
     : Math.sign(kg - target) * rate; // positive: moving toward the target
   const beam = target != null && trend != null
-    ? { tilt: Math.abs(toward) < 0.05 ? 0 : Math.max(-1, Math.min(1, toward)), left: 'today', right: String(target) }
+    ? { tilt: Math.abs(toward) < 0.05 ? 0 : Math.max(-1, Math.min(1, toward)), left: 'today', right: goal }
     : null;
   return { kg, caption, pct, tone, story, stats, beam };
 }

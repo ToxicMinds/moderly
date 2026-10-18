@@ -22,6 +22,7 @@
 import { projectGoal, type ActivityLevel } from './tdee.ts';
 import { ageFrom, type Profile } from './profile.ts';
 import { shiftYmd } from './date.ts';
+import { dwt } from './units.ts';
 
 /** Protein per kg of GOAL bodyweight — the muscle-retention lever in a deficit. */
 const PROTEIN_G_PER_KG = 1.8;
@@ -58,6 +59,8 @@ export interface DayOneInput {
   weighInCount: number;
   foodLogCount: number;
   workoutLogCount: number;
+  /** Days in the saved week: a chosen week, even a walking one, ticks the step. */
+  scheduleDays?: number;
   /** Plans written for the hard moments (user_settings.plans). */
   planCount?: number;
   now?: Date;
@@ -112,11 +115,11 @@ export function dayOnePlan(input: DayOneInput): DayOnePlan | null {
       done: input.foodLogCount > 0,
     },
     {
-      key: 'train', label: 'Record one workout', href: '/workouts',
+      key: 'train', label: 'Choose how you move', href: '/workouts',
       hint: proj.direction === 'gain'
-        ? 'Your lifts are what direct the extra calories into muscle instead of fat.'
-        : 'Your lifts are the proof the weight coming off is fat and not muscle.',
-      done: input.workoutLogCount > 0,
+        ? 'Lifting is what turns the extra calories into muscle instead of fat.'
+        : 'A walk a day counts. Lifting twice a week keeps the muscle while the fat goes.',
+      done: input.workoutLogCount > 0 || (input.scheduleDays ?? 0) > 0,
     },
   ];
 
@@ -129,8 +132,8 @@ export function dayOnePlan(input: DayOneInput): DayOnePlan | null {
       : proj.direction === 'gain'
         // Never "kg to go" without saying which way — the same sentence read as
         // a cut to someone who had been told to put weight back on.
-        ? `${fmtKg(proj.kgToChange)} kg to gain. At ${fmtKg(perWeekKg)} kg a week that's about ${weeksPhrase}.`
-        : `${fmtKg(proj.kgToChange)} kg to lose. At ${fmtKg(perWeekKg)} kg a week that's about ${weeksPhrase}.`;
+        ? `${dwt(proj.kgToChange)} to gain. At ${dwt(perWeekKg)} a week that's about ${weeksPhrase}.`
+        : `${dwt(proj.kgToChange)} to lose. At ${dwt(perWeekKg)} a week that's about ${weeksPhrase}.`;
 
   return {
     targetKcal: proj.targetIntakeKcal,

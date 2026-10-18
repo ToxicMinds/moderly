@@ -8,6 +8,7 @@
   import { todayDate } from '$lib/stores/refresh';
   import { lastMonth, monthLetter } from '$lib/week';
   import type { MilestoneSetting } from '$lib/milestone';
+  import { dwt, wt, wtNum, wtShortU } from '$lib/units';
 
   const _daily = liveDailyLogs();
   const _weights = liveWeights();
@@ -40,14 +41,14 @@
     <div class="ml-h">{letter.label}, looking back</div>
     {#if letter.fromKg != null && letter.toKg != null && letter.deltaKg != null}
       <p class="ml-p">
-        <b>{letter.fromKg.toFixed(1)} → {letter.toKg.toFixed(1)} kg.</b>
-        {Math.abs(letter.deltaKg) < 0.2 ? 'The trend held.' : letter.deltaKg < 0 ? `The trend came down ${(-letter.deltaKg).toFixed(1)} kg.` : `The trend went up ${letter.deltaKg.toFixed(1)} kg.`}
+        <b>{wtNum(letter.fromKg)} → {wt(letter.toKg)}.</b>
+        {Math.abs(letter.deltaKg) < 0.2 ? 'The trend held.' : letter.deltaKg < 0 ? `The trend came down ${dwt(letter.deltaKg)}.` : `The trend went up ${dwt(letter.deltaKg)}.`}
       </p>
     {/if}
     <p class="ml-p">
       You weighed in on {letter.mornings} of {letter.days} mornings.{#if letter.reviewed}{' '}{held}{/if}
     </p>
-    {#each letter.stops as s}<p class="ml-p ml-stop">Next stop reached: <b>{s.kg} kg</b> on {fmt(s.reached)}.</p>{/each}
+    {#each letter.stops as s}<p class="ml-p ml-stop">Next stop reached: <b>{wtShortU(s.kg)}</b> on {fmt(s.reached)}.</p>{/each}
     {#if letter.notes.length}
       <div class="ml-lbl">What you wrote</div>
       {#each letter.notes as n (n.weekStart)}

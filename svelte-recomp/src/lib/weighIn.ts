@@ -8,6 +8,7 @@ import { speak } from '$lib/stores/toast';
 import { haptic } from '$lib/haptics';
 import { writeBackToHealth } from '$lib/health/writeBack';
 import { weighInMessage, offTrend } from '$lib/scale';
+import { dwt, wt } from '$lib/units';
 
 /** The reading is far off the trend: show the message, and save on a second
  *  tap with `confirmed`. */
@@ -21,7 +22,7 @@ export async function saveWeighIn(uid: string, kg: number, ctx: {
   if (!(kg > 0)) throw new Error('That isn’t a weight.');
   const off = offTrend(kg, ctx.trendKg);
   if (off != null && !ctx.confirmed) {
-    throw new NeedsConfirm(`${kg} is ${Math.abs(off).toFixed(1)} kg ${off > 0 ? 'above' : 'below'} your trend. A typo? If it's right, tap again to save it.`);
+    throw new NeedsConfirm(`${wt(kg)} is ${dwt(off)} ${off > 0 ? 'above' : 'below'} your trend. A typo? If it's right, tap again to save it.`);
   }
   const existing = await db.table('weights').where('[user_id+date]').equals([uid, ctx.today]).first();
   await upsertRecord('weights', {

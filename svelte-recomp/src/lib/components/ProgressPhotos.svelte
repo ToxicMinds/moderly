@@ -9,7 +9,8 @@
   // standard file input `capture` attribute (opens the camera directly
   // on mobile) -- no extra camera-permission UI needed beyond what the
   // browser already provides for <input type=file capture>.
-  import { userId } from '$lib/stores/user';
+  import { userId, isTrial } from '$lib/stores/user';
+  import { saveAccountOpen } from '$lib/stores/notices';
   import { supabase } from '$lib/db/client';
   import { liveProfile } from '$lib/stores/live';
   import { fileToDownscaledDataUrl } from '$lib/image';
@@ -308,10 +309,16 @@
     {/each}
   </div>
 
+  {#if $isTrial}
+    <!-- Photos are kept only for saved accounts: a trial nobody uses is
+         deleted after 30 days, and its files must not outlive it. -->
+    <button class="btn bp bfl photo-add-btn" onclick={() => saveAccountOpen.set(true)}>Save your account to keep photos</button>
+  {:else}
   <label class="btn bp bfl photo-add-btn">
     {uploading ? 'Uploading…' : `📸 Add ${angle} photo`}
     <input type="file" accept="image/*" capture="user" onchange={handleFile} disabled={uploading} style="display:none">
   </label>
+  {/if}
   {#if uploadMsg}
     <div style="font-size:0.75rem;text-align:center;margin-top:6px;color:{uploadMsg.startsWith('Upload failed') ? 'var(--red)' : 'var(--green)'}">{uploadMsg}</div>
   {/if}

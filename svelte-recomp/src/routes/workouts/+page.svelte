@@ -6,7 +6,7 @@
   import Modal from '$lib/components/Modal.svelte';
   import ExerciseMedia from '$lib/components/ExerciseMedia.svelte';
   import { userId } from '$lib/stores/user';
-  import { upsertRecord, upsertRecords, syncStatus } from '$lib/stores/sync';
+  import { upsertRecord, syncStatus } from '$lib/stores/sync';
   import { liveSchedule, liveWorkoutSessions, liveWorkoutLogs, liveSessionCompletions, liveGoalReason, liveActivitySessions, liveProfile } from '$lib/stores/live';
   import { programActive, programEnd } from '$lib/program';
   import type { WorkoutSet } from '$lib/db/dexie';
@@ -28,6 +28,7 @@
   import { logManualActivity, QUICK_ACTIVITIES } from '$lib/health/logActivity';
   import { EXERCISE_TYPES } from '$lib/health/exercise';
   import { writeBackToHealth } from '$lib/health/writeBack';
+  import WeekChooser from '$lib/components/WeekChooser.svelte';
 
   const DAY_NAMES = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 
@@ -51,35 +52,14 @@
   let uid = $state('');
   userId.subscribe((v) => { if (v) uid = v; });
 
-  // — Live, editable schedule + sessions (replaces the old hardcoded
-  // workouts.ts constants). Auto-seeds the badminton-aware default plan
-  // the first time a user opens this page with nothing saved yet, same
-  // pattern used for seeding the evening checklist on the Today page.
+  // — Live, editable schedule + sessions. With no week saved yet, the page
+  // asks how they move (WeekChooser) and shows a neutral gym week underneath
+  // until they choose; nothing is saved for them. (It used to save that gym
+  // week silently, so people who don't lift were handed one.)
   const _schedule = liveSchedule();
   const _sessions = liveWorkoutSessions();
   const _goalReason = liveGoalReason();
-  let seeded = $state(false);
-
-  // Onboarding builds the real week from the user's chosen template. This is
-  // only a fallback for an account that predates onboarding, so it seeds the
-  // NEUTRAL 3-day gym week rather than one specific person's badminton schedule.
   const FALLBACK_SCHEDULE = buildSchedule({ templateId: 'gym3' });
-
-  async function seedPlanIfEmpty() {
-    if (!uid || seeded) return;
-    const existingDays = await db.table('workout_schedule').where('user_id').equals(uid).count();
-    if (existingDays === 0) {
-      // One request per table, each saved whole or not at all. Schedule first:
-      // if the sessions then fail, the page already falls back to these same
-      // built-in sessions (see `sessions` below).
-      const at = new Date().toISOString();
-      await upsertRecords('workout_schedule', FALLBACK_SCHEDULE.map((d) => ({ user_id: uid, ...d, updated_at: at })));
-      await upsertRecords('workout_sessions_custom', DEFAULT_SESSIONS.map((s) => ({ user_id: uid, ...s, updated_at: at })));
-    }
-    seeded = true;
-  }
-
-  $effect(() => { if (uid) seedPlanIfEmpty(); });
 
   const schedule = $derived<PlanDay[]>($_schedule.length > 0 ? $_schedule : FALLBACK_SCHEDULE);
   const sessions = $derived<Map<string, PlanSession>>(
@@ -909,6 +889,11 @@
   });
 </script>
 
+{#if uid && $_schedule.length === 0}
+<!-- No week yet: the choice first, and no made-up week's numbers behind it. -->
+<PageHero title="Train" sub="Your week" />
+<WeekChooser {uid} />
+{:else}
 <PageHero title="Train" sub="This week"
   tone={gymTone} pct={gymPct}
   value={gymSessions7} caption={`of ${weeklyTarget} this week`}
@@ -1455,6 +1440,7 @@
     </span>
     <span class="parked-go">Show them anyway</span>
   </button>
+{/if}
 {/if}
 
 <style>

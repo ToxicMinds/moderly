@@ -18,6 +18,7 @@ import { shiftYmd } from '$lib/date';
 import { lastMonth, monthLetter } from '$lib/week';
 import { forecastHere } from '$lib/weather';
 import { OFF_TREND_KG } from '$lib/scale';
+import { toUnit, weightUnit, type WeightUnit } from '$lib/units';
 
 /** user_settings.briefing: the morning switch and time, and the evening's. */
 export interface MomentSetting { on: boolean; after: string; hold: boolean }
@@ -44,6 +45,9 @@ export interface MomentActions {
   /** The weights the app saves without asking (trend ± OFF_TREND_KG); the
    *  phone asks before taking one outside it, as the app does. */
   weighRange: [number, number] | null;
+  /** The unit the person types in (kg, lb, or st typed as pounds), in which
+   *  weighRange is also given. Builds before 13 ignore it and say kg. */
+  unit: WeightUnit;
 }
 
 /** The morning briefing written for today and tomorrow, with its buttons. */
@@ -75,8 +79,10 @@ export const briefings: Readable<Array<Briefing & { actions: MomentActions }>> =
         }),
         actions: {
           weigh: true, back: rateBack, meal: usual ? { label: 'Usual breakfast', kcal: usual.kcal, items: usual.items } : null,
+          // In the person's own unit: the phone compares what they type with it.
           weighRange: $body.currentKg != null
-            ? [Math.round(($body.currentKg - OFF_TREND_KG) * 10) / 10, Math.round(($body.currentKg + OFF_TREND_KG) * 10) / 10] as [number, number] : null,
+            ? [Math.round(toUnit($body.currentKg - OFF_TREND_KG) * 10) / 10, Math.round(toUnit($body.currentKg + OFF_TREND_KG) * 10) / 10] as [number, number] : null,
+          unit: weightUnit(),
         },
       };
     });

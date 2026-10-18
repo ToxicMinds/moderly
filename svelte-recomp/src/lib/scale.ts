@@ -8,6 +8,7 @@
 // the scale after a gap is welcomed, not scored. Pure; see selfcheck.js.
 
 import { mondayOf } from './date.ts';
+import { dwt, wt, wtNum } from './units.ts';
 
 export interface Said { key: string; title: string; body: string; icon: string; ttl?: number }
 
@@ -30,7 +31,7 @@ export function weighInMessage(kg: number, ctx: {
 
   if (goal > 0 && kg <= goal + 0.05 && (priorLow == null || priorLow > goal + 0.05)) {
     return { key: `goal-reached-${kg}`, title: 'Goal weight reached 🎯', icon: '🎯', ttl: 10000,
-      body: `${kg.toFixed(1)} kg — you did the thing. Now your line guards it.` };
+      body: `${wt(kg)} — you did the thing. Now your line guards it.` };
   }
   const newLow = priorLow != null && kg < priorLow - 0.05 && (goal === 0 || kg > goal);
   const gap = prior.length ? daysBetween(prior[prior.length - 1].date, ctx.today) : 0;
@@ -39,8 +40,8 @@ export function weighInMessage(kg: number, ctx: {
       body: `${gap} days since the last one${newLow ? ` — and the lowest you've logged` : ''}. Nothing to make up: the trend picks up where it left off.` };
   }
   if (newLow) {
-    const fromStart = ctx.startKg != null && ctx.startKg > kg ? ` — down ${(ctx.startKg - kg).toFixed(1)} kg from ${ctx.startKg.toFixed(1)}` : '';
-    return { key: `low-${kg}`, title: `New low: ${kg.toFixed(1)} kg 📉`, icon: '📉',
+    const fromStart = ctx.startKg != null && ctx.startKg > kg ? ` — down ${dwt(ctx.startKg - kg)} from ${wtNum(ctx.startKg)}` : '';
+    return { key: `low-${kg}`, title: `New low: ${wt(kg)} 📉`, icon: '📉',
       body: `Lowest you've logged${fromStart}. One morning is noise — the trend is what to watch.` };
   }
   return null;

@@ -10,6 +10,7 @@
   import { suggestStops, HELD_DAYS, type MilestoneSetting } from '$lib/milestone';
   import { saveMilestone, markStopReached } from '$lib/commitments';
   import { haptic } from '$lib/haptics';
+  import { wt, wtNum, wtShort } from '$lib/units';
 
   const _p = liveProfile();
   const setting = $derived((($_p as any)?.milestone ?? null) as MilestoneSetting | null);
@@ -41,16 +42,16 @@
 
 {#if show && next && trend != null}
   <section class="mm" aria-label="Next stop reached">
-    <div class="mm-led" aria-hidden="true">{next.kg}</div>
+    <div class="mm-led" aria-hidden="true">{wtShort(next.kg)}</div>
     <h2 class="mm-h">{next.crossed ? `Out of the “${next.crossed}” range.` : 'Next stop: reached.'}</h2>
     <p class="mm-p">
-      Your trend is {trend.toFixed(1)} kg and has stayed at or under {next.kg} for {HELD_DAYS} days.{#if next.fromKg != null && setting?.set}{' '}It was {next.fromKg.toFixed(1)} when you set this stop on {day(setting.set)}.{/if}
+      Your trend is {wt(trend)} and has stayed at or under {wtShort(next.kg)} for {HELD_DAYS} days.{#if next.fromKg != null && setting?.set}{' '}It was {wtNum(next.fromKg)} when you set this stop on {day(setting.set)}.{/if}
     </p>
     {#if why}<p class="mm-why">You said: “{why}”</p>{/if}
     {#if stops.length}
       <div class="mm-lbl">Your next stop</div>
       <div class="mm-stops">
-        {#each stops as k}<button type="button" class="mm-stop" onclick={() => choose(k)} disabled={saving}>{k}</button>{/each}
+        {#each stops as k}<button type="button" class="mm-stop" onclick={() => choose(k)} disabled={saving}>{wtShort(k)}</button>{/each}
       </div>
     {/if}
     <button type="button" class="mm-later" onclick={() => choose(null)} disabled={saving}>Choose the next one later</button>

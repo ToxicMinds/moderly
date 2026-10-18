@@ -1201,7 +1201,34 @@ check('consent is asked at sign-up and records the privacy page it was given to'
     'bump PRIVACY_VERSION with the page, so consent says which page it agreed to');
   assert.match(u, /if \(!consent\) throw/);
   assert.match(u, /options: \{ data: \{ consent: \{ health: true, privacy: PRIVACY_VERSION/);
-  assert.match(readFileSync('src/lib/components/AuthGate.svelte', 'utf8'), /disabled=\{busy \|\| \(mode === 'signup' && !consent\)\}/);
+  const gate = readFileSync('src/lib/components/AuthGate.svelte', 'utf8');
+  assert.match(gate, /disabled=\{busy \|\| \(mode === 'signup' && !consent\)\}/);
+  // "Start now" is a sign-up too: the same explicit consent, recorded the same way.
+  assert.match(u, /export async function startTrial\(consent: boolean\) \{\n  if \(!consent\) throw/);
+  assert.match(u, /signInAnonymously\(\{\n    options: \{ data: \{ consent: \{ health: true, privacy: PRIVACY_VERSION/);
+  assert.match(gate, /onclick=\{start\} disabled=\{busy \|\| !consent\}/);
+});
+
+check('photos go to Gemini alone, and body photos only once Gemini is on its paid tier', async () => {
+  const { readFileSync } = await import('node:fs');
+  const llm = readFileSync('../supabase/functions/_shared/llm.ts', 'utf8');
+  assert.match(llm, /name: 'gemini', vision: true/);
+  assert.match(llm, /openAiCompatible\('kilo', KILO_URL, false,/, 'no photo through a free gateway');
+  assert.match(llm, /openAiCompatible\('pollinations', POLLINATIONS_URL, false,/);
+  assert.match(llm, /PROVIDERS\.filter\(\(p\) => \(!a\.image \|\| p\.vision\)/);
+  const bf = readFileSync('../supabase/functions/estimate-bf/index.ts', 'utf8');
+  assert.ok(bf.indexOf('if (!GEMINI_PAID)') > 0 && bf.indexOf('if (!GEMINI_PAID)') < bf.indexOf('await ask('), 'refused before any provider sees it');
+  assert.match(readFileSync('static/privacy.html', 'utf8'), /no body photo leaves Moderly/);
+});
+
+check('a trial gets a smaller AI allowance, keeps no photos, and is deleted after 30 idle days', async () => {
+  const { readFileSync } = await import('node:fs');
+  const sql = readFileSync('../supabase/migrations/20261019100000_trial_accounts.sql', 'utf8');
+  assert.match(sql, /lim   integer := case when trial then least\(p_limit, 15\) else p_limit end;/);
+  assert.match(sql, /if n > lim then\n    return false;/, 'the person’s own cap first, so one account can’t use up everyone’s day');
+  assert.match(sql, /where u\.is_anonymous\n      and u\.created_at < now\(\) - interval '30 days'/, 'only trials, never a saved account');
+  assert.match(sql, /coalesce\(\(auth\.jwt\(\) ->> 'is_anonymous'\)::boolean, false\) = false/, 'no photo uploads from a trial');
+  assert.match(readFileSync('static/privacy.html', 'utf8'), /A trial that isn't\nused for 30 days is deleted/);
 });
 
 check('deleting an account takes everything, and only the caller’s', async () => {
@@ -2346,10 +2373,17 @@ check('gym-only templates produce no sport days', () => {
 });
 
 check('every week keeps at least one real rest day', () => {
-  for (const t of PLAN_TEMPLATES) {
+  // Walking needs no rest day; lifting does.
+  for (const t of PLAN_TEMPLATES.filter((x) => x.liftDays > 0)) {
     const days = buildSchedule({ templateId: t.id, sportName: 'X', sportDays: [1, 2, 3, 4] });
     assert.ok(days.some((d) => d.label === 'Rest'), `${t.id} left no rest day`);
   }
+});
+
+check('a week with no gym is a walk a day, and says so', () => {
+  const days = buildSchedule({ templateId: 'walk', sportName: 'X', sportDays: [1, 2] });
+  assert.ok(days.every((d) => d.label === 'Walk' && d.session_key === null));
+  assert.equal(describeSchedule(days), 'A walk every day, no gym');
 });
 
 check('the 4-day split alternates lower and upper', () => {
@@ -2983,7 +3017,11 @@ check('a program session can never be saved over the user’s own plan', async (
   const { readFileSync } = await import('node:fs');
   const page = readFileSync('src/routes/workouts/+page.svelte', 'utf8');
   assert.match(page, /if \(!sess \|\| !uid \|\| sess\.program\) return;/);
-  assert.equal((page.match(/upsertRecords?\('workout_sessions_custom'/g) ?? []).length, 2, 'seed + the one guarded save');
+  assert.equal((page.match(/upsertRecords?\('workout_sessions_custom'/g) ?? []).length, 1, 'the one guarded save');
+  // The only other writer seeds a first week, and never over one.
+  const chooser = readFileSync('src/lib/components/WeekChooser.svelte', 'utf8');
+  assert.equal((chooser.match(/upsertRecords?\('workout_sessions_custom'/g) ?? []).length, 1);
+  assert.match(chooser, /if \(await db\.table\('workout_schedule'\)\.where\('user_id'\)\.equals\(uid\)\.count\(\)\) return;/);
 });
 
 check('while a program runs, Train names the day after the program’s session', async () => {
@@ -3858,6 +3896,78 @@ check('the app never says "Badminton 18:15" in a fortnight the plan says no game
   const on = composeBriefing({ ...wed, date: '2026-11-04', badmintonRule: badmintonRule(p, '2026-11-04') });
   assert.match(on.body, /^18:15 Badminton: light rallies, 45 min at most, no smashes\. Warm up 10 min\.$/m);
   assert.match(composeBriefing(wed).body, /^18:15 Badminton\.$/m, 'no program: as before');
+});
+
+// --- Units: kg, pounds and stone, everywhere a body weight is read or typed ---
+
+check('a weight reads in the person’s own unit, and what they type comes back as kg', async () => {
+  const u = await import('../src/lib/units.ts');
+  assert.equal(u.wt(83.4, 1, 'kg'), '83.4 kg');
+  assert.equal(u.wt(83.4, 1, 'lb'), '183.9 lb');
+  assert.equal(u.wt(83.4, 1, 'st'), '13 st 1.9 lb');
+  assert.equal(u.wtNum(88.904, 1, 'st'), '14 st 0.0', '13 st 14.0 lb rolls over');
+  assert.equal(u.dwt(-0.4, 1, 'kg'), '0.4 kg', 'a change carries no sign: callers say which way');
+  assert.equal(u.dwt(0.4, 1, 'st'), '0.9 lb', 'stone users read changes in pounds');
+  assert.equal(u.wt(null), '—');
+  // Typed back in.
+  assert.equal(u.parseWt('83,4', 'kg'), 83.4, 'comma decimal');
+  assert.equal(u.parseWt('183.9', 'lb'), 83.42);
+  assert.equal(u.parseWt('13 2', 'st'), 83.46);
+  assert.equal(u.parseWt('13st 2lb', 'kg'), 83.46, 'an explicit unit wins over the setting');
+  assert.equal(u.parseWt('13', 'st'), 82.55, 'one number up to 40 is stones');
+  assert.equal(u.parseWt('184', 'st'), 83.46, 'above 40 it is pounds');
+  assert.equal(u.parseWt('83 kg', 'lb'), 83);
+  assert.equal(u.parseWt('66666', 'kg'), null, 'not a weight');
+  assert.equal(u.parseWt('abc', 'kg'), null);
+  assert.equal(u.parseWt('', 'kg'), null);
+  // A plain number for inputs and charts, and back.
+  assert.ok(Math.abs(u.fromUnit(u.toUnit(83.4, 'lb'), 'lb') - 83.4) < 1e-9);
+  assert.deepEqual(u.toStLb(83.4), { st: 13, lb: 1.9 });
+  // Round stops in the person's own unit.
+  assert.equal(Math.round(u.roundIn(96.2, 5, 'kg')), 95);
+  assert.equal(Math.round(u.toUnit(u.roundIn(96.2, 5, 'lb'), 'lb')), 210);
+  assert.equal(Math.round(u.toUnit(u.roundIn(96.2, 1, 'st'), 'lb') / 14), 15);
+});
+
+check('in pounds the hero, the coach and the weigh-in all speak pounds; in kg nothing changed', async () => {
+  const u = await import('../src/lib/units.ts');
+  const { pulse } = await import('../src/lib/pulse.ts');
+  const { weighInMessage } = await import('../src/lib/scale.ts');
+  const { suggestStops } = await import('../src/lib/milestone.ts');
+  const w = { trendKg: 100, latestKg: 100.4, state: 'answerable', rateKgPerWeek: 0.5, loKgPerWeek: 0.3, hiKgPerWeek: 0.7, n: 30, weighInsNeeded: null };
+  const input = { weight: w, pace: 'on-pace', firstKg: 110, goalKg: 90, next: null };
+  try {
+    u.setUnits('imperial');
+    const p = pulse(input);
+    assert.equal(p.caption, 'lb trend · 22.0 to 198.4');
+    assert.match(p.story, /^Down 1\.1 lb a week\. At that pace, 198\.4 in about 20 weeks\.$/);
+    assert.deepEqual(p.stats.map((s) => s.l), ['lb so far', 'lb / week', 'goal lb']);
+    assert.equal(weighInMessage(99, { today: '2026-10-19', weights: [{ date: '2026-10-18', weight: 100 }], goalKg: 90, startKg: 110 }).title, 'New low: 218.3 lb 📉');
+    assert.deepEqual(suggestStops(100, null, null).map((k) => Math.round(u.toUnit(k))), [210], 'a round stop in pounds, never within a pound of the trend');
+    u.setUnits('stone');
+    assert.equal(pulse(input).caption, 'trend · 22.0 lb to 14 st 2.4');
+    u.setUnits('metric');
+    assert.equal(pulse(input).caption, 'kg trend · 10.0 to 90');
+    assert.match(pulse(input).story, /^Down 0\.5 kg a week\. At that pace, 90 in about 20 weeks\.$/);
+  } finally { u.setUnits('metric'); }
+});
+
+check('body weight is never printed as raw kg: it goes through units.ts', async () => {
+  const { readFileSync, readdirSync, statSync } = await import('node:fs');
+  // Lifting loads stay in kg for now (units.ts says why).
+  const LIFTING = /workouts\/|PlateWarmup|backRebuild|workoutPlanDefaults|nextWeight|plates|strength|WorkoutInsights|muscleVolume|recomp\.ts|weeklyShare\.ts|units\.ts/;
+  const files = [];
+  const walk = (d) => { for (const f of readdirSync(d)) { const p = `${d}/${f}`; statSync(p).isDirectory() ? walk(p) : /\.(ts|svelte)$/.test(p) && files.push(p); } };
+  walk('src');
+  const bad = [];
+  for (const f of files) {
+    if (LIFTING.test(f)) continue;
+    readFileSync(f, 'utf8').split('\n').forEach((line, i) => {
+      if (/^\s*(\/\/|\*|<!--)/.test(line)) return;
+      if (/(toFixed\(\d\)|\}) ?kg\b/.test(line)) bad.push(`${f}:${i + 1}`);
+    });
+  }
+  assert.deepEqual(bad, [], 'use wt()/dwt() from units.ts');
 });
 
 // Nothing may be reported until the async checks have actually settled.

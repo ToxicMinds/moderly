@@ -6,6 +6,7 @@
   import { liveDailyLogs, liveWeights } from '$lib/stores/live';
   import { journalWeeks, monthLetter } from '$lib/week';
   import { todayDate } from '$lib/stores/refresh';
+  import { changeWord, dwtNum, wtNum } from '$lib/units';
 
   const _daily = liveDailyLogs();
   const _weights = liveWeights();
@@ -26,7 +27,7 @@
         {#if m}
           <div class="wj-month">
             <b>{m.label}{m.month === $todayDate.slice(0, 7) ? ' so far' : ''}</b>
-            {#if m.fromKg != null && m.toKg != null}{' '}{m.fromKg.toFixed(1)} → {m.toKg.toFixed(1)} kg{/if}{' · '}{m.mornings}/{m.days} mornings{#if m.reviewed}{' · '}plan held {m.kept} of {m.reviewed}{/if}
+            {#if m.fromKg != null && m.toKg != null}{' '}{wtNum(m.fromKg)} → {wtNum(m.toKg)} {changeWord()}{/if}{' · '}{m.mornings}/{m.days} mornings{#if m.reviewed}{' · '}plan held {m.kept} of {m.reviewed}{/if}
           </div>
         {/if}
       {/if}
@@ -34,7 +35,7 @@
         <div class="wj-top">
           <span class="wj-date">Week of {fmt(w.weekStart)}</span>
           {#if w.trendKg != null}
-            <span class="wj-kg">{w.trendKg.toFixed(1)}{#if w.deltaKg != null}<em class:down={w.deltaKg < 0} class:up={w.deltaKg > 0}>{w.deltaKg > 0 ? '+' : w.deltaKg < 0 ? '−' : '±'}{Math.abs(w.deltaKg).toFixed(1)}</em>{/if}</span>
+            <span class="wj-kg">{wtNum(w.trendKg)}{#if w.deltaKg != null}<em class:down={w.deltaKg < 0} class:up={w.deltaKg > 0}>{w.deltaKg > 0 ? '+' : w.deltaKg < 0 ? '−' : '±'}{dwtNum(w.deltaKg)}</em>{/if}</span>
           {/if}
         </div>
         {#if w.planText}<div class="wj-plan">“{w.planText}” — <b>{w.held ?? '—'}</b></div>{/if}

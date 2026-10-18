@@ -30,7 +30,7 @@ export const PLAN_TEMPLATES: PlanTemplate[] = [
   {
     id: 'gym3',
     name: 'Gym 3× a week',
-    blurb: 'Lower, upper, full body on alternating days. The standard recomp default — enough stimulus to hold muscle, enough rest to recover in a deficit.',
+    blurb: 'Lower, upper, full body on alternating days. Enough to hold on to muscle while you lose fat, with rest days to recover.',
     liftDays: 3,
     usesSport: false
   },
@@ -54,6 +54,13 @@ export const PLAN_TEMPLATES: PlanTemplate[] = [
     blurb: 'Lifting arranged around your sport nights, so you never squat heavy the day before you play — or the day after.',
     liftDays: 3,
     usesSport: true
+  },
+  {
+    id: 'walk',
+    name: 'No gym for now',
+    blurb: 'A walk a day, any pace. Plenty of people lose weight and keep it off without ever lifting; you can add the gym later.',
+    liftDays: 0,
+    usesSport: false
   }
 ];
 
@@ -83,6 +90,7 @@ function restDay(dow: number): PlanDay {
  * Mon/Thu/Sat shape for Wed+Fri sport without hardcoding it.
  */
 function spreadLiftDays(sportDays: number[], count: number): number[] {
+  if (count <= 0) return [];
   const candidates = [1, 2, 3, 4, 5, 6, 0]; // Mon-first ordering
   if (sportDays.length === 0) {
     // No sport: spread evenly across the week starting Monday.
@@ -160,7 +168,9 @@ export function buildSchedule(opts: BuildScheduleOpts): PlanDay[] {
       });
       continue;
     }
-    days.push(restDay(dow));
+    days.push(template.id === 'walk'
+      ? { day_of_week: dow, label: 'Walk', session_key: null, note: 'A walk counts: 30 minutes, any pace' }
+      : restDay(dow));
   }
 
   // Guarantee at least one genuine rest day — recovery is when the adaptation
@@ -174,6 +184,7 @@ export function buildSchedule(opts: BuildScheduleOpts): PlanDay[] {
 
 /** Human summary of a schedule, for confirming the choice before saving. */
 export function describeSchedule(days: PlanDay[]): string {
+  if (days.length && days.every((d) => d.label === 'Walk')) return 'A walk every day, no gym';
   const lifts = days.filter((d) => d.session_key).map((d) => DAY_NAMES[d.day_of_week].slice(0, 3));
   const sport = days
     .filter((d) => !d.session_key && d.label === 'Cardio & Agility')

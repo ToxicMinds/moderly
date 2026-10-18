@@ -9,6 +9,7 @@
 //
 // Below you, unlike the ceiling (line.ts), which sits above you. Pure; see
 // selfcheck.js.
+import { floorIn, roundStep, wt } from './units.ts';
 
 /** A stop that was reached, kept so the journal can tell the story. */
 export interface ReachedStop { kg: number; set: string; reached: string }
@@ -101,7 +102,7 @@ export function milestoneState(
     for (const b of BANDS) {
       const under = weightUnderBmi(b.bmi, heightCm);
       if (stop <= under && (trendKg == null || trendKg > under)) { meaning = `out of the “${b.name}” BMI range`; break; }
-      if (stop > under && stop - under <= 1) { meaning = `the “${b.name}” BMI range ends at ${under.toFixed(1)} kg`; break; }
+      if (stop > under && stop - under <= 1) { meaning = `the “${b.name}” BMI range ends at ${wt(under)}`; break; }
     }
   }
   // The trend when the stop was set, or the first day after with one (a stop
@@ -125,7 +126,8 @@ export function milestoneState(
  *  ahead, and the goal itself. */
 export function suggestStops(trendKg: number, heightCm: number | null, goalKg: number | null): number[] {
   const out = new Set<number>();
-  const five = Math.floor((trendKg - 0.5) / 5) * 5;
+  // A round number in the person's own unit: 95 kg, 210 lb, 15 st.
+  const five = floorIn(trendKg - 0.5, roundStep());
   if (five > 0 && five < trendKg) out.add(five);
   if (heightCm) for (const b of BANDS) { const u = weightUnderBmi(b.bmi, heightCm); if (u < trendKg) out.add(u); }
   if (goalKg && goalKg < trendKg) {

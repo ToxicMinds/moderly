@@ -7,6 +7,7 @@
   import { shape as weekShape } from '$lib/stores/body';
 
   const shape = $derived($weekShape);
+  import { changeWord, dwtNum } from '$lib/units';
   const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
   const LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
@@ -19,7 +20,7 @@
   });
   const pct = (k: number) => (range ? Math.max(8, Math.round(((k - range.lo) / (range.hi - range.lo || 1)) * 100)) : 0);
 
-  const fmtKg = (v: number) => `${v > 0 ? '+' : v < 0 ? '−' : '±'}${Math.abs(v).toFixed(1)}`;
+  const fmtKg = (v: number) => `${v > 0 ? '+' : v < 0 ? '−' : '±'}${dwtNum(v)}`;
   const amplitude = $derived(shape ? Math.max(...shape.scale.filter((v) => v != null) as number[], 0) - Math.min(...shape.scale.filter((v) => v != null) as number[], 0) : 0);
   const worth = $derived(shape != null && (shape.weekendGap >= 200 || amplitude >= 0.6));
 </script>
@@ -43,11 +44,11 @@
         </div>
       {/each}
     </div>
-    <div class="ws-key"><span>Logged kcal, median day</span><span>Scale vs trend, kg</span></div>
+    <div class="ws-key"><span>Logged kcal, median day</span><span>Scale vs trend, {changeWord()}</span></div>
 
     {#if shape.heaviest != null && shape.lightest != null}
       <p class="ws-foot">
-        Your scale reads heaviest on {DAYS[shape.heaviest]} ({fmtKg(shape.scale[shape.heaviest] as number)} kg) and lightest on
+        Your scale reads heaviest on {DAYS[shape.heaviest]} ({fmtKg(shape.scale[shape.heaviest] as number)} {changeWord()}) and lightest on
         {DAYS[shape.lightest]} ({fmtKg(shape.scale[shape.lightest] as number)}): that's the weekend's food and salt passing through,
         not fat. The trend averages it out, which is why a Monday reading never sets anything.
       </p>

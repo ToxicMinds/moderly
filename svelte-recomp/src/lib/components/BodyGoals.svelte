@@ -9,6 +9,8 @@
   import { body } from '$lib/stores/body';
   import { saveWeighIn, NeedsConfirm } from '$lib/weighIn';
   import MiniChart from '$lib/components/MiniChart.svelte';
+  import WeightInput from '$lib/components/WeightInput.svelte';
+  import { dwt, unitWord, wt as fmtW, wtShortU } from '$lib/units';
 
   let uid = $state('');
   userId.subscribe((v) => { if (v) uid = v; });
@@ -27,23 +29,23 @@
   const learnedBurn = $derived($body.learned);
   const useLearned = $derived($body.target.basis === 'learned' && $body.target.maintenance != null);
   const learnedKcal = $derived($body.target.maintenance as number);
-  let weightInput = $state('');
+  let weightKg = $state<number | null>(null);
   let savingWeight = $state(false);
 
   let weightMsg = $state('');
   let confirmKg: number | null = null;
   async function saveWeight() {
-    if (!uid || !weightInput) return;
+    if (!uid || weightKg == null) return;
     savingWeight = true;
     weightMsg = '';
-    const kg = parseFloat(weightInput);
+    const kg = weightKg;
     try {
       await saveWeighIn(uid, kg, {
         today: todayYmd(), weights: $_weights as any[], goalKg: GOAL_KG || null,
         trendKg: $body.currentKg, confirmed: confirmKg === kg,
         startKg: $_profile?.start_kg != null ? +$_profile.start_kg : null,
       });
-      weightInput = '';
+      weightKg = null;
       confirmKg = null;
     } catch (e: any) {
       if (e instanceof NeedsConfirm) { confirmKg = kg; weightMsg = e.message; }
@@ -229,7 +231,7 @@
     const src = (scenario as any).learned
       ? `the ~${scenario.tdee} kcal/day your own log and scale hold weight at (${learnedBurn.loggedDays} logged days)`
       : `your TDEE of ~${scenario.tdee} kcal/day`;
-    const reason = `${scenario.label} (${scenario.bf}% body fat) — based on ${lbm}kg lean mass measured ${todayYmd()}. `
+    const reason = `${scenario.label} (${scenario.bf}% body fat) — based on ${lbm != null ? fmtW(lbm) : '?'} lean mass measured ${todayYmd()}. `
       + `At ${src} and a moderate ~${Math.abs(scenario.dailyEnergyDeltaKcal)} kcal `
       + `${scenario.direction === 'gain' ? 'surplus' : scenario.direction === 'maintain' ? 'hold' : 'deficit'} `
       + `(target intake ~${scenario.targetIntakeKcal} kcal/day), expect roughly ${scenario.weeksToGoal} weeks to reach it.`;
@@ -286,11 +288,11 @@
   <div class="card-lbl">Weight</div>
   <div class="flex gap2" style="margin-bottom:8px">
     <div class="f1">
-      <label class="flbl" for="bg-weight">Weight (kg)</label>
-      <input id="bg-weight" type="number" step="0.1" bind:value={weightInput} placeholder={recentWeight?.toString() || '116.0'} style="text-align:center">
+      <label class="flbl" for="bg-weight">Weight ({unitWord()})</label>
+      <WeightInput id="bg-weight" bind:kg={weightKg} hint={recentWeight} class="bg-wi" />
     </div>
   </div>
-  <button class="btn bp bfl" onclick={saveWeight} disabled={!weightInput || savingWeight}>Log Weight</button>
+  <button class="btn bp bfl" onclick={saveWeight} disabled={weightKg == null || savingWeight}>Log Weight</button>
   {#if weightMsg}<div class="bg-weight-msg">{weightMsg}</div>{/if}
 
   {#if weights.length >= 2}
@@ -312,13 +314,13 @@
 
 <div class="card">
   <div class="card-lbl">Goal Progress</div>
-  <div style="font-size:0.8125rem;color:var(--muted);margin-bottom:6px">Target weight: <strong style="color:var(--amber)">{GOAL_KG} kg</strong></div>
+  <div style="font-size:0.8125rem;color:var(--muted);margin-bottom:6px">Target weight: <strong style="color:var(--amber)">{wtShortU(GOAL_KG)}</strong></div>
   <div class="pbar-wrap">
     <div class="pbar" style="width: {firstWeight && recentWeight ? Math.min(100, ((firstWeight - recentWeight) / (firstWeight - GOAL_KG)) * 100) : 0}%"></div>
   </div>
   <div class="flex jb" style="font-size:0.6875rem;color:var(--muted);margin-top:2px">
-    <span>{firstWeight ? firstWeight + 'kg' : 'Start'}</span>
-    <span>{GOAL_KG} kg goal</span>
+    <span>{firstWeight ? fmtW(+firstWeight) : 'Start'}</span>
+    <span>{wtShortU(GOAL_KG)} goal</span>
   </div>
 </div>
 
@@ -340,8 +342,8 @@
 {#if bodyFat !== null}
   <div class="srow">
     <div class="scard"><span class="sval">{bodyFat}%</span><span class="slbl">Body Fat</span></div>
-    <div class="scard"><span class="sval">{lbm ?? '--'} kg</span><span class="slbl">Lean Mass</span></div>
-    <div class="scard"><span class="sval">{latestWeight ?? '--'} kg</span><span class="slbl">Weight</span></div>
+    <div class="scard"><span class="sval">{lbm != null ? fmtW(lbm) : '--'}</span><span class="slbl">Lean Mass</span></div>
+    <div class="scard"><span class="sval">{latestWeight != null ? fmtW(latestWeight) : '--'}</span><span class="slbl">Weight</span></div>
   </div>
 {/if}
 
@@ -402,13 +404,13 @@
   <div class="card">
     <div class="card-lbl">Goal Projections</div>
     <div style="font-size:0.75rem;color:var(--muted);margin-bottom:10px">
-      Based on {lbm} kg lean mass at {bodyFat}% body fat
+      Based on {lbm != null ? fmtW(lbm) : '--'} lean mass at {bodyFat}% body fat
       {#if !goalProjections}<br><span style="color:#ffd166">Enter your age above to see TDEE, calorie target, and a realistic timeline for each option.</span>{/if}
     </div>
     {#if useLearned}
       <div class="note-box" style="margin-bottom:10px">
         🧠 <strong>Learned from your data:</strong> you hold weight at ~{learnedKcal} kcal a day, as you log it
-        (from {learnedBurn.loggedDays} logged days{#if learnedBurn.weightRateKgPerWeek !== 0}{' · '}{learnedBurn.weightRateKgPerWeek > 0 ? 'losing' : 'gaining'} ~{Math.abs(learnedBurn.weightRateKgPerWeek).toFixed(2)} kg/wk{/if}).
+        (from {learnedBurn.loggedDays} logged days{#if learnedBurn.weightRateKgPerWeek !== 0}{' · '}{learnedBurn.weightRateKgPerWeek > 0 ? 'losing' : 'gaining'} ~{dwt(learnedBurn.weightRateKgPerWeek, 2)}/wk{/if}).
         The targets below use this number, not a textbook formula — in the same units as your log, so they self-correct to what your body's actually doing.
       </div>
     {/if}
@@ -416,12 +418,12 @@
       <div class="gi" style="border-color:var(--border);flex-direction:column;align-items:stretch;gap:6px">
         <div class="flex jb ac">
           <div style="flex:1">
-            <div style="font-weight:700;color:var(--text);font-size:0.875rem">{g.label} — {g.weight} kg</div>
+            <div style="font-weight:700;color:var(--text);font-size:0.875rem">{g.label} — {wtShortU(g.weight)}</div>
             <div style="font-size:0.6875rem;color:var(--muted)">{g.desc} ({g.bf}% BF)</div>
           </div>
           <div style="text-align:right">
             {#if g.lose > 0}
-              <div style="font-size:0.6875rem;color:var(--red)">{g.lose} kg to lose</div>
+              <div style="font-size:0.6875rem;color:var(--red)">{dwt(g.lose)} to lose</div>
             {:else}
               <div style="font-size:0.6875rem;color:var(--green)">Achieved ✓</div>
             {/if}
@@ -443,5 +445,6 @@
 {/if}
 
 <style>
+  :global(.bg-wi){text-align:center;width:100%}
   .bg-weight-msg{font-size:0.8125rem;line-height:1.45;color:var(--led-warn);text-align:center;margin-top:8px}
 </style>

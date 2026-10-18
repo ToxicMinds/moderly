@@ -7,6 +7,7 @@
   import { liveProfile } from '$lib/stores/live';
   import { editing, saveMilestone, saveLine } from '$lib/commitments';
   import { todayDate } from '$lib/stores/refresh';
+  import { wt, wtNum, wtShortU } from '$lib/units';
   import { activePlan, cleanPlans, type PlanMoment } from '$lib/plans';
 
   let { moment }: { moment: Omit<PlanMoment, 'overLine'> } = $props();
@@ -36,8 +37,8 @@
 {#if misdrawn && $line}
   <div class="ca ca-line tone-ok">
     <span class="ca-k">That's a next stop, not a ceiling</span>
-    <span class="ca-t">You set {$line.kg.toFixed(1)} kg, below your trend of {$line.trendKg.toFixed(1)}. A ceiling sits above you; {$line.kg.toFixed(1)} is a weight you're heading down to.</span>
-    <button class="btn bp bsm ca-fix" onclick={moveToNext} disabled={moving}>{moving ? 'Moving…' : `Make ${$line.kg.toFixed(1)} my next stop`}</button>
+    <span class="ca-t">You set {wt($line.kg)}, below your trend of {wtNum($line.trendKg)}. A ceiling sits above you; {wtShortU($line.kg)} is a weight you're heading down to.</span>
+    <button class="btn bp bsm ca-fix" onclick={moveToNext} disabled={moving}>{moving ? 'Moving…' : `Make ${wtShortU($line.kg)} my next stop`}</button>
   </div>
 {:else if over && $line}
   <button class="ca ca-line tone-{$line.zone === 'well-over' ? 'bad' : 'warn'}" onclick={() => editing.set('line')}>

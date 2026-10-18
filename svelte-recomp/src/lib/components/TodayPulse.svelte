@@ -10,6 +10,7 @@
   import { base } from '$app/paths';
   import PageHero from './PageHero.svelte';
   import { editing } from '$lib/commitments';
+  import { wtShortU, wtNum } from '$lib/units';
 
   let { greeting = 'Today', sub = '', mornings = null } = $props<{
     greeting?: string; sub?: string;
@@ -23,9 +24,12 @@
 </script>
 
 {#if showPlan}
-  <PageHero title={greeting} {sub} pct={(plan!.stepsDone / plan!.steps.length) * 100}
-    value={plan!.stepsDone} unit={`/ ${plan!.steps.length}`} caption="First-week steps" story={plan!.headline}
-    stats={[{ v: $body.target.target ?? plan!.targetKcal, l: 'kcal / day' }, { v: `${$body.proteinTargetG} g`, l: 'protein' }, { v: goalDateLabel(plan!.goalDate), l: `goal ${plan!.goalKg} kg` }]}>
+  <!-- The hero is their own number from the first morning (it used to be
+       "1 / 4 first-week steps", a count nobody could read as anything); the
+       steps sit under it as a list. -->
+  <PageHero title={greeting} {sub} pct={null}
+    value={p.kg != null ? wtNum(p.kg) : '—'} caption={p.caption || 'First week'} story={plan!.headline}
+    stats={[{ v: $body.target.target ?? plan!.targetKcal, l: 'kcal / day' }, { v: `${$body.proteinTargetG} g`, l: 'protein' }, { v: goalDateLabel(plan!.goalDate), l: `goal ${wtShortU(plan!.goalKg)}` }]}>
     {#snippet aside()}{@render streak()}{/snippet}
     <!-- Day one. These numbers come straight from onboarding, so a brand-new
          account gets a real, personal answer instead of a blank readout. -->
@@ -50,7 +54,7 @@
   </PageHero>
 {:else}
   <PageHero title={greeting} {sub} tone={p.tone} pct={p.pct}
-    value={p.kg != null ? p.kg.toFixed(1) : '—'} caption={p.caption} story={p.story} stats={p.stats} beam={p.beam}>
+    value={p.kg != null ? wtNum(p.kg) : '—'} caption={p.caption} story={p.story} stats={p.stats} beam={p.beam}>
     {#snippet aside()}{@render streak()}{/snippet}
   </PageHero>
 {/if}
