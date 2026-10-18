@@ -22,6 +22,9 @@ export interface PulseInput {
   firstKg: number | null;
   goalKg: number | null;
   next: MilestoneState | null;
+  /** The loss a week the plan is built for (stores/body target), when it is
+   *  one: names what a too-noisy trend can't show yet. */
+  planKgPerWeek?: number | null;
   /** The day training restarted (a program's first day), while it's under two
    *  weeks ago: new training holds water, and the scale can rise as the work
    *  starts. null otherwise. */
@@ -70,8 +73,12 @@ export function pulse(i: PulseInput): Pulse {
   let story: string;
   if (rate == null) {
     const n = w?.weighInsNeeded;
+    const plan = i.planKgPerWeek != null && i.planKgPerWeek > 0 ? i.planKgPerWeek : null;
     story = kg == null ? 'Weigh in tomorrow morning, before food or drink: the trend starts there.'
       : n && n <= 7 ? `${n} more morning${n === 1 ? '' : 's'} on the scale and the trend can say how fast it’s moving.`
+      // Months of mornings, a gentle plan and a swinging scale: what IS known.
+      : trend != null && plan != null && (w?.n ?? 0) >= 14
+        ? `Holding around ${Math.round(trend)} kg. A ${plan.toFixed(1)} kg-a-week loss takes a few more weeks of mornings to show through the day-to-day swings.`
       : 'A few more weeks of mornings on the scale and the trend can say how fast it’s moving.';
   } else {
     const r = kg1(rate);

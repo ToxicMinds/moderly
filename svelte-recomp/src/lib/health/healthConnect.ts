@@ -163,7 +163,7 @@ async function readAll(
     // never appear" looked for weeks.
     notify('Health Connect', `Could not read ${type}: ${e?.message || e}`, {
       level: 'warn',
-      hint: `Open Health Connect and confirm RecompOS is allowed to read ${type}.`
+      hint: `Open Health Connect and confirm Moderly is allowed to read ${type}.`
     });
     return [];
   }

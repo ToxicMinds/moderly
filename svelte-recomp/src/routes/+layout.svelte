@@ -426,7 +426,7 @@
     <AuthGate />
   {:else if needsOnboarding}
     <div id="topbar">
-      <div id="topbar-title">RecompOS</div>
+      <div id="topbar-title">Moderly</div>
       <div class="flex ac gap2">
         <Diagnostics />
         <button class="icn-btn" onclick={signOut} title="Sign out">⎋</button>
@@ -445,7 +445,7 @@
   {:else}
   <div id="topbar">
     <div class="flex ac gap2">
-      <div id="topbar-title">RecompOS</div>
+      <div id="topbar-title">Moderly</div>
       <div id="sync-dot"
         class:synced={$syncStatus === 'synced'}
         class:syncing={$syncStatus === 'syncing'}

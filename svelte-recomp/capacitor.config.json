@@ -1,6 +1,6 @@
 {
   "appId": "com.toxicminds.recompos",
-  "appName": "RecompOS",
+  "appName": "Moderly",
   "webDir": "build",
   "server": {
     "url": "https://svelte-recomp.vercel.app",

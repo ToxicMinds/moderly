@@ -167,6 +167,7 @@ export const todayPulse: Readable<Pulse> = derived([body, liveProfile()], ([$b, 
   const week = programWeek(program, $b.today);
   return pulse({
     weight: $b.weight, pace: $b.pace, firstKg: $b.firstKg, goalKg: $b.goalKg, next: $b.next,
+    planKgPerWeek: $b.target.direction === 'lose' ? $b.target.planKgPerWeek : null,
     restartedOn: week === 1 || week === 2 ? program.start : null,
   });
 });

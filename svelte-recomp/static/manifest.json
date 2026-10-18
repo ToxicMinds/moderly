@@ -1,6 +1,6 @@
 {
-  "name": "RecompOS — Body Recomposition Tracker",
-  "short_name": "RecompOS",
+  "name": "Moderly — lose weight moderately",
+  "short_name": "Moderly",
   "id": "/",
   "start_url": "/",
   "scope": "/",
@@ -8,7 +8,7 @@
   "orientation": "portrait",
   "background_color": "#0e1117",
   "theme_color": "#c084fc",
-  "description": "Track food, training, weight, steps, sleep and habits — all in one offline-first PWA.",
+  "description": "A calm weight-loss app for people doing it on their own. No streaks, no guilt.",
   "categories": ["health", "fitness", "lifestyle"],
   "icons": [
     { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },

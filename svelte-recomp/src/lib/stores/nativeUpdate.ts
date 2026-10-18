@@ -23,11 +23,11 @@ import { writable } from 'svelte/store';
 // Keep EQUAL to `versionCode` in android/app/build.gradle. Bump both together
 // whenever a native change ships — that's the whole trigger for an in-place
 // update prompt.
-export const LATEST_NATIVE_BUILD = 10;
+export const LATEST_NATIVE_BUILD = 11;
 
 // The stable, rolling download link the CI release always publishes to.
 export const APK_URL =
-  'https://github.com/ToxicMinds/schedule/releases/download/recompos-app-latest/recompos.apk';
+  'https://github.com/ToxicMinds/moderly/releases/download/recompos-app-latest/recompos.apk';
 
 export type UpdateMode = 'none' | 'migrate' | 'inplace';
 

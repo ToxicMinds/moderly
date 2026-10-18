@@ -24,7 +24,7 @@
 
 <div id="auth-gate">
   <div class="auth-box">
-    <div class="auth-logo">RecompOS</div>
+    <div class="auth-logo">Moderly</div>
     <div class="auth-sub">Sign in to sync your data across all your devices</div>
 
     {#if err}<div class="auth-err">{err}</div>{/if}

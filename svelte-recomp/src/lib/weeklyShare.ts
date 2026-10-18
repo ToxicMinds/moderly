@@ -70,7 +70,7 @@ export function weeklySummaryText(review: WeeklyReview, opts: ShareOptions = {})
   }
 
   lines.push('');
-  lines.push('via RecompOS');
+  lines.push('via Moderly');
   // A thin week would otherwise stack the section blanks into a gap that reads
   // as something missing rather than something absent.
   return lines.join('\n').replace(/\n{3,}/g, '\n\n').trim();
@@ -92,5 +92,5 @@ export function summaryLeaksWeight(text: string, bodyweightKg: number | null): b
  *  to show the user about where it went. */
 export async function shareWeek(review: WeeklyReview, opts: ShareOptions = {}): Promise<string> {
   const { deliverText, deliveryMessage } = await import('./shareFile.ts');
-  return deliveryMessage(await deliverText('My week — RecompOS', weeklySummaryText(review, opts)), 'Summary');
+  return deliveryMessage(await deliverText('My week — Moderly', weeklySummaryText(review, opts)), 'Summary');
 }

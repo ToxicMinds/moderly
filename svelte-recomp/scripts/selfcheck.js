@@ -546,6 +546,11 @@ check('the hero reads the trend, the distance to the next stop, and a pace that 
   assert.equal(flat.stats[0].v, '−20.4', 'and what is already lost still counts');
   assert.match(pulse({ weight: { ...wv(100, 0), state: 'too-noisy', weighInsNeeded: 30 }, pace: 'too-early', firstKg: 100, goalKg: 90, next: null }).story,
     /few more weeks/, 'never "30 more mornings"');
+  // Sixty mornings, a gentle 0.27 kg/week plan, a scale swinging 1.5 kg: the
+  // interval holds both "level" and "on plan", so say what is known.
+  const gentle = pulse({ weight: { ...wv(93.1, 0.07, 0.34), state: 'too-noisy', n: 60, weighInsNeeded: 30 }, pace: 'too-early', firstKg: 113.5, goalKg: 76, next, planKgPerWeek: 0.27 });
+  assert.equal(gentle.story, 'Holding around 93 kg. A 0.3 kg-a-week loss takes a few more weeks of mornings to show through the day-to-day swings.');
+  assert.equal(gentle.tone, 'na', 'too close to call is not amber');
   // Training restarts: the scale can rise with water just as the work starts.
   const restart = { firstKg: 101, goalKg: 76, next, restartedOn: '2026-10-19' };
   assert.match(pulse({ ...restart, weight: wv(92.4, -0.4), pace: 'gaining' }).story,
@@ -730,8 +735,8 @@ check('a column that only appears in a later row still gets a header', () => {
 
 check('filenames sort by date and say what they are', () => {
   const d = new Date('2026-08-11T10:00:00Z');
-  assert.equal(exportFilename('json', d), 'recompos-export-2026-08-11.json');
-  assert.equal(exportFilename('csv', d, 'weights'), 'recompos-weights-2026-08-11.csv');
+  assert.equal(exportFilename('json', d), 'moderly-export-2026-08-11.json');
+  assert.equal(exportFilename('csv', d, 'weights'), 'moderly-weights-2026-08-11.csv');
 });
 
 check('the confirmation names real numbers, not "done"', () => {
@@ -795,7 +800,7 @@ check('the summary reads like a message, and carries the real numbers', () => {
   assert.match(t, /168 g protein\/day/);
   assert.match(t, /9,400 steps/);
   assert.match(t, /7\.4 h sleep/);
-  assert.match(t, /via RecompOS/);
+  assert.match(t, /via Moderly/);
 });
 
 check('bodyweight is never in a shared summary unless asked for', () => {

@@ -94,7 +94,9 @@ body::before{
 .tone-ok{--band:var(--led-ok);--band2:var(--led-ok)}
 .tone-warn{--band:var(--led-warn);--band2:var(--led-warn)}
 .tone-bad{--band:var(--led-bad);--band2:var(--led-bad)}
-.tone-na{--band:var(--muted);--band2:var(--muted)}
+/* No verdict yet glows in the brand colour, not dead grey: "too close to call"
+   is a state, not a fault, and an all-grey hero read as broken. */
+.tone-na{--band:var(--purple);--band2:var(--purple)}
 
 .btn{border:none;border-radius:var(--r-md);padding:13px 18px;font-size:0.9375rem;font-weight:800;cursor:pointer;transition:transform .12s var(--ease),opacity .15s,background .15s;font-family:inherit;line-height:1;letter-spacing:.01em}
 .btn:active{transform:scale(.97)}

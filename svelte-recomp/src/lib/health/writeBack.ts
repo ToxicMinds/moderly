@@ -72,7 +72,7 @@ export function buildRecords(
           startTime: s.start,
           endTime: end,
           title: s.title,
-          notes: s.notes || 'Logged in RecompOS',
+          notes: s.notes || 'Logged in Moderly',
           exerciseType: s.exerciseType,
         });
       }

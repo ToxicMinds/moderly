@@ -24,7 +24,7 @@ export const EXPORT_TABLES = [
 export type ExportTable = (typeof EXPORT_TABLES)[number];
 
 export interface ExportBundle {
-  app: 'RecompOS';
+  app: 'Moderly';
   /** Bumped only if the SHAPE changes, so a future importer knows what it has. */
   formatVersion: 1;
   exportedAt: string;
@@ -47,7 +47,7 @@ export function buildBundle(
     totalRows += rows.length;
   }
   return {
-    app: 'RecompOS',
+    app: 'Moderly',
     formatVersion: 1,
     exportedAt: now.toISOString(),
     userId,
@@ -85,10 +85,10 @@ function csvCell(v: unknown): string {
   return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
-/** `recompos-export-2026-08-11.json` — sortable, and says what it is at a glance. */
+/** `moderly-export-2026-08-11.json` — sortable, and says what it is at a glance. */
 export function exportFilename(ext: 'json' | 'csv', now: Date = new Date(), table?: string): string {
   const d = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-  return table ? `recompos-${table}-${d}.${ext}` : `recompos-export-${d}.${ext}`;
+  return table ? `moderly-${table}-${d}.${ext}` : `moderly-export-${d}.${ext}`;
 }
 
 /** A short human summary of what just left the app — shown after an export so

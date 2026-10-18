@@ -255,7 +255,7 @@ public class MomentReceiver extends BroadcastReceiver {
                 // thrown later while booking the alarm.
                 String date = LocalDate.parse(m.getString("date")).toString(), key = m.getString("key");
                 out.add(new MomentClock.Moment(date, key, m.getInt("after"), m.getInt("until"),
-                    m.optString("title", "RecompOS"), m.optString("body", ""),
+                    m.optString("title", "Moderly"), m.optString("body", ""),
                     date.equals(p.getString("shown:" + key, ""))));
             } catch (Exception ignored) {
                 // A moment that can't be read is no moment.
