@@ -47,7 +47,7 @@ export function weighInMessage(kg: number, ctx: {
 }
 
 /**
- * A reading this far off the trend is far more often a typo (103.5 for 113.5)
+ * A reading this far off the trend is far more often a typo (83.5 for 93.5)
  * than a body, and a typo is expensive: it bends the trend — and so the line
  * and the target — for five weeks. So it asks once before it saves.
  */

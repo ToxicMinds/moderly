@@ -270,7 +270,7 @@ console.log('\nday one — a new account gets a real answer, not an empty circle
 const { dayOnePlan, goalDateLabel } = await import('../src/lib/dayOne.ts');
 
 const NEW_USER = {
-  profile: { height_cm: 187, birth_year: 1990, sex: 'male', goal_kg: 90, start_kg: 100, activity_level: 'moderate' },
+  profile: { height_cm: 180, birth_year: 1990, sex: 'male', goal_kg: 90, start_kg: 100, activity_level: 'moderate' },
   currentWeightKg: null, weighInCount: 0, foodLogCount: 0, workoutLogCount: 0, hasWatchData: false,
   now: new Date('2026-08-11T09:00:00Z'),
 };
@@ -964,16 +964,16 @@ check('a training day you have not trained on gets one reminder, before the even
 check('no streak alarm: the user’s own plan fires before its moment instead', async () => {
   const { readFileSync } = await import('node:fs');
   assert.doesNotMatch(readFileSync('src/lib/situational.ts', 'utf8'), /streak-risk|on the line/, 'loss aversion aimed at the user is gone');
-  const plans = { friday: 'Dinner decided before I leave work.', weekend: 'Leftovers in a box.' };
+  const plans = { friday: 'Dinner chosen at lunchtime.', weekend: 'Leftovers in a box.' };
   const fri = situationalNudges({ ...DAY, proteinG: 165, plans, dow: 5 }).find((n) => n.key === 'plan');
   assert.ok(fri, 'Friday with a Friday plan gets it');
-  assert.equal(fri.body, 'Dinner decided before I leave work.');
+  assert.equal(fri.body, 'Dinner chosen at lunchtime.');
   assert.ok(fri.atMinutes < 17 * 60, 'before leaving work, not after dinner');
   assert.equal(situationalNudges({ ...DAY, nowMinutes: 8 * 60, proteinG: 165, plans, dow: 0 }).find((n) => n.key === 'plan')?.body, 'Leftovers in a box.');
   assert.ok(!situationalNudges({ ...DAY, nowMinutes: 12 * 60, proteinG: 165, plans, dow: 0 }).some((n) => n.key === 'plan'), 'a weekend morning plan is not sent after lunch');
   assert.equal(situationalNudges({ ...DAY, proteinG: 165, plans, dow: 2 }).length, 0, 'a Tuesday with no plan for it stays silent');
   assert.equal(situationalNudges({ ...DAY, proteinG: 165, plans, dow: 5, badmintonDay: true }).find((n) => n.key === 'plan')?.body,
-    'Dinner decided before I leave work.', 'a badminton Friday without a badminton plan still gets the Friday one');
+    'Dinner chosen at lunchtime.', 'a badminton Friday without a badminton plan still gets the Friday one');
 });
 
 check('never more than two nudges in a day, whatever is wrong', () => {
@@ -2985,26 +2985,26 @@ check('learned burn is only “high” when the weight slope is tight, not just 
 });
 
 check('a log that leaves food out still steers: the target is in its own units', () => {
-  // 113 kg, holding weight at ~1,940 LOGGED kcal: the oil and the extras are
+  // 101 kg, holding weight at ~1,940 LOGGED kcal: the oil and the extras are
   // missing from the log and from the maintenance alike, so they cancel.
-  const profile = { heightCm: 187, age: 41, gender: 'male', activityLevel: 'moderate' };
-  const r = resolveCalorieTarget({ goalKg: 96, currentWeightKg: 113, learnedTdee: 1940, profile, storedTarget: null, usualKcal: 2060 });
+  const profile = { heightCm: 178, age: 38, gender: 'male', activityLevel: 'moderate' };
+  const r = resolveCalorieTarget({ goalKg: 82, currentWeightKg: 101, learnedTdee: 1940, profile, storedTarget: null, usualKcal: 2060 });
   assert.equal(r.basis, 'learned', 'below the formula and the floor is a log’s units, not a reason to ignore it');
   assert.equal(r.target, 1750, 'one step (300) under the usual day, rounded');
   assert.ok(r.planKgPerWeek > 0 && r.planKgPerWeek < 0.3, `a gentle plan, got ${r.planKgPerWeek}`);
 });
 
 check('one step at a time: a cut never asks for more than 300 under the usual day', () => {
-  const profile = { heightCm: 187, age: 41, gender: 'male', activityLevel: 'moderate' };
-  const t = (learnedTdee, usualKcal) => resolveCalorieTarget({ goalKg: 96, currentWeightKg: 113, learnedTdee, profile, storedTarget: null, usualKcal }).target;
+  const profile = { heightCm: 178, age: 38, gender: 'male', activityLevel: 'moderate' };
+  const t = (learnedTdee, usualKcal) => resolveCalorieTarget({ goalKg: 82, currentWeightKg: 101, learnedTdee, profile, storedTarget: null, usualKcal }).target;
   assert.equal(t(1900, 2600), 1900, 'when even the step would plan a gain, the target stops at maintenance');
   assert.equal(t(2600, 2000), 2080, 'when the maths is gentler than the step, the maths wins');
   assert.equal(t(1600, 1700), 1500, 'and never under the safety floor');
 });
 
 check('the check-in nudge lands on that week’s target, inside the floor', () => {
-  const profile = { heightCm: 187, age: 41, gender: 'male', activityLevel: 'moderate' };
-  const base = { goalKg: 96, currentWeightKg: 113, learnedTdee: 2600, profile, storedTarget: null };
+  const profile = { heightCm: 178, age: 38, gender: 'male', activityLevel: 'moderate' };
+  const base = { goalKg: 82, currentWeightKg: 101, learnedTdee: 2600, profile, storedTarget: null };
   const plain = resolveCalorieTarget(base);
   const up = resolveCalorieTarget({ ...base, adjustKcal: 100 });
   assert.equal(up.target, plain.target + 100);
@@ -3079,26 +3079,26 @@ check('the stall diagnosis points at the week, never at logging more', () => {
   for (let i = 35; i < 70; i += 2) trainingDays.push(shiftYmd(-i, new Date('2026-10-17T12:00:00'))); // 3.5 a week, then
   trainingDays.push(shiftYmd(-3, new Date('2026-10-17T12:00:00')));                                 // ~0.2 a week now
   const shape = { weekdayKcal: 1900, weekendKcal: 2600, weekendGap: 700 };
-  const d = diagnoseStall({ pace: 'stalled', intake, floorKcal: 2520, today: '2026-10-17', trainingDays, shape });
+  const d = diagnoseStall({ pace: 'stalled', intake, floorKcal: 2350, today: '2026-10-17', trainingDays, shape });
   assert.equal(d.avgKcal, 2200, 'the average, weekends included: energy adds up');
-  assert.equal(d.missingAtLeastKcal, 320, 'floor − average: what the log does not carry, at least');
+  assert.equal(d.missingAtLeastKcal, 150, 'floor − average: what the log does not carry, at least');
   assert.deepEqual(d.clues.map((c) => c.id), ['weekend', 'training']);
   assert.match(d.clues[0].detail, /2,600 a day, Monday to Thursday 1,900/);
   for (const c of d.clues) {
     assert.doesNotMatch(`${c.title} ${c.detail}`, /log (the|every|more)|weigh (it|the)|\boil\b/i, 'a consistent log is a good ruler — never ask for more of it');
   }
-  assert.equal(diagnoseStall({ pace: 'on-pace', intake, floorKcal: 2520, today: '2026-10-17', trainingDays, shape }), null);
+  assert.equal(diagnoseStall({ pace: 'on-pace', intake, floorKcal: 2350, today: '2026-10-17', trainingDays, shape }), null);
   const flat = new Map([...intake].map(([k]) => [k, { kcal: 2000, items: 5 }]));
-  assert.deepEqual(diagnoseStall({ pace: 'stalled', intake: flat, floorKcal: 2520, today: '2026-10-17' }).clues, [], 'an even week and no training data: nothing to point at');
+  assert.deepEqual(diagnoseStall({ pace: 'stalled', intake: flat, floorKcal: 2350, today: '2026-10-17' }).clues, [], 'an even week and no training data: nothing to point at');
 });
 
 check('a stalled trend leads the coach, and the log it contradicts is not praised', async () => {
   const { buildDailyFocus } = await import('../src/lib/coach.ts');
-  const stall = { avgKcal: 2060, loggedDays: 27, floorKcal: 2520, missingAtLeastKcal: 460, clues: [] };
+  const stall = { avgKcal: 1890, loggedDays: 27, floorKcal: 2350, missingAtLeastKcal: 460, clues: [] };
   const input = {
-    goalKg: 96, currentWeight: 113.1, rateKgPerWeek: 0.04, pace: 'stalled', planKgPerWeek: 0.59, weeksToGoal: null,
-    weighInsNeeded: null, stall, totalLostKg: null, calorieTarget: 2604, todayKcal: 1500, weekKcalSoFar: 2100 * 6,
-    daysElapsedThisWeek: 6, proteinTarget: 173, todayProtein: 120, sleepHours: 7.5, sleepQuality: null, stepsToday: 8000,
+    goalKg: 82, currentWeight: 101.1, rateKgPerWeek: 0.04, pace: 'stalled', planKgPerWeek: 0.59, weeksToGoal: null,
+    weighInsNeeded: null, stall, totalLostKg: null, calorieTarget: 2420, todayKcal: 1500, weekKcalSoFar: 2100 * 6,
+    daysElapsedThisWeek: 6, proteinTarget: 148, todayProtein: 120, sleepHours: 7.5, sleepQuality: null, stepsToday: 8000,
     stepsWeekAvg: 9000, waterToday: 2, waterTarget: 3.3, dayKind: 'rest', activityLabel: 'Rest', workoutDoneToday: false,
     strengthTrend: null, watchActivityToday: null, hour: 9,
   };
@@ -3189,7 +3189,7 @@ check('the Sunday review asks about the user’s own plan, in their words', asyn
   assert.equal(checkInQuestions(null).find((x) => x.key === 'adherence').prompt, 'Did you stick to the plan?');
   assert.equal(planToReview({}), null);
   const r = checkInAdjustment({ effort: 'right', hunger: 'manageable', adherence: 'struggled' },
-    { weightChangeKg: 0, currentWeightKg: 113, targetKcal: 1900, avgProteinG: 150, proteinTargetG: 170, avgSleepH: 7, sessions: 1, goalKg: 96, planLabel: 'Weekend' });
+    { weightChangeKg: 0, currentWeightKg: 101, targetKcal: 1900, avgProteinG: 140, proteinTargetG: 148, avgSleepH: 7, sessions: 1, goalKg: 82, planLabel: 'Weekend' });
   assert.ok(r.reasons.some((x) => /weekend plan didn't survive the moment\. Make it smaller/.test(x)), 'a plan that broke gets smaller, not harder');
 });
 
@@ -3202,15 +3202,16 @@ check('nothing in the weekly ritual assumes someone to send it to', async () => 
 
 check('a next stop knows what it means at this height', async () => {
   const { milestoneState, weightUnderBmi, suggestStops } = await import('../src/lib/milestone.ts');
-  assert.equal(weightUnderBmi(30, 187), 104.9, 'the heaviest weight under BMI 30 at 187 cm');
-  const at105 = milestoneState({ kg: 105, set: '2026-10-17' }, 113.0, 187);
-  assert.equal(at105.toGoKg, 8);
-  assert.equal(at105.reached, false);
-  assert.match(at105.meaning, /“obese” BMI range ends at 104\.9 kg/, '105 is BMI 30.0 — say exactly where the band ends');
-  assert.match(milestoneState({ kg: 104.5, set: '' }, 113, 187).meaning, /out of the “obese” BMI range/);
-  assert.equal(milestoneState({ kg: 105, set: '' }, 104.8, 187).reached, true);
-  assert.deepEqual(suggestStops(113.0, 187, 96), [110, 104.9, 96, 87.4]);
-  assert.equal(milestoneState(null, 113, 187), null);
+  // A made-up person, 178 cm: BMI 30 ends at 95.0 kg, BMI 25 at 79.2.
+  assert.equal(weightUnderBmi(30, 178), 95.0, 'the heaviest weight under BMI 30 at 178 cm');
+  const at951 = milestoneState({ kg: 95.1, set: '2026-10-17' }, 103.1, 178);
+  assert.equal(at951.toGoKg, 8);
+  assert.equal(at951.reached, false);
+  assert.match(at951.meaning, /“obese” BMI range ends at 95\.0 kg/, '95.1 is BMI 30.0 — say exactly where the band ends');
+  assert.match(milestoneState({ kg: 94.5, set: '' }, 103, 178).meaning, /out of the “obese” BMI range/);
+  assert.equal(milestoneState({ kg: 95.1, set: '' }, 94.9, 178).reached, true);
+  assert.deepEqual(suggestStops(103.1, 178, 82), [100, 95, 82, 79.2]);
+  assert.equal(milestoneState(null, 103, 178), null);
 });
 
 check('a ceiling set below the trend is caught as a target, not shown as 8 kg over', () => {
@@ -3234,14 +3235,14 @@ check('the Sunday check-ins become a journal, newest first, in the user’s word
   const { journalWeeks } = await import('../src/lib/week.ts');
   const weights = Array.from({ length: 40 }, (_, i) => ({ date: shiftYmd(-(39 - i), new Date('2026-10-18T12:00:00')), weight: +(114 - i * 0.04).toFixed(1) }));
   const logs = [
-    { date: '2026-10-05', week_check: { effort: 'right', hunger: 'fine', adherence: 'nailed', planText: 'Leftovers in a box.', note: 'Planetarium, no munching.' } },
+    { date: '2026-10-05', week_check: { effort: 'right', hunger: 'fine', adherence: 'nailed', planText: 'Leftovers in a box.', note: 'Cinema, no popcorn.' } },
     { date: '2026-10-12', week_check: { effort: 'right', hunger: 'fine', adherence: 'struggled', planText: 'Leftovers in a box.' } },
     { date: '2026-10-14', water_glasses: 3 },
   ];
   const j = journalWeeks(logs, weights);
   assert.deepEqual(j.map((w) => w.weekStart), ['2026-10-12', '2026-10-05']);
   assert.equal(j[0].held, 'not this time');
-  assert.equal(j[1].note, 'Planetarium, no munching.');
+  assert.equal(j[1].note, 'Cinema, no popcorn.');
   assert.ok(j[0].deltaKg < 0, 'the trend fell between the two Sundays');
   assert.equal(j[1].deltaKg, null, 'the first week has nothing to compare with');
 });
@@ -3253,21 +3254,21 @@ check('mornings count up through the week and never reset mid-week', () => {
 });
 
 check('stepping back on the scale after a gap is welcomed, not scored', () => {
-  const weights = [{ date: '2026-10-08', weight: 113 }, { date: '2026-10-09', weight: 112.8 }];
-  const back = weighInMessage(113.4, { today: '2026-10-15', weights, goalKg: 96, startKg: 133 });
+  const weights = [{ date: '2026-10-08', weight: 103 }, { date: '2026-10-09', weight: 102.8 }];
+  const back = weighInMessage(103.4, { today: '2026-10-15', weights, goalKg: 82, startKg: 121 });
   assert.equal(back.title, 'Back on the scale');
   assert.match(back.body, /6 days since the last one/);
   assert.doesNotMatch(back.body, /streak|lost|missed|broke/i);
-  assert.match(weighInMessage(112.1, { today: '2026-10-10', weights, goalKg: 96, startKg: 133 }).title, /New low/);
-  assert.equal(weighInMessage(113.1, { today: '2026-10-10', weights, goalKg: 96, startKg: 133 }), null, 'an ordinary morning earns nothing');
-  assert.match(weighInMessage(95.9, { today: '2026-10-10', weights, goalKg: 96, startKg: 133 }).title, /Goal weight reached/);
+  assert.match(weighInMessage(102.1, { today: '2026-10-10', weights, goalKg: 82, startKg: 121 }).title, /New low/);
+  assert.equal(weighInMessage(103.1, { today: '2026-10-10', weights, goalKg: 82, startKg: 121 }), null, 'an ordinary morning earns nothing');
+  assert.match(weighInMessage(81.9, { today: '2026-10-10', weights, goalKg: 82, startKg: 121 }).title, /Goal weight reached/);
 });
 
 check('a reading far off the trend asks once before it bends five weeks of numbers', async () => {
   const { offTrend } = await import('../src/lib/scale.ts');
-  assert.equal(offTrend(103.5, 113.1), -9.6, 'a dropped digit');
-  assert.equal(offTrend(114.6, 113.1), null, 'a heavy Monday is not a typo');
-  assert.equal(offTrend(113, null), null, 'no trend yet, nothing to compare');
+  assert.equal(offTrend(93.5, 103.1), -9.6, 'a dropped digit');
+  assert.equal(offTrend(104.6, 103.1), null, 'a heavy Monday is not a typo');
+  assert.equal(offTrend(103, null), null, 'no trend yet, nothing to compare');
   const { readFileSync } = await import('node:fs');
   assert.match(readFileSync('src/lib/weighIn.ts', 'utf8'), /if \(off != null && !ctx\.confirmed\)/);
 });
@@ -3504,7 +3505,7 @@ check('the briefing and the hold never wake the phone, and are never alarms', as
 
 // ── Evening hold ─────────────────────────────────────────────────────────────
 const { composeHold, quoteFor, holdAfter, QUOTES, FRIDAY_QUOTE } = await import('../src/lib/hold.ts');
-const PLANS = { evening: 'Tvaroh or a shake, then the kitchen’s closed.', friday: 'One plate, protein first.', weekend: 'Leftovers in a box.', badminton: 'A shake first, then dinner.' };
+const PLANS = { evening: 'Yoghurt or a shake, then the kitchen’s closed.', friday: 'One plate, protein first.', weekend: 'Leftovers in a box.', badminton: 'A shake first, then dinner.' };
 const HOLD = { plans: PLANS, why: 'Out of the obese range.', badmintonDay: false,
   food: { kcal: 1300, share: 1850, proteinG: 120, proteinTargetG: 160 } };
 
@@ -3513,7 +3514,7 @@ check('the evening hold on a weekday: a Stoic line first, then the evening plan 
   assert.equal(h.title, 'Evening. Hold it.');
   const lines = h.body.split('\n');
   assert.match(lines[0], /^“.+” — (Epictetus|Marcus Aurelius)$/);
-  assert.equal(lines[1], 'Late evening: Tvaroh or a shake, then the kitchen’s closed.');
+  assert.equal(lines[1], 'Late evening: Yoghurt or a shake, then the kitchen’s closed.');
   assert.equal(lines[2], 'Left today: 550 kcal, 40 g of it protein.');
   assert.ok(!h.body.includes('You said'), 'the reason is kept for the hard evenings, so it doesn’t wear out');
 });
@@ -3722,22 +3723,22 @@ check('Back Rebuild looks after the neck as well as the lower back', async () =>
 check('a next stop is reached when the trend stays there three days, not on one lucky morning', async () => {
   const { heldUnder, milestoneState } = await import('../src/lib/milestone.ts');
   const series = (vals) => { const m = new Map(vals.map(([d, v]) => [d, v])); return (ymd) => m.get(ymd) ?? null; };
-  const t = series([['2026-12-01', 105.3], ['2026-12-02', 104.95], ['2026-12-03', 104.8], ['2026-12-04', 104.7]]);
-  assert.equal(heldUnder(105, t, '2026-12-04'), true, 'three days at or under');
-  assert.equal(heldUnder(105, t, '2026-12-03'), false, 'the 1st was above: only two days so far');
-  assert.equal(heldUnder(105, series([['2026-12-02', 104.9], ['2026-12-04', 104.7]]), '2026-12-04'), false, 'a day with no trend is no proof');
-  const set = { kg: 105, set: '2026-10-17' };
-  const ctx = (today, trend) => ({ today, trendOn: (ymd) => (ymd === '2026-10-17' ? 112.64 : trend) });
-  const reached = milestoneState(set, 104.8, 187, ctx('2026-12-04', 104.8));
+  const t = series([['2026-12-01', 95.4], ['2026-12-02', 95.05], ['2026-12-03', 94.9], ['2026-12-04', 94.8]]);
+  assert.equal(heldUnder(95.1, t, '2026-12-04'), true, 'three days at or under');
+  assert.equal(heldUnder(95.1, t, '2026-12-03'), false, 'the 1st was above: only two days so far');
+  assert.equal(heldUnder(95.1, series([['2026-12-02', 95.0], ['2026-12-04', 94.8]]), '2026-12-04'), false, 'a day with no trend is no proof');
+  const set = { kg: 95.1, set: '2026-10-17' };
+  const ctx = (today, trend) => ({ today, trendOn: (ymd) => (ymd === '2026-10-17' ? 102.64 : trend) });
+  const reached = milestoneState(set, 94.9, 178, ctx('2026-12-04', 94.9));
   assert.equal(reached.held, true);
-  assert.equal(reached.fromKg, 112.6, 'how far it came, from the trend on the day it was set');
-  assert.equal(reached.crossed, 'obese', 'under 104.9 at 187 cm: really out of the obese range');
-  const at105 = milestoneState(set, 105.0, 187, ctx('2026-12-04', 105.0));
-  assert.equal(at105.held, true);
-  assert.equal(at105.crossed, null, '105.0 is still BMI 30.0: never claim the range was left');
-  assert.equal(milestoneState({ ...set, reached: '2026-12-04' }, 104.8, 187, ctx('2026-12-04', 104.8)).celebrated, true, 'shown once');
-  const late = milestoneState({ kg: 105, set: '2026-10-01' }, 104.8, 187, { today: '2026-12-04', trendOn: (ymd) => (ymd < '2026-10-04' ? null : ymd === '2026-10-04' ? 113.2 : 104.8) });
-  assert.equal(late.fromKg, 113.2, 'no trend on the day it was set: the first day after that has one');
+  assert.equal(reached.fromKg, 102.6, 'how far it came, from the trend on the day it was set');
+  assert.equal(reached.crossed, 'obese', 'under 95.0 at 178 cm: really out of the obese range');
+  const at951 = milestoneState(set, 95.1, 178, ctx('2026-12-04', 95.1));
+  assert.equal(at951.held, true);
+  assert.equal(at951.crossed, null, '95.1 is still BMI 30.0: never claim the range was left');
+  assert.equal(milestoneState({ ...set, reached: '2026-12-04' }, 94.9, 178, ctx('2026-12-04', 94.9)).celebrated, true, 'shown once');
+  const late = milestoneState({ kg: 95.1, set: '2026-10-01' }, 94.9, 178, { today: '2026-12-04', trendOn: (ymd) => (ymd < '2026-10-04' ? null : ymd === '2026-10-04' ? 103.2 : 94.9) });
+  assert.equal(late.fromKg, 103.2, 'no trend on the day it was set: the first day after that has one');
   const { suggestStops } = await import('../src/lib/milestone.ts');
   assert.deepEqual(suggestStops(110.1, 192, 92), [105, 92], 'the goal, not a BMI line 0.1 kg off it');
 });
@@ -3762,7 +3763,7 @@ check('the letter from last month tells the month back, in the user’s words', 
   for (let d = 1; d <= 20; d++) if (d % 4) w.push({ date: `2026-10-${String(d).padStart(2, '0')}`, weight: +(113 - d * 0.06).toFixed(2) });
   for (let d = 20; d <= 30; d++) w.push({ date: `2026-09-${String(d).padStart(2, '0')}`, weight: 113.2 });
   const logs = [
-    { date: '2026-10-05', week_check: { effort: 'right', adherence: 'nailed', planText: 'Box the leftovers', note: 'Planetarium. Didn’t touch his fries.' } },
+    { date: '2026-10-05', week_check: { effort: 'right', adherence: 'nailed', planText: 'Box the leftovers', note: 'Cinema. Didn’t touch the popcorn.' } },
     { date: '2026-10-12', week_check: { effort: 'easy', adherence: 'struggled', planText: 'Box the leftovers', note: ' ' } },
     { date: '2026-09-28', week_check: { effort: 'easy', adherence: 'nailed', planText: 'x', note: 'September’s' } },
   ];
@@ -3771,7 +3772,7 @@ check('the letter from last month tells the month back, in the user’s words', 
   assert.equal(l.mornings, 15);
   assert.equal(l.days, 31);
   assert.deepEqual([l.kept, l.reviewed], [1, 2], 'struggled is not kept');
-  assert.deepEqual(l.notes.map((n) => n.note), ['Planetarium. Didn’t touch his fries.'], 'his words only, blank ones dropped, the month’s only');
+  assert.deepEqual(l.notes.map((n) => n.note), ['Cinema. Didn’t touch the popcorn.'], 'his words only, blank ones dropped, the month’s only');
   assert.deepEqual(l.stops, [{ kg: 105, reached: '2026-10-28' }]);
   assert.ok(l.toKg < l.fromKg && l.deltaKg < 0, 'the trend came down');
   const { weightVerdict } = await import('../src/lib/insights.ts');

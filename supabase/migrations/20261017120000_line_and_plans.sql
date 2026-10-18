@@ -5,7 +5,7 @@
 --   ever moves down — 1 kg above the lowest trend that held a week since it was
 --   drawn (src/lib/line.ts) — and is never raised automatically.
 --
--- user_settings.plans  {"weekend": "My kid's leftovers go in a box…", "line": "…"}
+-- user_settings.plans  {"weekend": "Leftovers go in a box…", "line": "…"}
 --   If-then plans, one per moment (src/lib/plans.ts), shown when the moment
 --   comes round.
 --

@@ -34,7 +34,7 @@ export interface MilestoneState {
   /** The trend on the day the stop was set; null when unknown. */
   fromKg: number | null;
   /** The BMI band the trend has left since the stop was set ("obese"), only
-   *  once it has really crossed: 105.0 is still "obese" at 187 cm. */
+   *  once it has really crossed: 95.1 is still "obese" at 178 cm. */
   crossed: string | null;
   /** BMI at the stop, for this height. */
   bmi: number | null;
