@@ -5,7 +5,8 @@
 // repeating PATTERNS across weeks that quietly decide adherence: how reliably
 // protein lands and whether the weekend erases the weekday deficit. Each is
 // something you can act on without any new tracking. When in the day the food
-// lands is not judged here: a late meal is often the plan (rhythm.ts learns it).
+// lands is not judged here: a late meal is often the plan, and the log can't say
+// when anything was eaten.
 //
 // Pure — no Svelte/Dexie — unit-tested in selfcheck.js.
 

@@ -2658,40 +2658,21 @@ check('nutrition patterns: low protein and a weekend blowout surface; the hour e
   assert.ok(!r.insights.some((x) => /8pm|late|front-load/i.test(x)), 'a 22:00 meal is often the plan, not a problem');
 });
 
-check('the eating rhythm is learned from the log, and the coach measures protein against it', async () => {
-  const { eatingRhythm } = await import('../src/lib/rhythm.ts');
+check('the coach never judges protein by the clock: the log can’t say when food was eaten', async () => {
   const { buildDailyFocus } = await import('../src/lib/coach.ts');
-  // A 16:8 eater: 60 g at 15:00, 50 g at 21:30. Local clock times, whatever
-  // the machine's zone.
-  const at = (d, h, m = 0) => new Date(2026, 9, d, h, m).toISOString();
-  const rows = [];
-  for (let d = 5; d <= 12; d++) {
-    const date = `2026-10-${String(d).padStart(2, '0')}`;
-    rows.push({ date, created_at: at(d, 15), protein_g: 60 }, { date, created_at: at(d, 21, 30), protein_g: 50 });
-  }
-  // Logged the next morning: says nothing about when it was eaten.
-  rows.push({ date: '2026-10-13', created_at: at(14, 8), protein_g: 200 });
-  const r = eatingRhythm(rows, '2026-10-15');
-  assert.equal(r.days, 8, 'the day logged after the fact is left out');
-  assert.equal(r.first, 15 * 60);
-  assert.equal(r.last, 21 * 60 + 30);
-  assert.equal(r.proteinBy(14 * 60), 0, 'nothing by 14:00 is his usual');
-  assert.equal(r.proteinBy(16 * 60), 60);
-  assert.equal(r.proteinBy(22 * 60), 110);
-  assert.equal(eatingRhythm(rows.slice(0, 12), '2026-10-15'), null, 'six days is too few to call a rhythm');
-
   const input = {
-    goalKg: 96, currentWeight: 113, rateKgPerWeek: 0.5, pace: 'on-pace', planKgPerWeek: 0.5, weeksToGoal: 30,
+    goalKg: 76, currentWeight: 93, rateKgPerWeek: 0.5, pace: 'on-pace', planKgPerWeek: 0.5, weeksToGoal: 30,
     weighInsNeeded: null, stall: null, totalLostKg: null, calorieTarget: 2400, todayKcal: 0, weekKcalSoFar: 9000,
-    daysElapsedThisWeek: 4, proteinTarget: 165, todayProtein: 0, sleepHours: 7.5, sleepQuality: null, stepsToday: 8000,
+    daysElapsedThisWeek: 4, proteinTarget: 137, todayProtein: 0, sleepHours: 7.5, sleepQuality: null, stepsToday: 8000,
     stepsWeekAvg: 9000, waterToday: 2, waterTarget: 3, dayKind: 'rest', activityLabel: 'Rest', workoutDoneToday: false,
-    strengthTrend: null, watchActivityToday: null, hour: 14,
+    strengthTrend: null, watchActivityToday: null,
   };
-  const protein = (x) => buildDailyFocus(x).filter((f) => /^protein-(none|low)$/.test(f.id)).map((f) => f.id);
-  assert.deepEqual(protein({ ...input, proteinUsualByNow: r.proteinBy(14 * 60) }), [], '14:00 on a fasting day: nothing to say');
-  assert.deepEqual(protein(input), [], 'not learned yet: no clock-made guess either');
-  assert.deepEqual(protein({ ...input, hour: 16, proteinUsualByNow: r.proteinBy(16 * 60) }), ['protein-none'], '16:00 with nothing in is behind HIS usual');
-  assert.deepEqual(protein({ ...input, hour: 16, todayProtein: 55, proteinUsualByNow: r.proteinBy(16 * 60) }), [], 'his 15:00 meal in: on his usual pace');
+  // Fasting until 15:00, or eaten at 15:00 and logged at 20:00: either way an
+  // empty log at 16:00 is not "behind".
+  for (const hour of [14, 16, 19]) {
+    assert.ok(!buildDailyFocus({ ...input, hour }).some((f) => /^protein-(none|low)$/.test(f.id)), `${hour}:00`);
+  }
+  assert.ok(buildDailyFocus({ ...input, hour: 21, todayProtein: 130 }).some((f) => f.id === 'protein-hit'), 'the good news still comes');
 });
 
 check('training heatmap: grid geometry and counts are right', () => {

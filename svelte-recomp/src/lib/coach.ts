@@ -112,9 +112,6 @@ export interface CoachInput {
 
   /** Local hour 0..23 — lets nudges respect time of day. */
   hour: number;
-  /** Protein usually in by this time of day, learned from the user's own log
-   *  (rhythm.ts); null until it has been. */
-  proteinUsualByNow?: number | null;
 }
 
 const SEV_WEIGHT: Record<Severity, number> = { bad: 0, warn: 1, info: 2, good: 3 };
@@ -326,24 +323,15 @@ export function buildDailyFocus(i: CoachInput): FocusItem[] {
   }
 
   // — 3. Protein: the non-negotiable for a body worth keeping. —
+  // Only the good news, by day. When protein is eaten can't be read off the
+  // log: entries are made ahead of a meal and after it alike, so "behind on
+  // protein" by the clock misfired on every day logged late (and a fixed hour
+  // told anyone who fasts until mid-afternoon off daily). The evening hold
+  // says what's left of the day, from the day's total.
   if (i.proteinTarget > 0) {
     const p = i.todayProtein ?? 0;
     const target = i.proteinTarget;
-    // Behind means behind this person's own usual day at this hour (rhythm.ts),
-    // never a clock's idea of when meals happen. Until the log has taught it,
-    // or while the usual day hasn't started yet, there's nothing to say.
-    const usual = i.proteinUsualByNow ?? null;
-    if (usual != null && usual >= 30 && p < usual * 0.6) {
-      items.push({
-        id: p > 0 ? 'protein-low' : 'protein-none',
-        severity: 'warn',
-        icon: '🥩',
-        title: p > 0 ? 'Behind your usual protein' : 'No protein logged yet',
-        msg: `By now you usually have about ${Math.round(usual)} g in; today it’s ${Math.round(p)} g. Make the next meal protein-first.`,
-        metric: `${Math.round(p)} / ${target} g`,
-        href: '/recipes',
-      });
-    } else if (p >= target * 0.9) {
+    if (p >= target * 0.9) {
       items.push({
         id: 'protein-hit',
         severity: 'good',

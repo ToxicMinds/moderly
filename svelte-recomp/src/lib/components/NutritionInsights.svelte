@@ -1,13 +1,11 @@
 <script lang="ts">
   // Nutrition PATTERNS across weeks, on the Food tab: how reliably protein
-  // lands, whether weekends erase the weekday deficit, and the hours this
-  // person usually eats, learned and shown, never judged. Pure + unit-tested;
-  // hides itself until there are a few logged days.
+  // lands and whether weekends erase the weekday deficit. Never when in the day
+  // food lands: entries are made ahead of meals and after them alike. Pure +
+  // unit-tested; hides itself until there are a few logged days.
   import { liveFoodLogs, liveGoal, liveWeights } from '$lib/stores/live';
   import { proteinTargetG as calcProteinTarget } from '$lib/profile';
   import { nutritionPatterns } from '$lib/nutritionPatterns';
-  import { eatingRhythm } from '$lib/rhythm';
-  import { todayDate } from '$lib/stores/refresh';
 
   const _food = liveFoodLogs();
   const _goal = liveGoal();
@@ -26,8 +24,7 @@
   })));
 
   const pat = $derived(nutritionPatterns(entries, proteinTarget, { minDays: 5 }));
-  const rhythm = $derived(eatingRhythm($_food as any[], $todayDate));
-  const hh = (min: number) => String(Math.floor(min / 60)).padStart(2, '0');
+
 </script>
 
 {#if pat.daysLogged >= 5}
@@ -46,10 +43,6 @@
         <div class="np-v" class:warn={pat.weekendGapKcal != null && pat.weekendGapKcal >= 300}>{pat.weekendGapKcal != null ? (pat.weekendGapKcal >= 0 ? '+' : '') + pat.weekendGapKcal : '—'}</div>
         <div class="np-l">weekend kcal gap</div>
       </div>
-      <div class="np-stat">
-        <div class="np-v">{rhythm ? `${hh(rhythm.first)}–${hh(rhythm.last + 59)}` : '—'}</div>
-        <div class="np-l">usual eating hours</div>
-      </div>
     </div>
     <div class="np-insights">
       {#each pat.insights as ins}
@@ -61,7 +54,7 @@
 {/if}
 
 <style>
-  .np-stats{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:10px}
+  .np-stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px}
   .np-stat{background:var(--glass-2);border:1px solid var(--glass-brd);border-radius:11px;padding:9px 6px;text-align:center}
   .np-v{font-size:1.0625rem;font-weight:800;color:var(--text)}
   .np-v.warn{color:var(--amber)}
