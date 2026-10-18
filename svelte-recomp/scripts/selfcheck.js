@@ -1106,6 +1106,16 @@ check('alarms are armed from the shell, not only from the Alarms page', async ()
     'otherwise an alarm synced from another device is never armed until you open and edit it');
 });
 
+check('every call the app makes on the Moments plugin exists in the APK', async () => {
+  // A missing method only fails on the phone, after an install.
+  const { readFileSync } = await import('node:fs');
+  const js = readFileSync('src/lib/nativeAlarms.ts', 'utf8');
+  const java = readFileSync('android/app/src/main/java/com/toxicminds/recompos/MomentsPlugin.java', 'utf8');
+  const called = [...new Set([...js.matchAll(/p\.P\.(\w+)\(/g)].map((m) => m[1]))].filter((m) => m !== 'addListener');
+  assert.ok(called.includes('show') && called.includes('arm'), 'the scan finds the calls');
+  for (const m of called) assert.match(java, new RegExp(`@PluginMethod\\s+public void ${m}\\(PluginCall`), `MomentsPlugin.${m}`);
+});
+
 check('the native build number matches the gradle versionCode', async () => {
   const { readFileSync } = await import('node:fs');
   const gradle = readFileSync('android/app/build.gradle', 'utf8').match(/versionCode\s+(\d+)/);

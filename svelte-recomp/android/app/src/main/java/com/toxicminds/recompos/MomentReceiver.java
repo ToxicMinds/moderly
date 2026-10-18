@@ -163,6 +163,16 @@ public class MomentReceiver extends BroadcastReceiver {
         repost(ctx, p, date, key);
     }
 
+    /** "Show it now" on the app's card: post that armed moment at once, whatever
+     *  its window, so where its buttons sit is seen before the morning. Leaves
+     *  `shown` alone. The titles of its buttons; null when nothing was posted. */
+    static List<String> show(Context ctx, String date, String key) {
+        for (MomentClock.Moment m : read(ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE))) {
+            if (m.date.equals(date) && m.key.equals(key)) return post(ctx, m);
+        }
+        return null;
+    }
+
     /** Show the notification again with what's been done (and without its button). */
     private static void repost(Context ctx, SharedPreferences p, String date, String key) {
         for (MomentClock.Moment m : read(p)) {
@@ -266,11 +276,12 @@ public class MomentReceiver extends BroadcastReceiver {
         }
     }
 
-    private static void post(Context ctx, MomentClock.Moment m) {
+    /** The titles of the buttons it carries; null when notifications are off. */
+    private static List<String> post(Context ctx, MomentClock.Moment m) {
         if (Build.VERSION.SDK_INT >= 33
-            && ctx.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return;
+            && ctx.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return null;
         NotificationManager nm = (NotificationManager) ctx.getSystemService(Context.NOTIFICATION_SERVICE);
-        if (nm == null) return;
+        if (nm == null) return null;
 
         // One channel per moment, so either can be tuned or muted on its own in
         // Android's settings. Both pop up (the phone is in hand) and make no
@@ -314,27 +325,33 @@ public class MomentReceiver extends BroadcastReceiver {
         if (open != null) {
             n.setContentIntent(PendingIntent.getActivity(ctx, 0, open, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT));
         }
+        List<String> buttons = new ArrayList<>();
         JSONObject actions = momentJson(p, m.date, m.key).optJSONObject("actions");
         if (actions != null) {
             if (actions.optBoolean("weigh") && !acted.has("weight")) {
                 n.addAction(inputAction(ctx, ACT_WEIGHT, m, "Log weight", "Weight in kg", null));
+                buttons.add("Log weight");
             }
             if (actions.optBoolean("back") && !acted.has("back")) {
                 n.addAction(inputAction(ctx, ACT_BACK, m, "Rate back",
                     "Back today, 0 to 10", new String[] { "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" }));
+                buttons.add("Rate back");
             }
             JSONObject meal = actions.optJSONObject("meal");
             if (meal != null && !acted.has("meal")) {
+                String title = "Log " + meal.optString("label", "breakfast").toLowerCase();
                 Intent i = new Intent(ctx, MomentReceiver.class).setAction(ACT_MEAL)
                     .putExtra("date", m.date).putExtra("key", m.key);
-                n.addAction(new NotificationCompat.Action.Builder(0, "Log " + meal.optString("label", "breakfast").toLowerCase(),
+                n.addAction(new NotificationCompat.Action.Builder(0, title,
                     PendingIntent.getBroadcast(ctx, 3, i, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT)).build());
+                buttons.add(title);
             }
         }
         try {
             NotificationManagerCompat.from(ctx).notify(evening ? 7002 : 7001, n.build());
-        } catch (SecurityException ignored) {
-            // Notifications switched off since the check above.
+        } catch (SecurityException e) {
+            return null; // Notifications switched off since the check above.
         }
+        return buttons;
     }
 }

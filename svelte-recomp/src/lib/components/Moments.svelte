@@ -4,7 +4,7 @@
   // src/lib/briefing.ts and src/lib/hold.ts. When they go out: MomentClock.java.
   import { onMount } from 'svelte';
   import { briefings, holds, momentSetting, forecast, refreshForecast, saveMoments, type MomentSetting } from '$lib/stores/moments';
-  import { isNativeApp, momentsStatus, momentsSupport, type MomentsState } from '$lib/nativeAlarms';
+  import { isNativeApp, momentsStatus, momentsSupport, showMomentNow, type MomentsState } from '$lib/nativeAlarms';
   import { holdAfter } from '$lib/hold';
   import { locationRefused } from '$lib/weather';
   import { todayDate } from '$lib/stores/refresh';
@@ -25,6 +25,10 @@
   const s = $derived<MomentSetting>($momentSetting ?? { on: false, after: '06:00', hold: false });
   /** Build 8 put buttons on the briefing; older builds show it without. */
   const buttons = $derived(($updateState.installedBuild ?? 0) >= 8);
+  /** Build 9 can post today's at once, to see where its buttons are. */
+  const canShow = $derived(($updateState.installedBuild ?? 0) >= 9);
+  let sent = $state<string[] | null>(null);
+  let sending = $state(false);
   const tomorrow = $derived($briefings[1] ?? null);
   const tonight = $derived($holds[0] ?? null);
   const startsAt = (dow: number) => { const m = holdAfter(dow); return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`; };
@@ -50,6 +54,17 @@
   function setAfter(e: Event) {
     const v = (e.currentTarget as HTMLInputElement).value;
     if (/^\d\d:\d\d$/.test(v) && v >= '04:00' && v <= '11:00' && v !== s.after) save({ ...s, after: v });
+  }
+  async function showNow() {
+    sending = true;
+    error = '';
+    try {
+      sent = await showMomentNow($todayDate, 'morning');
+    } catch (e: any) {
+      error = (e?.message || String(e)).slice(0, 160);
+    } finally {
+      sending = false;
+    }
   }
   async function useLocation() {
     locating = true;
@@ -99,6 +114,13 @@
     <label class="flbl mb-lbl" for="mb-after">After</label>
     <input id="mb-after" type="time" min="04:00" max="11:00" value={s.after} onchange={setAfter} disabled={saving}>
     {#if tomorrow}{@render preview("Tomorrow's, as it stands", tomorrow)}{/if}
+    {#if buttons}
+      <div class="mb-meta">
+        On the phone the buttons sit under the notification: drag it down, or tap its arrow.
+        {#if canShow}<button type="button" class="mb-link" onclick={showNow} disabled={sending}>{sending ? 'Sending…' : 'Show today’s now'}</button>{/if}
+      </div>
+      {#if sent}<div class="mb-meta">{sent.length ? `Sent, with ${sent.join(' · ')}.` : 'Sent. Today’s has no buttons left: everything on it is logged.'}</div>{/if}
+    {/if}
     <div class="mb-meta">
       {#if $forecast}
         Weather for roughly where the phone is.

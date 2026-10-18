@@ -274,6 +274,15 @@ export async function disarmMoments(): Promise<void> {
   try { await p.P.disarm(); } catch (e) { armedWith = ''; console.error('[moments] disarm failed:', e); }
 }
 
+/** Post an armed moment now, whatever its window (build 9+): the card's
+ *  "Show it now". The titles of the buttons Android was given; throws when it
+ *  wasn't shown. */
+export async function showMomentNow(date: string, key: 'morning' | 'evening'): Promise<string[]> {
+  const p = await momentsPlugin();
+  if (!p || p.name !== 'Moments') throw new Error('This needs the app update.');
+  return ((await p.P.show({ date, key }))?.buttons ?? []) as string[];
+}
+
 export async function momentsStatus(): Promise<MomentsState | null> {
   const p = await momentsPlugin();
   if (!p) return null;

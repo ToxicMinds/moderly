@@ -100,6 +100,22 @@ public class MomentsPlugin extends Plugin {
         call.resolve(state());
     }
 
+    /** { date, key }: post that armed moment now (the card's "Show it now").
+     *  Resolves { buttons: [their titles] }. */
+    @PluginMethod
+    public void show(PluginCall call) {
+        java.util.List<String> buttons = MomentReceiver.show(getContext(), call.getString("date", ""), call.getString("key", ""));
+        if (buttons == null) {
+            call.reject("Not shown: notifications are off for RecompOS, or there is nothing to show yet.");
+            return;
+        }
+        JSArray titles = new JSArray();
+        for (String t : buttons) titles.put(t);
+        JSObject o = new JSObject();
+        o.put("buttons", titles);
+        call.resolve(o);
+    }
+
     @PluginMethod
     public void status(PluginCall call) {
         call.resolve(state());
