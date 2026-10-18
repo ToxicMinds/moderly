@@ -509,6 +509,9 @@
       <span class="menu-val">{exporting === 'csv' ? '…' : 'CSV'}</span>
     </button>
     {#if exportMsg}<div class="menu-note">{exportMsg}</div>{/if}
+    <a class="menu-item" href="https://github.com/ToxicMinds/moderly" target="_blank" rel="noopener noreferrer">
+      <span>Source code</span><span class="menu-val">AGPL-3.0 ↗</span>
+    </a>
     <button class="menu-item danger" onclick={signOut}>
       <span>Sign out</span><span class="menu-val">⎋</span>
     </button>
@@ -584,7 +587,7 @@
   .menu-sizes{display:flex;gap:6px}
   .menu-size{width:42px;height:36px;border-radius:var(--r-sm);border:1px solid var(--border2);background:var(--bg3);color:var(--muted);font-weight:800;cursor:pointer;font-family:inherit}
   .menu-size.on{background:var(--amber);color:var(--bg);border-color:transparent}
-  .menu-item{display:flex;align-items:center;justify-content:space-between;width:100%;gap:12px;padding:14px 0;border:none;border-bottom:1px solid var(--border);background:none;color:var(--text);font-size:0.9375rem;font-weight:700;cursor:pointer;font-family:inherit}
+  .menu-item{display:flex;text-decoration:none;align-items:center;justify-content:space-between;width:100%;gap:12px;padding:14px 0;border:none;border-bottom:1px solid var(--border);background:none;color:var(--text);font-size:0.9375rem;font-weight:700;cursor:pointer;font-family:inherit}
   .menu-item .menu-val{color:var(--muted);font-weight:600}
   .menu-item.danger{color:var(--red);border-bottom:none}
   .menu-item:disabled{opacity:.55}
