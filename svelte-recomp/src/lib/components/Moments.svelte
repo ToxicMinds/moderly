@@ -117,7 +117,7 @@
     {#if buttons}
       <div class="mb-meta">
         On the phone the buttons sit under the notification: drag it down, or tap its arrow.
-        {#if canShow}<button type="button" class="mb-link" onclick={showNow} disabled={sending}>{sending ? 'Sending…' : 'Show today’s now'}</button>{/if}
+        {#if canShow}{' '}<button type="button" class="mb-link" onclick={showNow} disabled={sending}>{sending ? 'Sending…' : 'Show today’s now'}</button>{/if}
       </div>
       {#if sent}<div class="mb-meta">{sent.length ? `Sent, with ${sent.join(' · ')}.` : 'Sent. Today’s has no buttons left: everything on it is logged.'}</div>{/if}
     {/if}
