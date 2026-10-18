@@ -1135,6 +1135,14 @@ check('every function that spends AI or search quota asks for a signed-in user f
   }
 });
 
+check('the update dot never says "up to date" while the phone app is behind', async () => {
+  // It checked only the web build, so it read "latest" during a build-10 download.
+  const { readFileSync } = await import('node:fs');
+  const badge = readFileSync('src/lib/components/UpdateBadge.svelte', 'utf8');
+  assert.match(badge, /\{:else if appBehind\}/, 'an app update shows as an update');
+  assert.match(badge, /else if \(appBehind\)[\s\S]*?else \{\s*showToast\(`Up to date/, '"Up to date" only after both checks');
+});
+
 check('the native build number matches the gradle versionCode', async () => {
   const { readFileSync } = await import('node:fs');
   const gradle = readFileSync('android/app/build.gradle', 'utf8').match(/versionCode\s+(\d+)/);

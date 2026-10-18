@@ -1,5 +1,15 @@
 <script lang="ts">
+  // One dot for the whole app. It used to check only the web build, so it said
+  // "Up to date" while the phone app itself was mid-update (the banner below
+  // was downloading build 10 at that moment). Up to date now means both.
   import { updateAvailable, checkingUpdate, swVersion, applyUpdate, checkForUpdate } from '$lib/stores/appUpdate';
+  import { updateState, checkForNativeUpdate, installNativeUpdate } from '$lib/stores/nativeUpdate';
+
+  /** The installed app is behind and can update in place. */
+  const appBehind = $derived($updateState.available && $updateState.mode === 'inplace');
+  function updateApp() {
+    if (!$updateState.busy) installNativeUpdate();
+  }
 
   let toast = $state('');
   let toastTimer: ReturnType<typeof setTimeout> | undefined;
@@ -12,13 +22,15 @@
 
   async function manualCheck() {
     if ($updateAvailable) { applyUpdate(); return; }
+    if (appBehind) { updateApp(); return; }
     showToast('Checking…', 8000);
-    await checkForUpdate();
+    await Promise.all([checkForUpdate(), checkForNativeUpdate()]);
     if ($updateAvailable) {
       showToast('Update found — tap to install', 4000);
+    } else if (appBehind) {
+      showToast('App update ready — tap to install', 4000);
     } else {
-      const v = $swVersion ? ` · v${$swVersion.slice(0, 7)}` : '';
-      showToast(`Up to date${v}`);
+      showToast(`Up to date${$updateState.installedBuild ? ` · app ${$updateState.installedBuild}` : ''}`);
     }
   }
 </script>
@@ -27,6 +39,11 @@
   {#if $updateAvailable}
     <button class="upd upd-new" onclick={applyUpdate} title="A new version is ready — tap to update">
       <span class="upd-ico">↻</span>Update
+    </button>
+  {:else if appBehind}
+    <button class="upd upd-new" onclick={updateApp} disabled={$updateState.busy}
+      title={`App update ready: build ${$updateState.latestBuild} (you have ${$updateState.installedBuild})`}>
+      <span class="upd-ico">↻</span>{$updateState.busy ? 'Updating…' : 'Update'}
     </button>
   {:else}
     <button
