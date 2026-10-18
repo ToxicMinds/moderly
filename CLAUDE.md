@@ -1,8 +1,16 @@
-# RecompOS — CLAUDE.md
+# Moderly — CLAUDE.md
 
-**This repo is RecompOS.** A personal body-recomposition app: weight, food, training,
-recovery, alarms. Svelte 5 + SvelteKit PWA, Supabase backend, shipped to Android as a
-thin Capacitor shell.
+**This repo is Moderly** (called RecompOS until 2026-10-18). A calm weight-loss app for
+people doing it on their own: weight trend, food, training, recovery, two daily
+notifications. Svelte 5 + SvelteKit PWA, Supabase backend, shipped to Android as a thin
+Capacitor shell.
+
+**The old name lives on inside, on purpose.** Only what users read says Moderly. The
+Android applicationId (`com.toxicminds.recompos`), the Java package, storage keys
+(`recompos.*`), the Dexie db, plugin prefs, the `svelte-recomp/` folder, the Vercel
+project `svelte-recomp`, `~/.config/recompos/` and the local path `/home/nik/schedule`
+keep their names: renaming them makes a different app, loses local state, or orphans
+Claude's memory (keyed by the path). Never "finish the rename" there.
 
 It is **not** Synculariti. Synculariti (`/home/nik/synculariti-core`) is a restaurant
 inventory-management monorepo — NestJS + Next.js + pnpm/Turborepo, Neo4j, Gemini invoice
@@ -10,10 +18,10 @@ extraction, Render/Railway deploys. Nothing in that repo applies here and nothin
 applies there. If a task mentions invoices, tenants, IMS, or `apps/ims/api`, you are in
 the wrong directory.
 
-| | RecompOS (here) | Synculariti |
+| | Moderly (here) | Synculariti |
 |---|---|---|
 | Path | `/home/nik/schedule` | `/home/nik/synculariti-core` |
-| Repo | `ToxicMinds/schedule` (**public**) | private |
+| Repo | `ToxicMinds/moderly` (**public**; was `schedule`, old URLs redirect) | private |
 | Stack | SvelteKit 5 PWA + Capacitor Android | NestJS + Next.js, pnpm monorepo |
 | Data | Supabase `jerbhsasccvjelkkphgu` | its own Supabase + Neo4j |
 | Hosting | Vercel `svelte-recomp`, account `nikibmacc-2092` | Render |
@@ -44,7 +52,8 @@ set -a; . ~/.config/recompos/supabase.env; set +a; \
 
 `svelte-recomp/` is the live app; `supabase/` holds migrations and edge functions. The old
 vanilla JS version and `watch-bridge/` were deleted on 2026-10-17 (both in git history).
-GitHub Pages still serves an old build from the `gh-pages` branch; it is not the app.
+The `gh-pages` branch is now a single redirect page to `moderly.vercel.app` (the token
+can't switch Pages off); the old build is in that branch's history.
 
 ## Ship model
 
