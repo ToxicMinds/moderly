@@ -181,7 +181,7 @@
   .cm-go + .cm-go{margin-top:8px}
   .cm-err{font-size:0.8125rem;color:var(--led-bad);text-align:center;margin-top:8px}
   .cm-turn{font-size:0.875rem;line-height:1.5;color:var(--text);margin-top:12px;padding:11px 12px;
-    background:var(--bg3);border-left:3px solid var(--led-ok);border-radius:var(--r-sm) var(--r-md) var(--r-md) var(--r-sm)}
+    background:color-mix(in srgb,var(--led-ok) 8%,var(--bg3));border-radius:var(--r-md)}
   .cm-stops{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
   .cm-stop{font-family:var(--font-display);font-size:1rem;font-weight:700;color:var(--text);cursor:pointer;
     background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r-sm);padding:6px 12px}

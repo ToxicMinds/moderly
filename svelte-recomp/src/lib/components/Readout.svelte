@@ -6,8 +6,11 @@
   // (the verdict palette in app.css) and only ever means data; no verdict yet
   // is the brand's brass.
   type Tone = 'good' | 'ok' | 'warn' | 'bad' | 'na';
-  let { value = '', unit = '', caption = '', pct = null, tone = 'na' } = $props<{
+  let { value = '', unit = '', caption = '', pct = null, tone = 'na', beam = null } = $props<{
     value?: string | number; unit?: string; caption?: string; pct?: number | null; tone?: Tone;
+    /** Today's balance instead of the rule: `tilt` -1..1 leans toward the
+     *  right end (where the trend is heading) or the left; 0 is level. */
+    beam?: { tilt: number; left: string; right: string } | null;
   }>();
 
   // A seven-segment display shows numbers only. Whatever trails the number
@@ -62,7 +65,21 @@
       {#if caption}<span class="ro-cap">{caption}</span>{/if}
     </span>
   </div>
-  {#if pct != null}
+  {#if beam}
+    <!-- The mark, as an instrument: level while the trend holds, tipping toward
+         where it is heading, never more than 8°. -->
+    <svg class="ro-beam" viewBox="0 0 316 58" role="img" aria-label={beam.tilt === 0 ? 'The balance is level' : `The balance leans toward ${beam.tilt > 0 ? beam.right : beam.left}`}>
+      <g class="ro-arm" style="transform: rotate({Math.max(-1, Math.min(1, beam.tilt)) * 8}deg)">
+        <path d="M28 16H288" class="ro-line" stroke-width="2.5"></path>
+        <path d="M28 16v8M288 16v8" class="ro-line" stroke-width="1.5"></path>
+        <path d="M12 24h32a16 9 0 0 1-32 0z" class="ro-line" stroke-width="1.5"></path>
+        <path d="M272 24h32a16 9 0 0 1-32 0z" class="ro-line" stroke-width="1.5"></path>
+      </g>
+      <path d="M158 16l-9 16h18z" class="ro-fill"></path>
+      <text x="28" y="54" text-anchor="middle">{beam.left}</text>
+      <text x="288" y="54" text-anchor="middle">{beam.right}</text>
+    </svg>
+  {:else if pct != null}
     <div class="ro-rule">{#each CELLS as i}<i class:on={i < lit}></i>{/each}</div>
   {/if}
 </div>
@@ -80,4 +97,10 @@
   .ro-rule i{justify-self:center;width:2px;height:7px;border-radius:1px 1px 0 0;background:var(--border2)}
   .ro-rule i:nth-child(5n){height:13px}
   .ro-rule i.on{background:var(--band)}
+  .ro-beam{display:block;width:100%;max-width:340px;height:auto;margin-top:8px;overflow:visible}
+  .ro-arm{transform-origin:158px 16px;transform-box:view-box;transition:transform 1.2s var(--ease)}
+  @media (prefers-reduced-motion:reduce){.ro-arm{transition:none}}
+  .ro-line{fill:none;stroke:var(--band);stroke-linecap:round}
+  .ro-fill{fill:var(--band)}
+  .ro-beam text{fill:var(--muted);font-family:var(--font-label);font-size:0.6875rem}
 </style>

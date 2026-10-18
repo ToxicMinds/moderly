@@ -10,11 +10,12 @@
   type Tone = 'good' | 'ok' | 'warn' | 'bad' | 'na';
   let {
     title, sub = '', tone = 'na', pct = null, value = '', unit = '', caption = '',
-    story = '', stats = [], aside, children
+    story = '', stats = [], beam = null, aside, children
   } = $props<{
     title: string; sub?: string; tone?: Tone; pct?: number | null;
     value?: string | number; unit?: string; caption?: string; story?: string;
     stats?: Array<{ v: string | number; l: string }>; aside?: Snippet; children?: Snippet;
+    beam?: { tilt: number; left: string; right: string } | null;
   }>();
 </script>
 
@@ -27,7 +28,7 @@
     {@render aside?.()}
   </header>
 
-  <Readout {value} {unit} {caption} {pct} {tone} />
+  <Readout {value} {unit} {caption} {pct} {tone} {beam} />
 
   {#if story}<p class="phero-story">{story}</p>{/if}
 

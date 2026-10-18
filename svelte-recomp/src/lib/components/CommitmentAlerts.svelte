@@ -57,11 +57,11 @@
 
 <style>
   .ca{display:flex;flex-direction:column;gap:4px;width:100%;text-align:left;cursor:pointer;font-family:inherit;color:inherit;
-    background:var(--bg2);border:1px solid var(--border);border-left:3px solid var(--text);
-    border-radius:var(--r-sm) var(--r-lg) var(--r-lg) var(--r-sm);padding:11px 13px;margin-bottom:12px;
+    background:var(--bg2);border:1px solid var(--border);
+    border-radius:var(--r-lg);padding:11px 13px;margin-bottom:12px;
     transition:transform .18s var(--ease)}
   .ca:active{transform:scale(.99)}
-  .ca-line{border-left-color:var(--band)}
+  .ca-line{background:color-mix(in srgb,var(--band) 8%,var(--bg2))}
   .ca-k{font-family:var(--font-label);font-size:0.875rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
   .ca-line .ca-k{color:var(--band)}
   .ca-k b{font-family:var(--font-display);font-size:1.125rem;letter-spacing:0;margin-left:6px}

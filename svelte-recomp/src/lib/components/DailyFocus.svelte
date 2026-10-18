@@ -120,7 +120,7 @@
 
   .hero {
     position: relative; overflow: hidden;
-    border: 1px solid var(--border); border-left: 3px solid var(--ac);
+    border: 1px solid var(--border);
     background: var(--abg);
     border-radius: var(--r-md); padding: 14px 15px; margin-bottom: 8px; touch-action: pan-y;
   }

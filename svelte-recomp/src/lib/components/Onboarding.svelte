@@ -685,6 +685,6 @@
   .ob-pv{display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:0.8125rem;color:var(--muted)}
   .ob-pv strong{color:var(--amber);font-size:0.875rem}
   .ob-preview-f{font-size:0.6875rem;color:var(--muted);line-height:1.45;margin-top:8px;padding-top:8px;border-top:1px solid var(--border)}
-  .ob-reassure{background:var(--bg3);border-left:3px solid var(--green,#2ecc71);border-radius:8px;padding:11px 12px;font-size:0.75rem;color:var(--text);line-height:1.55;margin-bottom:18px}
+  .ob-reassure{background:color-mix(in srgb,var(--green) 8%,var(--bg3));border-radius:8px;padding:11px 12px;font-size:0.75rem;color:var(--text);line-height:1.55;margin-bottom:18px}
   .ob-nav{display:flex;gap:8px;margin-top:24px}
 </style>

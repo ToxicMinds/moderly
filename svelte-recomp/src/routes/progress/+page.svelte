@@ -448,14 +448,15 @@
 <style>
   /* The honesty card. Deliberately the first thing on the screen: it says how
      much weight to put on everything below it. */
-  .trust-card{border-left:3px solid var(--muted);border-radius:var(--r-sm) var(--r-lg) var(--r-lg) var(--r-sm)}
-  .trust-card.trust-solid{border-left-color:var(--led-good)}
+  /* Cards carry their meaning in a faint wash of its colour, not a stripe. */
+  .trust-card{border-radius:var(--r-lg)}
+  .trust-card.trust-solid{background:color-mix(in srgb,var(--led-good) 8%,var(--bg2))}
   .trust-head{font-size:1.0625rem;font-weight:800;color:var(--text);line-height:1.35;margin:2px 0 7px}
   .trust-body{font-size:0.875rem;color:var(--text);line-height:1.55}
   .trust-foot{font-size:0.8125rem;color:var(--muted);line-height:1.5;margin-top:10px;padding-top:9px;border-top:1px solid var(--border)}
   /* The diagnosis wears the verdict's colour: it only exists when the plan is
      ruled out. */
-  .stall-card{border-left:3px solid var(--led-warn);border-radius:var(--r-sm) var(--r-lg) var(--r-lg) var(--r-sm)}
+  .stall-card{border-radius:var(--r-lg);background:color-mix(in srgb,var(--led-warn) 8%,var(--bg2))}
   .stall-clues{list-style:none;margin:12px 0 0;padding:0;display:flex;flex-direction:column;gap:8px}
   .stall-clues li{font-size:0.8125rem;line-height:1.5;color:var(--muted);background:var(--bg3);border-radius:var(--r-md);padding:9px 11px}
   .stall-clues b{display:block;font-size:0.875rem;color:var(--text);margin-bottom:2px}

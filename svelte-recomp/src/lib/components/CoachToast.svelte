@@ -114,7 +114,7 @@
   .toast-wrap{position:fixed;left:12px;right:12px;bottom:calc(var(--nav-h) + var(--sb) + 12px);z-index:120;display:flex;flex-direction:column;gap:8px;pointer-events:none}
   .toast{--tc:var(--led-ok);position:relative;overflow:hidden;pointer-events:auto;width:100%;text-align:left;font-family:inherit;display:flex;align-items:flex-start;gap:11px;padding:12px 13px;border-radius:var(--r-md);cursor:pointer;touch-action:pan-y;
     background:color-mix(in srgb, var(--tc) 8%, var(--bg2));
-    border:1px solid var(--border2);border-left:3px solid var(--tc);
+    border:1px solid var(--border2);
     box-shadow:0 10px 30px rgba(0,0,0,.45);
     animation:toast-in .32s cubic-bezier(.2,.9,.25,1);
     transition:transform .18s var(--ease), opacity .18s var(--ease)}

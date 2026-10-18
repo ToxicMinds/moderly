@@ -50,7 +50,7 @@
   </PageHero>
 {:else}
   <PageHero title={greeting} {sub} tone={p.tone} pct={p.pct}
-    value={p.kg != null ? p.kg.toFixed(1) : '—'} caption={p.caption} story={p.story} stats={p.stats}>
+    value={p.kg != null ? p.kg.toFixed(1) : '—'} caption={p.caption} story={p.story} stats={p.stats} beam={p.beam}>
     {#snippet aside()}{@render streak()}{/snippet}
   </PageHero>
 {/if}

@@ -556,6 +556,13 @@ check('the hero reads the trend, the distance to the next stop, and a pace that 
   assert.match(pulse({ ...restart, weight: wv(92.4, -0.4), pace: 'gaining' }).story,
     /^Up 0\.4 kg a week right now\. New training can hold extra water for a week or two: judge the trend from 2 Nov\.$/);
   assert.doesNotMatch(pulse({ ...restart, weight: wv(88.5, 0.5), pace: 'on-pace' }).story, /water/, 'going down anyway: nothing to explain');
+  // The balance: toward the stop while losing toward it, toward today while
+  // gaining, level when the rate is unsure or nil.
+  assert.equal(down.beam.tilt, 0.5);
+  assert.equal(down.beam.right, '85');
+  assert.equal(up.beam.tilt, -0.4);
+  assert.equal(early.beam?.tilt ?? 0, 0, 'too early to tell: level');
+  assert.equal(pulse({ weight: wv(70, -0.3), pace: 'too-early', firstKg: 65, goalKg: 76, next: null }).beam.tilt, 0.3, 'a gain goal leans toward it while gaining');
 });
 
 check('the score is gone from the app, and the glow reads the hero’s tone', async () => {

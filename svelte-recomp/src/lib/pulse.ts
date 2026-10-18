@@ -41,6 +41,10 @@ export interface Pulse {
   tone: PulseTone;
   story: string;
   stats: Array<{ v: string; l: string }>;
+  /** The balance on Today: level while the trend holds or can't tell yet,
+   *  leaning toward the target when it moves that way (and toward "today"
+   *  when it moves away), in proportion to the rate, full lean at 1 kg/week. */
+  beam: { tilt: number; left: string; right: string } | null;
 }
 
 const kg1 = (n: number) => Math.abs(n).toFixed(1);
@@ -118,5 +122,10 @@ export function pulse(i: PulseInput): Pulse {
       ? { v: kg1(kg - i.goalKg), l: `kg to ${i.goalKg}` }
       : { v: i.goalKg != null ? String(i.goalKg) : '—', l: 'goal kg' },
   ];
-  return { kg, caption, pct, tone, story, stats };
+  const toward = rate == null || target == null || kg == null ? 0
+    : Math.sign(kg - target) * rate; // positive: moving toward the target
+  const beam = target != null && trend != null
+    ? { tilt: Math.abs(toward) < 0.05 ? 0 : Math.max(-1, Math.min(1, toward)), left: 'today', right: String(target) }
+    : null;
+  return { kg, caption, pct, tone, story, stats, beam };
 }
