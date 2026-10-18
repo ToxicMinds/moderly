@@ -1137,7 +1137,8 @@ check('every function that spends AI or search quota checks for a signed-in user
   const { readFileSync, readdirSync } = await import('node:fs');
   const dir = '../supabase/functions';
   const spenders = readdirSync(dir).filter((f) => !f.startsWith('_'))
-    .filter((f) => /_shared\/llm\.ts/.test(readFileSync(`${dir}/${f}/index.ts`, 'utf8')));
+    // Spends quota: asks a model, or searches Open Food Facts.
+    .filter((f) => /\bask\(|openfoodfacts/.test(readFileSync(`${dir}/${f}/index.ts`, 'utf8')));
   assert.ok(spenders.length >= 4, `found ${spenders}`);
   for (const f of spenders) {
     const src = readFileSync(`${dir}/${f}/index.ts`, 'utf8');
@@ -1168,6 +1169,52 @@ check('every notification wears the Moderly mark: the balance, in brass', async 
   }
   const sw = readFileSync('src/service-worker.ts', 'utf8');
   assert.ok(!/badge: base \+ '\/icon\.svg'/.test(sw) && existsSync('static/badge-96.png'), 'a monochrome PNG badge, not the colour SVG');
+});
+
+check('the privacy page names every outside service the code talks to', async () => {
+  // A new outside call without telling people where their data goes fails here.
+  const { readFileSync, readdirSync } = await import('node:fs');
+  const policy = readFileSync('static/privacy.html', 'utf8');
+  const NAMES = {
+    'generativelanguage.googleapis.com': 'Gemini', 'api.kilo.ai': 'Kilo', 'text.pollinations.ai': 'Pollinations',
+    'search.openfoodfacts.org': 'Open Food Facts', 'world.openfoodfacts.org': 'Open Food Facts',
+    'api.open-meteo.com': 'Open-Meteo', 'www.youtube-nocookie.com': 'YouTube', 'www.youtube.com': 'YouTube', 'github.com': 'GitHub',
+  };
+  const files = [
+    ...readdirSync('src', { recursive: true }).map((f) => `src/${f}`),
+    ...readdirSync('../supabase/functions', { recursive: true }).map((f) => `../supabase/functions/${f}`),
+  ].filter((f) => /\.(ts|svelte)$/.test(f));
+  const seen = new Set(files.flatMap((f) => [...readFileSync(f, 'utf8').matchAll(/https?:\/\/([a-z0-9.-]+\.[a-z]{2,})/gi)].map((m) => m[1].toLowerCase())));
+  for (const d of seen) {
+    assert.ok(NAMES[d], `the code calls ${d}: name it in static/privacy.html and add it here`);
+    assert.ok(policy.includes(NAMES[d]), `static/privacy.html must name ${NAMES[d]} (${d})`);
+  }
+});
+
+check('consent is asked at sign-up and records the privacy page it was given to', async () => {
+  const { readFileSync } = await import('node:fs');
+  const u = readFileSync('src/lib/stores/user.ts', 'utf8');
+  const version = u.match(/PRIVACY_VERSION = '(\d{4})-(\d{2})-(\d{2})'/);
+  assert.ok(version, 'a versioned consent');
+  const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  assert.match(readFileSync('static/privacy.html', 'utf8'), new RegExp(`Last updated ${+version[3]} ${months[+version[2] - 1]} ${version[1]}`),
+    'bump PRIVACY_VERSION with the page, so consent says which page it agreed to');
+  assert.match(u, /if \(!consent\) throw/);
+  assert.match(u, /options: \{ data: \{ consent: \{ health: true, privacy: PRIVACY_VERSION/);
+  assert.match(readFileSync('src/lib/components/AuthGate.svelte', 'utf8'), /disabled=\{busy \|\| \(mode === 'signup' && !consent\)\}/);
+});
+
+check('deleting an account takes everything, and only the caller’s', async () => {
+  const { readFileSync } = await import('node:fs');
+  const fn = readFileSync('../supabase/functions/delete-account/index.ts', 'utf8');
+  assert.match(fn, /\/auth\/v1\/user/, 'the user behind the token');
+  assert.ok(!/body\??\.(id|user|uid)/.test(fn), 'never an id from the request');
+  assert.match(fn, /confirm !== 'delete'/);
+  assert.ok(fn.indexOf('/storage/v1/object/') < fn.indexOf('/auth/v1/admin/users/'), 'files first: they do not cascade');
+  const client = readFileSync('src/lib/stores/user.ts', 'utf8');
+  for (const step of ['disarmMoments()', 'scheduleNativeAlarms([])', 'scheduleNudges([])', 'db.delete()', 'localStorage.clear()', 'auth.signOut()']) {
+    assert.ok(client.includes(step), `after deletion, this device: ${step}`);
+  }
 });
 
 check('the native build number matches the gradle versionCode', async () => {

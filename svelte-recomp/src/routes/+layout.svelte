@@ -3,7 +3,7 @@
   import BottomNav from '$lib/components/BottomNav.svelte';
   import AuthGate from '$lib/components/AuthGate.svelte';
   import { syncStatus } from '$lib/stores/sync';
-  import { user, authReady, initAuth, signOut } from '$lib/stores/user';
+  import { user, authReady, initAuth, signOut, deleteAccount } from '$lib/stores/user';
   import { initSync, destroySync } from '$lib/stores/sync';
   import { subscribeWebPush } from '$lib/push';
   import { playAlarmMelody } from '$lib/alarmSound';
@@ -40,6 +40,20 @@
   let { children }: { children: import('svelte').Snippet } = $props();
   let crashMsg = $state<string | null>(null);
   let menuOpen = $state(false);
+  let deleteOpen = $state(false);
+  let deleteText = $state('');
+  let deleteErr = $state('');
+  let deleteBusy = $state(false);
+  async function confirmDelete() {
+    deleteBusy = true;
+    deleteErr = '';
+    try {
+      await deleteAccount(); // reloads the app clean on success
+    } catch (e: any) {
+      deleteErr = (e?.message || String(e)).slice(0, 160);
+      deleteBusy = false;
+    }
+  }
   let syncStarted = false;
 
   // — Verdict light —
@@ -509,12 +523,34 @@
       <span class="menu-val">{exporting === 'csv' ? '…' : 'CSV'}</span>
     </button>
     {#if exportMsg}<div class="menu-note">{exportMsg}</div>{/if}
+    <a class="menu-item" href="/privacy.html">
+      <span>Privacy</span><span class="menu-val">What's kept, and where</span>
+    </a>
     <a class="menu-item" href="https://github.com/ToxicMinds/moderly" target="_blank" rel="noopener noreferrer">
       <span>Source code</span><span class="menu-val">AGPL-3.0 ↗</span>
     </a>
     <button class="menu-item danger" onclick={signOut}>
       <span>Sign out</span><span class="menu-val">⎋</span>
     </button>
+    <button class="menu-item danger" onclick={() => { menuOpen = false; deleteText = ''; deleteErr = ''; deleteOpen = true; }}>
+      <span>Delete my account</span><span class="menu-val">Everything, for good</span>
+    </button>
+  </Modal>
+
+  <!-- The right to erasure, with eyes open: what goes, a way to keep a copy,
+       and a word to type so it never happens by a slipped tap. -->
+  <Modal open={deleteOpen} onclose={() => { if (!deleteBusy) deleteOpen = false; }}>
+    <div class="cw-h">Delete your account?</div>
+    <p class="cw-p">This deletes your account and everything in it: weigh-ins, food, training, plans,
+      notes and photos, from Moderly's servers and from this phone. It can't be undone.</p>
+    <p class="cw-p">Want a copy first? Close this and use Export my data.</p>
+    <label class="flbl" for="del-confirm">Type delete to confirm</label>
+    <input id="del-confirm" bind:value={deleteText} autocomplete="off" autocapitalize="off" spellcheck="false" style="margin-bottom:12px">
+    {#if deleteErr}<div class="menu-note">{deleteErr}</div>{/if}
+    <button class="btn bfl del-btn" disabled={deleteText.trim().toLowerCase() !== 'delete' || deleteBusy} onclick={confirmDelete}>
+      {deleteBusy ? 'Deleting…' : 'Delete everything'}
+    </button>
+    <button class="btn bg_ bfl cw-no" onclick={() => (deleteOpen = false)} disabled={deleteBusy}>Keep my account</button>
   </Modal>
 
   <div id="ptr" style="height:{pull}px" class:active={$refreshing}>
@@ -587,6 +623,7 @@
   .menu-sizes{display:flex;gap:6px}
   .menu-size{width:42px;height:36px;border-radius:var(--r-sm);border:1px solid var(--border2);background:var(--bg3);color:var(--muted);font-weight:800;cursor:pointer;font-family:inherit}
   .menu-size.on{background:var(--amber);color:var(--bg);border-color:transparent}
+  .del-btn{background:var(--red);color:var(--bg)}
   .menu-item{display:flex;text-decoration:none;align-items:center;justify-content:space-between;width:100%;gap:12px;padding:14px 0;border:none;border-bottom:1px solid var(--border);background:none;color:var(--text);font-size:0.9375rem;font-weight:700;cursor:pointer;font-family:inherit}
   .menu-item .menu-val{color:var(--muted);font-weight:600}
   .menu-item.danger{color:var(--red);border-bottom:none}
