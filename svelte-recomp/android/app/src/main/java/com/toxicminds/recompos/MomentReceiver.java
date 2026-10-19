@@ -129,28 +129,36 @@ public class MomentReceiver extends BroadcastReceiver {
             String a = intent.getAction();
             String farKey = "far:" + date + ":" + key;
             if (ACT_WEIGHT.equals(a)) {
-                Double kg = MomentClock.parseKg(typed);
+                // In the person's own unit: the briefing says which (kg, lb or
+                // st, typed as stones and pounds); its weighRange is in kg, or
+                // in pounds for lb and st. The app converts what it's sent.
+                JSONObject acts = moment.optJSONObject("actions");
+                String unit = acts != null ? acts.optString("unit", "kg") : "kg";
+                String word = "kg".equals(unit) ? "kg" : "lb";
+                Double kg = MomentClock.parseWeight(typed, unit);
                 if (kg == null) {
-                    p.edit().putString(noteKey, "“" + typed + "” isn’t a weight. Type it like 112.4.").commit();
+                    String like = "st".equals(unit) ? "17 9 (stones, pounds)" : "lb".equals(unit) ? "247.8" : "112.4";
+                    p.edit().putString(noteKey, "“" + typed + "” isn’t a weight. Type it like " + like + ".").commit();
                     repost(ctx, p, date, key);
                     return;
                 }
                 // The app asks before saving a weight far from the trend; ask
                 // here the same way, so "Logged" is never said of one it may refuse.
-                JSONObject acts = moment.optJSONObject("actions");
                 JSONArray r = acts != null ? acts.optJSONArray("weighRange") : null;
                 double[] range = r != null && r.length() == 2 ? new double[] { r.optDouble(0), r.optDouble(1) } : null;
                 Double lastFar = p.contains(farKey) ? (double) p.getFloat(farKey, 0f) : null;
                 int v = MomentClock.weighVerdict(kg, range, lastFar);
                 if (v == MomentClock.KG_FAR) {
                     p.edit().putFloat(farKey, kg.floatValue())
-                        .putString(noteKey, kg + " kg is far from your trend. If it’s right, send it again.").commit();
+                        .putString(noteKey, kg + " " + word + " is far from your trend. If it’s right, send it again.").commit();
                     repost(ctx, p, date, key);
                     return;
                 }
+                // "kg" carries the number as typed, in the person's unit (the
+                // key predates units; momentActions.nativeKg converts it).
                 item.put("type", "weight").put("kg", kg);
                 if (v == MomentClock.KG_CONFIRMED) item.put("confirmed", true);
-                acted.put("weight", kg + " kg");
+                acted.put("weight", kg + " " + word);
             } else if (ACT_BACK.equals(a)) {
                 Integer n = MomentClock.parseRating(typed);
                 if (n == null) {
@@ -347,7 +355,9 @@ public class MomentReceiver extends BroadcastReceiver {
         JSONObject actions = momentJson(p, m.date, m.key).optJSONObject("actions");
         if (actions != null) {
             if (actions.optBoolean("weigh") && !acted.has("weight")) {
-                n.addAction(inputAction(ctx, ACT_WEIGHT, m, "Log weight", "Weight in kg", null));
+                String u = actions.optString("unit", "kg");
+                n.addAction(inputAction(ctx, ACT_WEIGHT, m, "Log weight",
+                    "st".equals(u) ? "Weight in st and lb, like 17 9" : "lb".equals(u) ? "Weight in lb" : "Weight in kg", null));
                 buttons.add("Log weight");
             }
             if (actions.optBoolean("back") && !acted.has("back")) {

@@ -1,10 +1,18 @@
-name: Build RecompOS APK
+name: Build Moderly APK
 
-# Builds the single native RecompOS Android app: a thin Capacitor shell that
-# loads the live web app from Vercel (so UI/logic updates arrive over the air
-# with no reinstall) and adds the Health Connect plugin for OnePlus Watch data.
-# You only need to reinstall this APK when NATIVE bits change (plugins, config) —
-# everyday updates come straight from Vercel.
+# Builds the native Moderly Android app: a thin Capacitor shell that loads the
+# live web app from Vercel (so UI/logic updates arrive over the air with no
+# reinstall) and adds native plugins (Health Connect, the moments). Reinstall
+# only when NATIVE bits change; everyday updates come straight from Vercel.
+#
+# Three jobs, in order, and the release moves only if all pass:
+#   build    signs with the old key AND the new one (APK Signature Scheme v3
+#            key rotation), because the old key leaked into this public repo's
+#            history;
+#   update   proves on an Android emulator that the release people have now
+#            updates in place to this build with its data kept, and that an
+#            APK signed with the old key alone is refused afterwards;
+#   publish  replaces the "recompos-app-latest" release asset.
 
 on:
   push:
@@ -19,7 +27,7 @@ permissions:
   contents: write
 
 jobs:
-  build-apk:
+  build:
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -49,8 +57,8 @@ jobs:
         with:
           # The action's default list starts with "tools", a package Google has
           # since removed from the SDK repository, and sdkmanager fails on it
-          # before the build starts. Gradle fetches the platform it needs.
-          packages: platform-tools
+          # before the build starts. build-tools gives apksigner.
+          packages: platform-tools build-tools;35.0.0
 
       - name: Install JS dependencies
         run: npm ci
@@ -61,28 +69,25 @@ jobs:
       - name: Sync Capacitor Android project
         run: npx cap sync android
 
-      # The signing key used to be committed to this PUBLIC repo with its
-      # password in build.gradle, which let anyone sign an APK that Android
-      # would accept as an in-place update to com.toxicminds.recompos — on an
-      # app that ships its own APK installer. It now lives only in repository
-      # secrets and is written to a path outside the workspace, so it cannot be
-      # picked up by an artifact upload or a stray `git add`.
-      - name: Restore signing keystore
+      # Both keys live only in repository secrets and are written outside the
+      # workspace, so an artifact upload or a stray `git add` can't pick them up.
+      - name: Restore signing keystores
         env:
           ANDROID_KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+          ANDROID_NEW_KEYSTORE_B64: ${{ secrets.ANDROID_NEW_KEYSTORE_B64 }}
         run: |
-          if [ -z "$ANDROID_KEYSTORE_B64" ]; then
-            echo "::error::ANDROID_KEYSTORE_B64 is not set — the APK would be signed with a throwaway key and could not update any installed app."
+          if [ -z "$ANDROID_KEYSTORE_B64" ] || [ -z "$ANDROID_NEW_KEYSTORE_B64" ]; then
+            echo "::error::A signing keystore secret is missing; the APK could not update an installed app."
             exit 1
           fi
           mkdir -p "$HOME/.recompos"
           printf '%s' "$ANDROID_KEYSTORE_B64" | base64 -d > "$HOME/.recompos/recompos.keystore"
-          chmod 600 "$HOME/.recompos/recompos.keystore"
+          printf '%s' "$ANDROID_NEW_KEYSTORE_B64" | base64 -d > "$HOME/.recompos/moderly.p12"
+          chmod 600 "$HOME/.recompos/"*
 
-      - name: Build debug APK
+      - name: Build debug APK (signed with the old key)
         working-directory: svelte-recomp/android
         env:
-          ANDROID_KEYSTORE_FILE: ${{ github.workspace }}/../.recompos/recompos.keystore
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
         run: |
@@ -90,31 +95,114 @@ jobs:
           export ANDROID_KEYSTORE_FILE="$HOME/.recompos/recompos.keystore"
           ./gradlew assembleDebug --no-daemon --stacktrace
 
-      - name: Shred the keystore
+      # The old key is public, so the platform must stop accepting it: the new
+      # key becomes the app's signer through a signed lineage (old -> new), and
+      # the old key loses "rollback", so once a phone has this build an APK
+      # signed with the old key alone can't update it. v1/v2 stay signed with
+      # the old key for Android < 9, which can't follow a rotation.
+      - name: Rotate the signing key
+        env:
+          OLD_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          OLD_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          NEW_PASS: ${{ secrets.ANDROID_NEW_KEYSTORE_PASSWORD }}
+          NEW_ALIAS: ${{ secrets.ANDROID_NEW_KEY_ALIAS }}
+        run: |
+          set -euo pipefail
+          SIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
+          K="$HOME/.recompos"
+          OLD=(--ks "$K/recompos.keystore" --ks-key-alias "$OLD_ALIAS" --ks-pass env:OLD_PASS)
+          NEW=(--ks "$K/moderly.p12" --ks-key-alias "$NEW_ALIAS" --ks-pass env:NEW_PASS)
+          "$SIGNER" rotate --out "$K/rotated.bin" --old-signer "${OLD[@]}" --new-signer "${NEW[@]}"
+          "$SIGNER" lineage --in "$K/rotated.bin" --out "$K/lineage.bin" --signer "${OLD[@]}" --set-rollback false
+          "$SIGNER" lineage --in "$K/lineage.bin" --print-certs
+          cp android/app/build/outputs/apk/debug/app-debug.apk old-key-only.apk
+          "$SIGNER" sign --in android/app/build/outputs/apk/debug/app-debug.apk --out moderly.apk \
+            "${OLD[@]}" --next-signer "${NEW[@]}" --lineage "$K/lineage.bin" --rotation-min-sdk-version 28
+          "$SIGNER" verify --verbose --print-certs moderly.apk
+
+      - name: Shred the keystores
         if: always()
-        run: rm -f "$HOME/.recompos/recompos.keystore"
+        run: rm -rf "$HOME/.recompos"
 
-      - name: Rename APK
-        run: cp android/app/build/outputs/apk/debug/app-debug.apk recompos.apk
-
-      - name: Upload APK artifact
+      - name: Upload APKs for the update test
         uses: actions/upload-artifact@v4
         with:
-          name: recompos-apk
-          path: svelte-recomp/recompos.apk
+          name: moderly-apks
+          path: |
+            svelte-recomp/moderly.apk
+            svelte-recomp/old-key-only.apk
           if-no-files-found: error
 
-      - name: Publish to a Release (stable download link)
+  update:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download this build
+        uses: actions/download-artifact@v4
+        with:
+          name: moderly-apks
+
+      - name: Download the release people have now
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release download recompos-app-latest -R "${{ github.repository }}" -p recompos.apk -O current.apk
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Write the update test
+        run: |
+          cat > update-test.sh <<'SH'
+          set -eu
+          PKG=com.toxicminds.recompos
+          adb install current.apk
+          adb shell run-as $PKG sh -c 'mkdir -p files && echo kept > files/update-marker'
+          adb install -r moderly.apk
+          adb shell run-as $PKG cat files/update-marker | grep -q kept
+          echo "updated in place, data kept"
+          if adb install -r old-key-only.apk; then
+            echo "::error::An APK signed with the old key alone still updates the app."
+            exit 1
+          fi
+          echo "old key refused"
+          adb shell dumpsys package $PKG | grep -m1 versionCode
+          SH
+
+      - name: Update on an emulator (Android 14)
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          script: sh update-test.sh
+
+  publish:
+    needs: update
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download this build
+        uses: actions/download-artifact@v4
+        with:
+          name: moderly-apks
+
+      - name: Name it for the release
+        run: cp moderly.apk recompos.apk
+
+      - name: Publish to the release (stable download link)
         uses: softprops/action-gh-release@v2
         with:
           tag_name: recompos-app-latest
-          name: RecompOS (Android app)
+          name: Moderly (Android app)
           body: |
-            The full RecompOS app as a native Android APK.
-            It loads the live app from Vercel (updates arrive automatically — no
-            reinstall) and adds OnePlus Watch health data via Health Connect.
+            Moderly for Android. It loads the live app from moderly's website,
+            so updates arrive by themselves; reinstall only when this release
+            changes, and the app offers that itself.
 
-            Install once, sign in, grant Health Connect permissions. You only need
-            to reinstall when this release changes (native updates).
-          files: svelte-recomp/recompos.apk
+            Install once, start or sign in, and allow Health Connect if you want
+            steps, sleep, workouts and a smart scale's weigh-ins.
+          files: recompos.apk
           fail_on_unmatched_files: true

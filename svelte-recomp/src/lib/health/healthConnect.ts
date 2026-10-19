@@ -18,6 +18,7 @@ import { buildActivitySessions } from './exercise';
 import { type RecordType, READ_TYPES, READ_PERMISSION, WRITE_TYPES, canWrite, readTypesKey } from './permissions';
 import { pickOriginByDay, countOrigins, percentile, changedDays, sameSessions } from './dedupe';
 import { preferredSource } from './watches';
+import { scaleDays } from './scaleWeights';
 import { notify } from '$lib/stores/notices';
 
 // Health Connect sleep-stage codes counted as actually asleep
@@ -618,6 +619,10 @@ export async function syncHealthConnect(
       }),
       saveDays(uid, byDay),
     ]);
+    // Smart-scale weigh-ins: their own permission, asked once, on new builds only.
+    await syncScaleWeights(HealthConnect, uid).catch((e: any) => {
+      notify('Health Connect', `Could not read your scale's weigh-ins: ${e?.message || e}`, { level: 'warn' });
+    });
     const stepDays = saved.steps ? dates.filter((d) => byDay[d].steps != null).length : 0;
     const sleepDays = saved.bio ? dates.filter((d) => byDay[d].sleep_hours != null).length : 0;
     const hrDays = saved.bio ? dates.filter((d) => byDay[d].resting_hr != null || byDay[d].hrv != null).length : 0;
@@ -652,6 +657,41 @@ export async function syncHealthConnect(
     running = false;
   }
   return getState();
+}
+
+const WEIGHT_PERM = READ_PERMISSION.Weight;
+/** Moderly's own package: it writes typed weigh-ins back to Health Connect,
+ *  and must never read them in again. */
+const OWN_PACKAGE = 'com.toxicminds.recompos';
+/** The first native build that declares READ_WEIGHT. Older apps load this same
+ *  web code, and must never request a permission their manifest lacks. */
+const SCALE_BUILD = 13;
+
+/**
+ * Weigh-ins from a smart scale's app, through Health Connect: a year of them
+ * the first time, then the last two weeks on each sync. Days already logged in
+ * Moderly are kept as they are; a weigh-in typed later replaces a scale's.
+ */
+async function syncScaleWeights(HealthConnect: any, uid: string): Promise<number> {
+  const { App } = await import('@capacitor/app');
+  if ((Number((await App.getInfo()).build) || 0) < SCALE_BUILD) return 0;
+  const has = async () => ((await HealthConnect.checkHealthPermissions({ read: ['Weight'], write: [] })).grantedPermissions ?? []).includes(WEIGHT_PERM);
+  if (!(await has())) {
+    try { if (localStorage.getItem('hc-weight-asked')) return 0; localStorage.setItem('hc-weight-asked', '1'); } catch { return 0; }
+    try { await HealthConnect.requestHealthPermissions({ read: ['Weight'], write: [] }); } catch { /* declined or suppressed */ }
+    if (!(await has())) return 0;
+  }
+  let first = true;
+  try { first = !localStorage.getItem('hc-weight-history'); } catch { /* storage disabled */ }
+  const records = await readAll(HealthConnect, 'Weight', startOfDaysAgo(first ? 365 : FULL_DAYS).toISOString(), new Date().toISOString());
+  const have = new Set((await db.table('weights').where('user_id').equals(uid).toArray()).map((w: any) => w.date));
+  const fresh = scaleDays(records, OWN_PACKAGE).filter((d) => !have.has(d.date));
+  // A year at most: one request, saved whole or not at all.
+  await upsertRecords('weights', fresh.map((d) => ({
+    user_id: uid, date: d.date, weight: d.kg, created_at: d.at, source: `health:${d.origin}`,
+  })));
+  try { localStorage.setItem('hc-weight-history', new Date().toISOString()); } catch { /* storage disabled */ }
+  return fresh.length;
 }
 
 let _state: HealthConnectState;

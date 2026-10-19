@@ -20,7 +20,10 @@ export type RecordType =
   | 'ExerciseSession'
   | 'ActiveCaloriesBurned'
   | 'TotalCaloriesBurned'
-  | 'Distance';
+  | 'Distance'
+  // Asked on its own (healthConnect.ts syncScaleWeights), only on builds that
+  // declare it, so it's not in READ_TYPES.
+  | 'Weight';
 
 export const READ_TYPES: RecordType[] = [
   'Steps',
@@ -43,7 +46,8 @@ export const READ_PERMISSION: Record<RecordType, string> = {
   ExerciseSession: 'android.permission.health.READ_EXERCISE',
   ActiveCaloriesBurned: 'android.permission.health.READ_ACTIVE_CALORIES_BURNED',
   TotalCaloriesBurned: 'android.permission.health.READ_TOTAL_CALORIES_BURNED',
-  Distance: 'android.permission.health.READ_DISTANCE'
+  Distance: 'android.permission.health.READ_DISTANCE',
+  Weight: 'android.permission.health.READ_WEIGHT'
 };
 
 /**

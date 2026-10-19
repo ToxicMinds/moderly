@@ -1061,9 +1061,17 @@ check('CI fails loudly rather than shipping an unsignable APK', async () => {
   assert.match(wf, /ANDROID_KEYSTORE_B64/);
   // An APK built without the real key cannot update anyone's install, and a
   // silent fallback would publish it to the rolling release anyway.
-  assert.match(wf, /::error::ANDROID_KEYSTORE_B64 is not set/);
+  assert.match(wf, /if \[ -z "\$ANDROID_KEYSTORE_B64" \] \|\| \[ -z "\$ANDROID_NEW_KEYSTORE_B64" \]; then\n\s*echo "::error::/);
   assert.match(wf, /exit 1/);
-  assert.match(wf, /Shred the keystore/, 'and it must not survive the job');
+  assert.match(wf, /Shred the keystores/, 'and they must not survive the job');
+  // The old key leaked: every APK carries the rotation to the new one, and the
+  // old key may not sign a rollback.
+  assert.match(wf, /--next-signer "\$\{NEW\[@\]\}" --lineage "\$K\/lineage\.bin"/);
+  assert.match(wf, /--set-rollback false/);
+  // The release moves only after an emulator proved the update keeps data and
+  // refuses the old key alone.
+  assert.match(wf, /publish:\n\s*needs: update/);
+  assert.match(wf, /adb install -r moderly\.apk[\s\S]*grep -q kept[\s\S]*if adb install -r old-key-only\.apk; then/);
   assert.ok(!/svelte-recomp\/android\/app\/recompos\.keystore/.test(wf),
     'never write the key inside the workspace, where an artifact upload could take it');
 });
@@ -3394,7 +3402,8 @@ check('one weigh-in path, one place the commitments are saved', async () => {
   const weighs = files.filter((f) => /upsertRecords?\('weights'/.test(readFileSync(f, 'utf8')));
   // Importing a history writes past days in bulk (no typo prompt, no
   // messages, never over a day already logged); today's reading is saveWeighIn's.
-  assert.deepEqual(weighs.sort(), ['src/lib/components/ImportWeights.svelte', 'src/lib/components/Onboarding.svelte', 'src/lib/weighIn.ts'], 'onboarding seeds the first one; an import adds past days; everything else goes through saveWeighIn');
+  // A smart scale's readings (Health Connect) fill days with no weigh-in, the same way.
+  assert.deepEqual(weighs.sort(), ['src/lib/components/ImportWeights.svelte', 'src/lib/components/Onboarding.svelte', 'src/lib/health/healthConnect.ts', 'src/lib/weighIn.ts'], 'onboarding seeds the first one; an import or a scale adds days with none; everything else goes through saveWeighIn');
   // A write that carries one of them, not a file that merely reads one.
   const commits = files.filter((f) => /upsertRecord\('user_settings',\s*\{[^}]*\b(line|plans|why|milestone):/.test(readFileSync(f, 'utf8')));
   assert.deepEqual(commits, ['src/lib/commitments.ts']);
@@ -4082,6 +4091,25 @@ check('period-aware weight learns the person’s own swing, and says only that i
   // Learned, and it hardly moves this person: silence, not a claim.
   const flat = cycleInfo(starts, residuals.map((r) => ({ ...r, kg: 0.05 })), day(130));
   assert.equal(cycleNote(flat, starts, day(137)), null);
+});
+
+check('a smart scale’s weigh-ins come in one a day, never Moderly’s own, never asked of an old app', async () => {
+  const { scaleDays } = await import('../src/lib/health/scaleWeights.ts');
+  const rec = (time, value, unit, origin) => ({ type: 'Weight', time, weight: { value, unit }, metadata: { dataOrigin: origin } });
+  const days = scaleDays([
+    rec('2026-10-19T19:40:00Z', 186.0, 'pound', 'com.withings.wiscale2'),
+    rec('2026-10-19T05:12:00Z', 184.8, 'pound', 'com.withings.wiscale2'),
+    rec('2026-10-19T06:00:00Z', 84.9, 'kilogram', 'com.toxicminds.recompos'),
+    rec('2026-10-18T05:30:00Z', 83900, 'gram', 'com.renpho.health'),
+    rec('2026-10-17T05:30:00Z', 8.3, 'kilogram', 'com.renpho.health'),
+  ], 'com.toxicminds.recompos');
+  assert.deepEqual(days.map((d) => [d.date, d.kg, d.origin]), [['2026-10-18', 83.9, 'com.renpho.health'], ['2026-10-19', 83.82, 'com.withings.wiscale2']]);
+  const { readFileSync } = await import('node:fs');
+  const hc = readFileSync('src/lib/health/healthConnect.ts', 'utf8');
+  assert.match(hc, /if \(\(Number\(\(await App\.getInfo\(\)\)\.build\) \|\| 0\) < SCALE_BUILD\) return 0;/, 'older apps never ask for READ_WEIGHT');
+  assert.match(readFileSync('android/app/src/main/AndroidManifest.xml', 'utf8'), /android\.permission\.health\.READ_WEIGHT/);
+  const { READ_TYPES } = await import('../src/lib/health/permissions.ts');
+  assert.ok(!READ_TYPES.includes('Weight'), 'not in the main prompt, which older apps also run');
 });
 
 // --- Importing weigh-ins from another app ------------------------------------

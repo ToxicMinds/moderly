@@ -72,11 +72,34 @@ final class MomentClock {
     /** A weight typed or spoken into the notification: "112.3", "112,3",
      *  "112.3 kg". Null when it isn't a plausible weight. */
     static Double parseKg(CharSequence input) {
+        return parseWeight(input, "kg");
+    }
+
+    /** The same in the person's own unit (the briefing's actions.unit): kg;
+     *  lb ("247.8", "247.8 lb"); or st, typed "17 9", "17st 9lb", "17" (stones
+     *  up to 40) or "249" (pounds), returned as total pounds, which is the unit
+     *  the briefing's weighRange is in for stone. Null when it isn't a weight. */
+    static Double parseWeight(CharSequence input, String unit) {
         if (input == null) return null;
-        String t = input.toString().trim().replace(',', '.').replaceAll("(?i)\\s*kg$", "");
+        String t = input.toString().trim().toLowerCase().replace(',', '.');
+        if ("st".equals(unit)) {
+            java.util.regex.Matcher m = java.util.regex.Pattern.compile("^(\\d{1,2})\\s*(?:st|stone)?\\s+(\\d{1,2}(?:\\.\\d+)?)\\s*(?:lb|lbs)?$").matcher(t);
+            double lb;
+            if (m.matches()) lb = Double.parseDouble(m.group(1)) * 14 + Double.parseDouble(m.group(2));
+            else {
+                t = t.replaceAll("\\s*(st|stone|lb|lbs)$", "");
+                if (!t.matches("\\d{1,3}(\\.\\d+)?")) return null;
+                double n = Double.parseDouble(t);
+                lb = n <= 40 ? n * 14 : n;
+            }
+            lb = Math.round(lb * 10) / 10.0;
+            return lb >= 66 && lb <= 880 ? lb : null;
+        }
+        boolean pounds = "lb".equals(unit);
+        t = t.replaceAll(pounds ? "\\s*(lb|lbs)$" : "\\s*kg$", "");
         if (!t.matches("\\d{2,3}(\\.\\d+)?")) return null;
-        double kg = Math.round(Double.parseDouble(t) * 10) / 10.0;
-        return kg >= 30 && kg <= 400 ? kg : null;
+        double v = Math.round(Double.parseDouble(t) * 10) / 10.0;
+        return pounds ? (v >= 66 && v <= 880 ? v : null) : (v >= 30 && v <= 400 ? v : null);
     }
 
     /** A back rating, 0 to 10. Null for anything else. */
@@ -132,6 +155,9 @@ final class MomentClock {
         check(parseKg("112.3") == 112.3 && parseKg(" 112,3 ") == 112.3 && parseKg("112.3 kg") == 112.3 && parseKg("98") == 98.0, "a weight, however it's typed");
         check(parseKg("1123") == null && parseKg("11.2") == null && parseKg("abc") == null && parseKg("") == null && parseKg(null) == null, "not a weight: ask again");
         check(parseKg("112.34") == 112.3, "to a tenth, like the scale");
+        check(parseWeight("247.8", "lb") == 247.8 && parseWeight("247.8 lbs", "lb") == 247.8 && parseWeight("45", "lb") == null, "pounds");
+        check(parseWeight("17 9", "st") == 247.0 && parseWeight("17st 9lb", "st") == 247.0 && parseWeight("17", "st") == 238.0 && parseWeight("249", "st") == 249.0, "stone, as total pounds");
+        check(parseWeight("seventeen", "st") == null && parseWeight("3", "st") == null, "not a weight in stone");
         check(parseRating("3") == 3 && parseRating("10") == 10 && parseRating("0") == 0 && parseRating("4/10") == 4, "a rating");
         check(parseRating("11") == null && parseRating("-1") == null && parseRating("three") == null, "not a rating");
         double[] range = { 109.6, 116.6 };
