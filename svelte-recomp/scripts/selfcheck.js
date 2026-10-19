@@ -979,7 +979,7 @@ check('no streak alarm: the user’s own plan fires before its moment instead', 
   assert.equal(situationalNudges({ ...DAY, nowMinutes: 8 * 60, proteinG: 165, plans, dow: 0 }).find((n) => n.key === 'plan')?.body, 'Leftovers in a box.');
   assert.ok(!situationalNudges({ ...DAY, nowMinutes: 12 * 60, proteinG: 165, plans, dow: 0 }).some((n) => n.key === 'plan'), 'a weekend morning plan is not sent after lunch');
   assert.equal(situationalNudges({ ...DAY, proteinG: 165, plans, dow: 2 }).length, 0, 'a Tuesday with no plan for it stays silent');
-  assert.equal(situationalNudges({ ...DAY, proteinG: 165, plans, dow: 5, badmintonDay: true }).find((n) => n.key === 'plan')?.body,
+  assert.equal(situationalNudges({ ...DAY, proteinG: 165, plans, dow: 5, sportDay: true }).find((n) => n.key === 'plan')?.body,
     'Dinner chosen at lunchtime.', 'a badminton Friday without a badminton plan still gets the Friday one');
 });
 
@@ -3265,13 +3265,13 @@ check('the line is judged on the trend, and a low that doesn’t hold a week can
 
 check('a plan shows at its moment, the most specific moment first', () => {
   const plans = { weekend: 'Leftovers in a box.', friday: 'Dinner decided early.', evening: 'Kitchen closed.', back: 'Walk, no lifting.' };
-  const m = { hour: 18, dow: 5, badmintonDay: false, backPain: null, overLine: false };
+  const m = { hour: 18, dow: 5, sportDay: false, backPain: null, overLine: false };
   assert.equal(activePlan(plans, m)?.cue, 'friday');
   assert.equal(activePlan(plans, { ...m, dow: 6, hour: 11 })?.cue, 'weekend');
   assert.equal(activePlan(plans, { ...m, dow: 2, hour: 21 })?.cue, 'evening');
   assert.equal(activePlan(plans, { ...m, backPain: 7 })?.cue, 'back', 'a bad back beats Friday');
   assert.equal(activePlan(plans, { ...m, dow: 2, hour: 12 }), null, 'Tuesday lunchtime: nothing to say');
-  assert.equal(cueActive('badminton', { ...m, badmintonDay: true, hour: 16 }), false, 'before the session it isn’t “home from badminton” yet');
+  assert.equal(cueActive('badminton', { ...m, sportDay: true, hour: 16 }), false, 'before the session it isn’t “home from badminton” yet');
   assert.deepEqual(cleanPlans({ weekend: '  x  ', bogus: 'y', friday: '', line: 5 }), { weekend: 'x' });
   assert.ok(CUES.every((c) => c.suggestion && c.when && c.label));
 });
@@ -3606,7 +3606,7 @@ check('the briefing and the hold never wake the phone, and are never alarms', as
 // ── Evening hold ─────────────────────────────────────────────────────────────
 const { composeHold, quoteFor, holdAfter, QUOTES, FRIDAY_QUOTE } = await import('../src/lib/hold.ts');
 const PLANS = { evening: 'Yoghurt or a shake, then the kitchen’s closed.', friday: 'One plate, protein first.', weekend: 'Leftovers in a box.', badminton: 'A shake first, then dinner.' };
-const HOLD = { plans: PLANS, why: 'Out of the obese range.', badmintonDay: false,
+const HOLD = { plans: PLANS, why: 'Out of the obese range.', sportDay: false,
   food: { kcal: 1300, share: 1850, proteinG: 120, proteinTargetG: 160 } };
 
 check('the evening hold on a weekday: a Stoic line first, then the evening plan and what’s left', () => {
@@ -3620,11 +3620,11 @@ check('the evening hold on a weekday: a Stoic line first, then the evening plan 
 });
 
 check('Friday is the stronger signal: the weekend named, the plan, the reason, and the same line every week', () => {
-  const h = composeHold({ ...HOLD, date: '2026-10-23', badmintonDay: true });
+  const h = composeHold({ ...HOLD, date: '2026-10-23', sportDay: true });
   assert.equal(h.title, 'Friday. The weekend starts now.');
   const lines = h.body.split('\n');
   assert.match(lines[0], /old habits pull hardest/);
-  assert.equal(lines[1], 'After badminton: A shake first, then dinner.', 'badminton night: the plan for getting home');
+  assert.equal(lines[1], 'After sport: A shake first, then dinner.', 'badminton night: the plan for getting home');
   assert.equal(lines[2], 'You said: “Out of the obese range.”');
   assert.equal(lines.at(-1), `“${FRIDAY_QUOTE.text}” — Epictetus`);
   assert.equal(quoteFor('2026-10-30'), FRIDAY_QUOTE, 'a ritual: every Friday');
@@ -4041,6 +4041,21 @@ check('keeping it off: the hero counts days inside the range, never a streak, an
   assert.deepEqual(ids({ ...base, keeping: true }), ['weight-keep']);
   assert.deepEqual(ids({ ...base, keeping: true, pace: 'gaining', rateKgPerWeek: -0.3 }), ['weight-keep-drift']);
   assert.doesNotMatch(buildDailyFocus({ ...base, currentWeight: 73.9 }).find((f) => f.id === 'weight-goal').msg, /recomp/i);
+});
+
+check('a sport night is anyone’s sport: the plan for after it is named for no one sport', async () => {
+  const { sportOf, CUES } = await import('../src/lib/plans.ts');
+  assert.equal(sportOf({ label: 'Cardio & Agility', note: 'Football — 7–9 pm — this counts as training' }), 'Football');
+  assert.equal(sportOf({ label: 'Cardio & Agility', note: 'Sport — this counts as training' }), 'Sport');
+  assert.equal(sportOf({ label: 'Cardio & Agility', note: 'Badminton club' }), 'Badminton');
+  assert.equal(sportOf({ label: 'Walk', note: 'A walk counts: 30 minutes, any pace' }), null, 'a walk is not a sport night');
+  assert.equal(sportOf({ label: 'Heavy Lower Body', note: '' }), null);
+  const c = CUES.find((x) => x.cue === 'badminton');
+  assert.equal(c.label, 'After sport'); assert.doesNotMatch(c.when + c.label, /badminton/i);
+  const { composeBriefing } = await import('../src/lib/briefing.ts');
+  const b = composeBriefing({ date: '2026-10-21', forecast: null, day: { label: 'Cardio & Agility', note: 'Football — this counts as training', time: '19:00' },
+    session: null, rateBack: false, plans: { badminton: 'Shake first.' }, week: null, usual: null });
+  assert.match(b.body, /^19:00 Football\.$/m); assert.match(b.body, /^After sport: Shake first\.$/m);
 });
 
 // --- Importing weigh-ins from another app ------------------------------------

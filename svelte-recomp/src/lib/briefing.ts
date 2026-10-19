@@ -11,7 +11,7 @@
 // title carries the weather, the first line the first job of the day.
 // Pure; see selfcheck.js.
 
-import { CUES, type Plans, type PlanCue } from './plans.ts';
+import { CUES, sportOf, type Plans, type PlanCue } from './plans.ts';
 
 export interface DayForecast {
   date: string;
@@ -101,13 +101,13 @@ export function composeBriefing(i: BriefingInput): Briefing {
   const dow = new Date(`${i.date}T12:00:00`).getDay();
   const hay = `${i.day?.label ?? ''} ${i.day?.note ?? ''}`;
   const time = i.day?.time ? i.day.time.slice(0, 5) : '';
-  const badminton = /badminton/i.test(hay);
+  const sport = sportOf(i.day);
   // A badminton night the program says isn't one yet: no time, no plan for after.
-  const rule = badminton ? i.badmintonRule ?? null : null;
-  const playing = badminton && rule?.play !== false;
+  const rule = sport === 'Badminton' ? i.badmintonRule ?? null : null;
+  const playing = !!sport && rule?.play !== false;
 
   const what = i.session ? i.session.name
-    : badminton ? 'Badminton'
+    : sport ? sport
     : ACTIVE.test(hay) ? (i.day?.label || 'Active day')
     : 'Rest day';
   const rest = !i.session && what === 'Rest day';
@@ -134,7 +134,7 @@ export function composeBriefing(i: BriefingInput): Briefing {
   if (i.letter) lines.push(`${i.letter}, looking back, is on Today.`);
 
   // The day's own plan: Friday's is the one that decides the weekend, so it
-  // wins on a badminton Friday.
+  // wins on a sport Friday.
   const cue = ([dow === 5 ? 'friday' : null, playing ? 'badminton' : null, dow === 6 || dow === 0 ? 'weekend' : null] as Array<PlanCue | null>)
     .find((c): c is PlanCue => c != null && !!i.plans?.[c]?.trim());
   if (cue) lines.push(`${CUES.find((c) => c.cue === cue)!.label}: ${i.plans![cue]!.trim()}`);

@@ -58,7 +58,7 @@ export interface HoldInput {
   date: string;
   plans: Plans | null;
   why: string | null;
-  badmintonDay: boolean;
+  sportDay: boolean;
   /** The day so far: logged kcal and protein, against its share of the week
    *  and the protein target. null when it isn't today's. */
   food: { kcal: number; share: number | null; proteinG: number; proteinTargetG: number | null } | null;
@@ -73,7 +73,7 @@ export function composeHold(i: HoldInput): { date: string; title: string; body: 
   const quote = `“${q.text}” — ${q.who}`;
 
   // The evening's own plan: the most specific moment first.
-  const cue = ([i.badmintonDay ? 'badminton' : null, dow === 5 ? 'friday' : null, weekend ? 'weekend' : null, 'evening'] as Array<PlanCue | null>)
+  const cue = ([i.sportDay ? 'badminton' : null, dow === 5 ? 'friday' : null, weekend ? 'weekend' : null, 'evening'] as Array<PlanCue | null>)
     .find((c): c is PlanCue => c != null && !!i.plans?.[c]?.trim());
   const plan = cue ? `${CUES.find((c) => c.cue === cue)!.label}: ${i.plans![cue]!.trim()}` : null;
 

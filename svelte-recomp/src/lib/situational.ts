@@ -17,7 +17,7 @@
 // at the user, and a broken streak is exactly the "the diet's ruined anyway"
 // moment that turns one missed day into a lost week. What fires instead, when
 // the user has written one, is their OWN plan at its moment: Friday evening,
-// the weekend, a badminton night.
+// the weekend, a sport night.
 
 import { CUES, type Plans, type PlanCue } from './plans.ts';
 
@@ -45,17 +45,17 @@ export interface SituationInput {
   isTrainingDay: boolean;
   workoutLoggedToday: boolean;
   /** The user's plans, today's weekday (0 = Sunday) and whether it's a
-   *  badminton day — what decides which plan's moment is coming. */
+   *  sport day — what decides which plan's moment is coming. */
   plans?: Plans | null;
   dow?: number;
-  badmintonDay?: boolean;
+  sportDay?: boolean;
   /** Days since the last weigh-in; null when there has never been one. */
   daysSinceWeighIn: number | null;
   /** The morning briefing is on: it already says "scale first" and carries
    *  the weekend's plan, so neither gets a ping of its own. */
   briefing?: boolean;
   /** The evening hold is on: it carries the evening's plan (Friday's,
-   *  badminton's, the weekend's) and what's left of the day's protein. */
+   *  the sport's, the weekend's) and what's left of the day's protein. */
   hold?: boolean;
 }
 
@@ -142,8 +142,8 @@ const PLAN_AT: Partial<Record<PlanCue, number>> = {
 
 function planMoment(i: SituationInput): Nudge | null {
   if (!i.plans || i.dow == null || i.hold) return null;
-  const cue: PlanCue | null = i.badmintonDay ? 'badminton' : i.dow === 5 ? 'friday' : i.dow === 6 || i.dow === 0 ? 'weekend' : null;
-  // A badminton Friday with no badminton plan still gets the Friday one.
+  const cue: PlanCue | null = i.sportDay ? 'badminton' : i.dow === 5 ? 'friday' : i.dow === 6 || i.dow === 0 ? 'weekend' : null;
+  // A sport Friday with no after-sport plan still gets the Friday one.
   const candidates: Array<PlanCue | null> = [cue, i.dow === 5 ? 'friday' : null];
   const pick = candidates.find((c): c is PlanCue => c != null && !!i.plans?.[c]?.trim());
   if (!pick || (pick === 'weekend' && i.briefing)) return null;

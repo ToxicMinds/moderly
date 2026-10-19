@@ -12,7 +12,7 @@ import { composeBriefing, type Briefing, type DayForecast } from '$lib/briefing'
 import { composeHold, holdAfter, HOLD_UNTIL } from '$lib/hold';
 import { badmintonRule, overlaySessions, programWeek } from '$lib/program';
 import { WEEKS } from '$lib/data/backRebuild';
-import { cleanPlans } from '$lib/plans';
+import { cleanPlans, sportOf } from '$lib/plans';
 import { usualBreakfast, type QuickFood } from '$lib/quickAdd';
 import { shiftYmd } from '$lib/date';
 import { lastMonth, monthLetter } from '$lib/week';
@@ -100,8 +100,8 @@ export const holds: Readable<Briefing[]> = derived(
       const day = sched.find((s) => s.day_of_week === new Date(`${date}T12:00:00`).getDay());
       return composeHold({
         date, plans, why: ($profile as any)?.why ?? null,
-        // A night the program says no games isn't a badminton night.
-        badmintonDay: /badminton/i.test(`${day?.label ?? ''} ${day?.note ?? ''}`) && badmintonRule(($profile as any)?.program, date)?.play !== false,
+        // A night the program says no games isn't a sport night.
+        sportDay: !!sportOf(day) && !(sportOf(day) === 'Badminton' && badmintonRule(($profile as any)?.program, date)?.play === false),
         food: i === 0 ? {
           kcal: $body.intake.get(date)?.kcal ?? 0, share: $body.week?.share ?? null,
           proteinG: $body.intake.get(date)?.protein ?? 0, proteinTargetG: $body.proteinTargetG,

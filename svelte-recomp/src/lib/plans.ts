@@ -6,11 +6,13 @@
 // Gollwitzer & Sheeran 2006), because the decision is already made when the
 // moment arrives — you only have to recognise it. So the app's job is to hold
 // the plan and put it in front of you when its moment comes round: Friday
-// evening, the weekend, late at night, home from badminton, a bad back
+// evening, the weekend, late at night, home from sport, a bad back
 // morning, a trend over the ceiling.
 //
 // One plan per moment, in the user's own words. Pure; see selfcheck.js.
 
+// 'badminton' is the plan for after any sport: the id stays because plans are
+// stored under it (the first user's sport was badminton).
 export type PlanCue = 'line' | 'back' | 'badminton' | 'friday' | 'weekend' | 'evening';
 
 export type Plans = Partial<Record<PlanCue, string>>;
@@ -30,7 +32,7 @@ export interface CueInfo {
 export const CUES: CueInfo[] = [
   { cue: 'line', when: 'When my trend goes over my ceiling', label: 'Over your ceiling', suggestion: 'Two weeks: the weekend at my weekday number, and the scale every morning.' },
   { cue: 'back', when: 'When my back says 6 or more', label: 'Back day', suggestion: 'A 30-minute walk instead of the gym. No lifting today.' },
-  { cue: 'badminton', when: 'When I get home from badminton', label: 'After badminton', suggestion: 'A shake first, then dinner — never dinner starving.' },
+  { cue: 'badminton', when: 'When I get home from my sport', label: 'After sport', suggestion: 'A shake first, then dinner — never dinner starving.' },
   { cue: 'friday', when: 'When it’s Friday evening', label: 'Friday evening', suggestion: 'Dinner decided before I leave work: one plate, protein first.' },
   { cue: 'weekend', when: 'On the weekend', label: 'Weekend', suggestion: 'Leftovers go in a box for tomorrow, not in me.' },
   { cue: 'evening', when: 'When I’m hungry late at night', label: 'Late evening', suggestion: 'Quark, yoghurt or a shake, then the kitchen’s closed.' },
@@ -41,12 +43,24 @@ export interface PlanMoment {
   hour: number;
   /** 0 = Sunday … 6 = Saturday. */
   dow: number;
-  /** Today is a badminton day (the schedule says so, or the watch saw it). */
-  badmintonDay: boolean;
+  /** Today is a sport day (the schedule says so, or the watch saw one). */
+  sportDay: boolean;
   /** This morning's back rating, if any. */
   backPain: number | null;
   /** The trend is over the ceiling. */
   overLine: boolean;
+}
+
+/** The sport a planned day names, else null. The "Gym + a sport" week files
+ *  it as "Cardio & Agility" with the sport first in the note ("Football —
+ *  7–9 pm — this counts as training"); the first user's own week says
+ *  "Badminton". A walk is not one. */
+export function sportOf(day: { label?: string | null; note?: string | null } | null | undefined): string | null {
+  if (!day) return null;
+  if (/badminton/i.test(`${day.label ?? ''} ${day.note ?? ''}`)) return 'Badminton';
+  if (!/cardio\s*&\s*agility/i.test(day.label ?? '')) return null;
+  const name = (day.note ?? '').split(/\s+[—–-]\s+/)[0].trim();
+  return name && !/counts as training/i.test(name) ? name : 'Sport';
 }
 
 /** Is this moment the plan's moment right now? */
@@ -54,7 +68,7 @@ export function cueActive(cue: PlanCue, m: PlanMoment): boolean {
   switch (cue) {
     case 'line': return m.overLine;
     case 'back': return m.backPain != null && m.backPain >= 6;
-    case 'badminton': return m.badmintonDay && m.hour >= 17;
+    case 'badminton': return m.sportDay && m.hour >= 17;
     case 'friday': return m.dow === 5 && m.hour >= 15;
     case 'weekend': return m.dow === 6 || m.dow === 0;
     case 'evening': return m.hour >= 20;

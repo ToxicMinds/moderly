@@ -12,7 +12,7 @@
   import { buildDailyFocus, waterTargetLitres } from '$lib/coach';
   import { body, stall, line, scaleUp } from '$lib/stores/body';
   import { editing } from '$lib/commitments';
-  import { cleanPlans } from '$lib/plans';
+  import { cleanPlans, sportOf } from '$lib/plans';
   import CommitmentAlerts from '$lib/components/CommitmentAlerts.svelte';
   import MilestoneMoment from '$lib/components/MilestoneMoment.svelte';
   import GoalMoment from '$lib/components/GoalMoment.svelte';
@@ -230,7 +230,7 @@
     if (todaySession) return { kind: 'gym' as const, label: todaySession.name };
     const hay = `${lbl} ${note}`;
     if (/badminton|cardio|agility|walk|run|swim|sport|tennis|cycl/.test(hay)) {
-      const label = /badminton/.test(hay) ? 'Badminton' : (todaySchedule?.label || 'Active');
+      const label = sportOf(todaySchedule) ?? (todaySchedule?.label || 'Active');
       return { kind: 'active' as const, label };
     }
     return { kind: 'rest' as const, label: 'Rest' };
@@ -250,7 +250,7 @@
   // While a program says no games, a badminton night isn't one: no "after
   // badminton" plan, and the Today card says what the plan says instead.
   const bRule = $derived(badmintonRule(($_profile as any)?.program, today));
-  const badmintonDay = $derived((dayInfo.label === 'Badminton' && bRule?.play !== false) || watchToday?.label === 'Badminton');
+  const sportDay = $derived((!!sportOf(todaySchedule) && !(sportOf(todaySchedule) === 'Badminton' && bRule?.play === false)) || watchToday?.kind === 'sport');
   const planCount = $derived(Object.keys(cleanPlans(($_profile as any)?.plans)).length);
 
   const focusItems = $derived(
@@ -338,7 +338,7 @@
 
 <!-- The line, when the trend is over it, and the plan whose moment it is.
      Nothing on an ordinary day. -->
-<CommitmentAlerts moment={{ hour: nowHour, dow: dayIdx, badmintonDay, backPain: todayLog?.back_pain ?? null }} />
+<CommitmentAlerts moment={{ hour: nowHour, dow: dayIdx, sportDay, backPain: todayLog?.back_pain ?? null }} />
 
 <!-- Sits directly under the Pulse and only on Sun/Mon/Tue, once per week — the
      one moment the app asks instead of reports. Renders nothing otherwise. -->
