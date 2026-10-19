@@ -3987,6 +3987,34 @@ check('a day is stored on the device once: server-numbered rows are kept only as
   assert.equal((sync.match(/await dropStrays\(table, data\);/g) ?? []).length, 2, 'both full pulls drop rows the server doesn’t have');
 });
 
+check('a high morning is explained from the person’s own data, and only from it', async () => {
+  const { explainUp } = await import('../src/lib/scaleUp.ts');
+  const intake = new Map();
+  for (let d = 1; d <= 27; d++) intake.set(`2026-09-${String(d).padStart(2, '0')}`, { kcal: 2000 + (d % 3) * 50 });
+  const base = { today: '2026-10-19', kg: 91.3, prev: { date: '2026-10-18', kg: 90.4 }, trendKg: 90.6, trendPrevKg: 90.6,
+    scatterKg: 0.4, intake, weekdayOffsets: null, trained: new Set() };
+  // Nothing to see: an honest "no trace in a log", and the trend held.
+  let x = explainUp({ ...base, intake: new Map() });
+  assert.equal(x.title, 'Up 0.9 kg from yesterday');
+  assert.match(x.reasons[0], /^That's inside your usual day-to-day swing of about ±0\.4 kg\.$/);
+  assert.equal(x.trend, 'Your trend held at 90.6 kg. One morning is noise; the trend is the number.');
+  // A big Sunday, a Monday that always reads heavy, and the first session in three weeks.
+  const busy = new Map(intake); busy.set('2026-10-18', { kcal: 3100 });
+  x = explainUp({ ...base, intake: busy, weekdayOffsets: [0.5, 0.1, -0.2, -0.3, -0.1, 0, 0.2], trained: new Set(['2026-10-18']), trendKg: 90.7 });
+  assert.match(x.reasons[0], /^Yesterday you logged 3,100 kcal, about 1,050 more than your usual day\./);
+  assert.match(x.reasons[1], /^Your Monday mornings usually read 0\.5 kg above your trend/);
+  assert.match(x.reasons[2], /^Yesterday was your first training in two weeks\. Muscles hold extra water/);
+  assert.equal(x.trend, 'Your trend moved up 0.1 kg, to 90.7 kg. One morning is noise; the trend is the number.');
+  // A usual day, routine training, a normal weekday: nothing claimed that isn't there.
+  x = explainUp({ ...base, intake: new Map([...intake, ['2026-10-18', { kcal: 2050 }]]), trained: new Set(['2026-10-18', '2026-10-16', '2026-10-14']), kg: 92.0, prev: { date: '2026-10-18', kg: 90.4 } });
+  assert.deepEqual(x.reasons, ['Nothing in your log explains it. Salt, a late meal, a short night or a slower gut all move the scale and leave no trace in a log.']);
+  x = explainUp({ ...base, today: '2026-10-22', prev: { date: '2026-10-21', kg: 90.4 }, intake: new Map(), weekdayOffsets: [0, 0, 0, 0.4, 0, 0, 0] });
+  assert.equal(x.reasons[0], 'Your Thursday mornings usually read 0.4 kg above your trend.', 'the weekend is named only after one');
+  // Not up: nothing to explain.
+  assert.equal(explainUp({ ...base, kg: 90.5 }), null);
+  assert.equal(explainUp({ ...base, kg: 90.9, prev: { date: '2026-10-10', kg: 89.9 }, trendKg: 90.6 }), null, 'a week-old reading is no comparison');
+});
+
 // --- Importing weigh-ins from another app ------------------------------------
 
 check('a weight history comes in from any app, one morning a day, in kg', async () => {

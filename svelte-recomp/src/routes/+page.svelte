@@ -10,7 +10,7 @@
   import { morningsThisWeek } from '$lib/scale';
   import { saveWeighIn, NeedsConfirm } from '$lib/weighIn';
   import { buildDailyFocus, waterTargetLitres } from '$lib/coach';
-  import { body, stall, line } from '$lib/stores/body';
+  import { body, stall, line, scaleUp } from '$lib/stores/body';
   import { editing } from '$lib/commitments';
   import { cleanPlans } from '$lib/plans';
   import CommitmentAlerts from '$lib/components/CommitmentAlerts.svelte';
@@ -291,6 +291,14 @@
      month of 13 weigh-ins left it a kilo wide either way — so the scale gets the
      top of the screen until today's reading is in, then shrinks to one line. -->
 {#if todayWeighIn}
+  {#if $scaleUp}
+    <!-- A high morning, explained from their own log: the moment people quit. -->
+    <section class="card su" aria-label="Why the scale is up">
+      <div class="su-t">{$scaleUp.title}</div>
+      <ul class="su-r">{#each $scaleUp.reasons as r}<li>{r}</li>{/each}</ul>
+      {#if $scaleUp.trend}<div class="su-f">{$scaleUp.trend}</div>{/if}
+    </section>
+  {/if}
   <div class="mw-done">Weighed <b>{wtNum(+todayWeighIn.weight)}</b> today{#if currentKg != null}{' · '}trend <b>{wtNum(currentKg)}</b> {changeWord()}{/if}{#if $line && !$line.misdrawn}{' · '}ceiling <b class="mw-line z-{$line.zone}">{wtNum($line.kg)}</b>{/if}</div>
 {:else}
   <div class="card mw">
@@ -380,6 +388,11 @@
 
 <style>
   .mw{padding:13px 14px}
+  .su{padding:13px 14px}
+  .su-t{font-family:var(--font-display);font-size:1.375rem;font-weight:700;color:var(--text);margin-bottom:6px}
+  .su-r{margin:0;padding-left:1.05rem;font-size:0.875rem;line-height:1.5;color:var(--text)}
+  .su-r li{margin:4px 0}
+  .su-f{font-size:0.875rem;line-height:1.5;color:var(--muted);margin-top:8px}
   .sv{padding:13px 14px;background:color-mix(in srgb,var(--amber) 8%,var(--bg2))}
   .sv-t{font-size:0.875rem;line-height:1.5;color:var(--text);margin:0 0 10px}
   .sv-row{display:flex;align-items:center;gap:14px}

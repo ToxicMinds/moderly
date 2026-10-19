@@ -12,7 +12,7 @@
 // The calorie target is the WEEK's: set from data up to last Sunday, so it holds
 // still for seven days and the week's budget is a number you can plan against.
 import { derived, type Readable } from 'svelte/store';
-import { liveWeights, liveGoal, liveFoodLogs, liveDailyLogs, liveProfile, liveTracks, liveGoalReason, liveWorkoutLogs, liveActivitySessions } from './live';
+import { liveWeights, liveGoal, liveFoodLogs, liveDailyLogs, liveProfile, liveTracks, liveGoalReason, liveWorkoutLogs, liveActivitySessions, liveSessionCompletions } from './live';
 import { todayDate } from './refresh';
 import { weightVerdict, paceVsPlan, diagnoseStall, type WeightVerdict, type Pace, type StallDiagnosis } from '$lib/insights';
 import { weeklyMaintenance, type AdaptiveTdee } from '$lib/adaptiveTdee';
@@ -25,6 +25,7 @@ import { lineState, type LineState } from '$lib/line';
 import { milestoneState, type MilestoneState } from '$lib/milestone';
 import { pulse, type Pulse } from '$lib/pulse';
 import { programWeek } from '$lib/program';
+import { explainUp, type UpExplained } from '$lib/scaleUp';
 
 export interface DayIntake { kcal: number; protein: number; carbs: number; fat: number; items: number }
 
@@ -159,6 +160,28 @@ export function trainingDays(workoutLogs: any[], activity: any[]): Set<string> {
 export const shape: Readable<WeekShape | null> = derived(
   [body, liveWeights()],
   ([$body, $weights]) => weekShape($body.intake, (($weights as any[]) ?? []).map((w) => ({ date: w.date, weight: +w.weight })), $body.today),
+);
+
+/** "Why is the scale up?": this morning's reading explained from the person's
+ *  own log when it's high (src/lib/scaleUp.ts); null on an ordinary morning. */
+export const scaleUp: Readable<UpExplained | null> = derived(
+  [body, liveWeights(), shape, liveWorkoutLogs(), liveActivitySessions(), liveSessionCompletions()],
+  ([$b, $weights, $shape, $logs, $activity, $done]) => {
+    const weights = (($weights as any[]) ?? []).map((w) => ({ date: w.date, weight: +w.weight }));
+    const today = weights.find((w) => w.date === $b.today);
+    if (!today) return null;
+    const before = weights.filter((w) => w.date < $b.today);
+    const prev = before.at(-1) ?? null;
+    return explainUp({
+      today: $b.today, kg: today.weight, prev: prev ? { date: prev.date, kg: prev.weight } : null,
+      trendKg: $b.weight?.trendKg ?? null,
+      // The trend as it stood before this morning's reading.
+      trendPrevKg: weightVerdict(before, Date.parse(`${shiftYmd(-1, new Date(`${$b.today}T12:00:00`))}T12:00:00`))?.trendKg ?? null,
+      scatterKg: $b.weight?.scatterKg ?? null,
+      intake: $b.intake, weekdayOffsets: $shape?.scale ?? null,
+      trained: trainingDays([...(($logs as any[]) ?? []), ...(($done as any[]) ?? [])], ($activity as any[]) ?? []),
+    });
+  },
 );
 
 /** The Today hero and the page's glow, read off the same trend (src/lib/pulse.ts). */
