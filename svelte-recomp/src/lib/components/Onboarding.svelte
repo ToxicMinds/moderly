@@ -22,7 +22,8 @@
   import { notify } from '$lib/stores/notices';
   import { supabase } from '$lib/db/client';
   import { CUES, cleanPlans, type PlanCue } from '$lib/plans';
-  import { saveWhy, savePlans } from '$lib/commitments';
+  import { saveWhy, savePlans, saveLine } from '$lib/commitments';
+  import { LINE_MARGIN_KG } from '$lib/line';
   import { saveMoments } from '$lib/stores/moments';
   import { isNativeApp } from '$lib/nativeAlarms';
   import WeightInput from './WeightInput.svelte';
@@ -121,6 +122,9 @@
   });
   const born = $derived(parseInt(birthYear, 10));
   const age = $derived(ageFrom(born));
+  // A goal at today's weight means keeping it off (after a diet, a medicine,
+  // or a loss years ago): the app holds instead of cutting.
+  const keeping = $derived(weightKg != null && goalKg != null && Math.abs(weightKg - goalKg) < 0.5);
   // Moderly is for adults: weight loss under 18 belongs with a doctor, and the
   // AI services it uses are for adults only.
   const tooYoung = $derived(!!born && born > currentYear - 18 && born <= currentYear);
@@ -168,6 +172,7 @@
         start_kg: $_existing?.start_kg ?? weightKg,
         goal_kg: goalKg,
         goal_reason: reason,
+        ...(keeping && !$_existing?.keep_since ? { keep_since: todayYmd() } : {}),
         onboarded_at: $_existing?.onboarded_at ?? new Date().toISOString(),
         updated_at: new Date().toISOString(),
       });
@@ -184,6 +189,7 @@
       try {
         if (whyInput.trim() && whyInput.trim() !== ($_existing?.why ?? '').trim()) await saveWhy(whyInput);
         if (planCue && planText.trim()) await savePlans({ ...cleanPlans($_existing?.plans), [planCue]: planText.trim() });
+        if (keeping && weightKg && !$_existing?.line) await saveLine(weightKg + LINE_MARGIN_KG, todayYmd());
         if (native) await saveMoments({ on: wantMoments, after: '06:00', hold: wantMoments });
         else if (wantWeighIn) {
           // One weigh-in reminder per user, ever (a fixed auto_key), so finishing
@@ -256,6 +262,11 @@
       {/if}
       {#if weightKg != null && goalKg != null && Math.abs(weightKg - goalKg) >= 0.5}
         <div class="ob-ok">{dwt(weightKg - goalKg)} to {weightKg > goalKg ? 'lose' : 'gain'}.</div>
+      {:else if keeping}
+        <div class="ob-ok">Keeping it where it is: your budget will be what you maintain on, with a ceiling {dwt(LINE_MARGIN_KG)} above.</div>
+      {/if}
+      {#if weightKg != null && !keeping}
+        <button class="ob-keep" onclick={() => (goalKg = weightKg)}>Already lost the weight? Keep it where it is</button>
       {/if}
     {/key}
 
@@ -383,6 +394,7 @@
   .ob-err{font-size:0.8125rem;color:var(--led-bad);margin-top:6px;line-height:1.45}
   .ob-ok{font-size:0.8125rem;color:var(--muted);margin-top:8px}
   :global(.ob-wi){width:100%;font-size:1.125rem;font-weight:700;text-align:center}
+  .ob-keep{display:block;background:none;border:none;padding:10px 0 0;font:inherit;font-size:0.8125rem;font-weight:700;color:var(--amber);cursor:pointer;text-align:left}
   .ob-suggest{display:block;width:100%;text-align:left;margin-top:8px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:10px 12px;color:var(--text);font-size:0.8125rem;line-height:1.45;cursor:pointer;font-family:inherit}
   .ob-acts{display:grid;gap:6px}
   .ob-act{display:flex;flex-direction:column;gap:2px;text-align:left;background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:10px 12px;cursor:pointer;font-family:inherit;color:var(--text)}

@@ -25,6 +25,12 @@ installed by hand for now. No account needed to start. **How it works:**
   week's budget comes from your log and your scale together, so whatever the log
   leaves out (oil, a handful of nuts) cancels out. Search, barcodes, or a photo with
   an AI estimate.
+- **Keep it off.** At the goal, Moderly asks to keep it there or aim lower. Keeping
+  it, the budget is your maintenance, a ceiling sits a kilo above, and Today counts
+  the days the trend stayed inside that range (a rate, never a streak). Over the
+  ceiling, your own plan comes back with one gentle step down.
+- **When the scale jumps, it says why**, from your own log: a bigger day, the
+  weekend, a first workout after a break, or nothing it can see.
 - **Plans for the hard moments.** Write what you'll do on a Friday night or a late
   evening; the evening notification hands it back at that moment, with a line from
   Epictetus or Marcus Aurelius.

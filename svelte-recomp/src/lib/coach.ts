@@ -50,6 +50,8 @@ export function goalDirection(currentWeight: number | null, goalKg: number): Goa
 
 export interface CoachInput {
   goalKg: number;
+  /** Keeping it off (user_settings.keep_since): holding, not losing. */
+  keeping?: boolean;
   currentWeight: number | null;
   /** kg/week; positive = losing. The trend's slope (stores/body), never two readings. */
   rateKgPerWeek: number;
@@ -198,7 +200,15 @@ export function buildDailyFocus(i: CoachInput): FocusItem[] {
   // — 1. Weight trend headline: is the pace right for a keepable body? —
   // Read off the ONE trend (stores/body): its verdict against the plan, with
   // the 95% interval behind it. Nothing here is computed from two mornings.
-  if (i.currentWeight != null) {
+  if (i.keeping && i.currentWeight != null) {
+    // Keeping it off: the question is "still inside the range?", never
+    // "losing fast enough?". The ceiling's own card handles being over it.
+    items.push(i.pace === 'gaining'
+      ? { id: 'weight-keep-drift', href: '/progress', severity: 'info', icon: '⚖️', title: 'Creeping up',
+          msg: `The trend is rising ${dwt(i.rateKgPerWeek, 2)} a week. Still inside your range: this is the moment your ceiling plan is for.` }
+      : { id: 'weight-keep', href: '/progress', severity: 'good', icon: '⚖️', title: 'Holding',
+          msg: 'Inside your range. Weigh most mornings and keep doing what you’re doing.' });
+  } else if (i.currentWeight != null) {
     const w = i.currentWeight;
     const href = '/progress#body-goals';
     const lostCtx = i.totalLostKg != null && i.totalLostKg >= 3 ? ` You're ${dwt(i.totalLostKg)} down since you started.` : '';
@@ -214,7 +224,7 @@ export function buildDailyFocus(i: CoachInput): FocusItem[] {
     if (w <= i.goalKg) {
       items.push({
         id: 'weight-goal', href, severity: 'good', icon: '🎯', title: 'Goal weight reached',
-        msg: `You're at ${wt(w)} — you've reached your ${wtShortU(i.goalKg)} target. Shift the mission to recomp: hold calories near maintenance and let training reshape you.`,
+        msg: `You're at ${wt(w)}, at your ${wtShortU(i.goalKg)} goal. Keeping it is the job now: weigh most mornings, and decide what you'll do if the trend crosses your ceiling.`,
       });
     } else if (i.pace === 'gaining') {
       items.push({

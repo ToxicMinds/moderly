@@ -4015,6 +4015,34 @@ check('a high morning is explained from the person’s own data, and only from i
   assert.equal(explainUp({ ...base, kg: 90.9, prev: { date: '2026-10-10', kg: 89.9 }, trendKg: 90.6 }), null, 'a week-old reading is no comparison');
 });
 
+check('keeping it off: the hero counts days inside the range, never a streak, and points at the plan when over', async () => {
+  const { pulse } = await import('../src/lib/pulse.ts');
+  const { buildDailyFocus } = await import('../src/lib/coach.ts');
+  const w = { trendKg: 74.4, latestKg: 74.6, state: 'answerable', rateKgPerWeek: 0.02, loKgPerWeek: -0.1, hiKgPerWeek: 0.14, n: 40, weighInsNeeded: null };
+  const keep = { goalKg: 74, ceilingKg: 75, inside: 41, days: 45, since: '2026-08-20' };
+  let p = pulse({ weight: w, pace: 'too-early', firstKg: 96, goalKg: 74, next: null, keep });
+  assert.equal(p.caption, 'kg trend · 0.6 under your ceiling');
+  assert.equal(p.story, 'Inside your range on 41 of the last 45 days.');
+  assert.equal(p.tone, 'good');
+  assert.deepEqual(p.stats.map((s) => s.v), ['74', '75', '41/45']);
+  assert.deepEqual(p.beam, { tilt: 0, left: 'ceiling 75', right: 'goal 74' }, 'level while it holds');
+  p = pulse({ weight: { ...w, trendKg: 75.3 }, pace: 'gaining', firstKg: 96, goalKg: 74, next: null, keep });
+  assert.equal(p.tone, 'warn', 'amber over the ceiling, never red');
+  assert.match(p.story, /^Over your ceiling\. Your plan for this is below/);
+  p = pulse({ weight: { ...w, rateKgPerWeek: -0.3, loKgPerWeek: -0.45, hiKgPerWeek: -0.15 }, pace: 'gaining', firstKg: 96, goalKg: 74, next: null, keep: { ...keep, inside: 45 } });
+  assert.match(p.story, /^Inside your range on every one of the last 45 days\. The trend is creeping up 0\.3 kg a week/);
+  assert.ok(p.beam.tilt < 0, 'leaning toward the ceiling as it climbs');
+  // The coach asks "still inside?", never "losing fast enough?".
+  const base = { goalKg: 74, currentWeight: 74.4, rateKgPerWeek: 0, pace: 'too-early', planKgPerWeek: null, weeksToGoal: null,
+    weighInsNeeded: null, stall: null, totalLostKg: 21.6, calorieTarget: 2050, todayKcal: 0, weekKcalSoFar: 9000, daysElapsedThisWeek: 4,
+    proteinTarget: 133, todayProtein: 0, sleepHours: 7.5, sleepQuality: null, stepsToday: 8000, stepsWeekAvg: 9000, waterToday: 2,
+    waterTarget: 3, dayKind: 'rest', activityLabel: 'Rest', workoutDoneToday: false, strengthTrend: null, watchActivityToday: null, hour: 9 };
+  const ids = (x) => buildDailyFocus(x).filter((f) => f.id.startsWith('weight-')).map((f) => f.id);
+  assert.deepEqual(ids({ ...base, keeping: true }), ['weight-keep']);
+  assert.deepEqual(ids({ ...base, keeping: true, pace: 'gaining', rateKgPerWeek: -0.3 }), ['weight-keep-drift']);
+  assert.doesNotMatch(buildDailyFocus({ ...base, currentWeight: 73.9 }).find((f) => f.id === 'weight-goal').msg, /recomp/i);
+});
+
 // --- Importing weigh-ins from another app ------------------------------------
 
 check('a weight history comes in from any app, one morning a day, in kg', async () => {

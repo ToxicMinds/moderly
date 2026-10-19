@@ -21,9 +21,9 @@ import { proteinTargetG, ageFrom } from '$lib/profile';
 import { parseCalorieTarget } from '$lib/coach';
 import { mondayOf, shiftYmd } from '$lib/date';
 import { weekBudget, weekShape, type WeekBudget, type WeekShape } from '$lib/week';
-import { lineState, type LineState } from '$lib/line';
-import { milestoneState, type MilestoneState } from '$lib/milestone';
-import { pulse, type Pulse } from '$lib/pulse';
+import { LINE_MARGIN_KG, lineState, type LineState } from '$lib/line';
+import { heldUnder, milestoneState, type MilestoneState } from '$lib/milestone';
+import { pulse, type KeepInput, type Pulse } from '$lib/pulse';
 import { programWeek } from '$lib/program';
 import { explainUp, type UpExplained } from '$lib/scaleUp';
 
@@ -65,6 +65,12 @@ export interface Body {
    *  consistently doesn't carry. Fine while it's steady — the target is in
    *  the log's units. null when the log isn't short. */
   logShortKcal: number | null;
+  /** Keeping it off since this day (user_settings.keep_since): the job is
+   *  holding, not losing. null while losing toward the goal. */
+  keepSince: string | null;
+  /** The trend has held at or under the goal for three days and keeping
+   *  hasn't been chosen yet: Today asks "keep it here, or aim lower?". */
+  goalHeld: boolean;
 }
 
 function intakeByDate(food: any[], daily: any[]): Map<string, DayIntake> {
@@ -102,6 +108,12 @@ export const body: Readable<Body> = derived(
         : null;
 
     const intake = intakeByDate(($food as any[]) ?? [], ($daily as any[]) ?? []);
+    // Keeping it off: under the ceiling (a kilo over the goal, where the line
+    // sits) the budget is maintenance; over it, the usual one gentle step down
+    // until the trend is back under. STOP Regain's yellow zone, plan in hand.
+    const keepSince: string | null = p?.keep_since ?? null;
+    const budgetGoal = keepSince && goalKg != null && currentKg != null
+      ? (currentKg <= goalKg + LINE_MARGIN_KG ? currentKg : goalKg) : goalKg;
     const weekStart = mondayOf(new Date(`${today}T12:00:00`));
     const weekly = weeklyMaintenance({
       intake: Array.from(intake, ([date, d]) => ({ date, kcal: d.kcal })), weights, weekStart,
@@ -112,12 +124,12 @@ export const body: Readable<Body> = derived(
     const reviewed = shiftYmd(-7, new Date(`${weekStart}T12:00:00`));
     const nudge = +((($daily as any[]) ?? []).find((l) => l.date === reviewed)?.week_check?.kcalDelta ?? 0) || 0;
     const target = resolveCalorieTarget({
-      goalKg, currentWeightKg: currentKg, learnedTdee: weekly.kcal,
+      goalKg: budgetGoal, currentWeightKg: currentKg, learnedTdee: weekly.kcal,
       profile, storedTarget: parseCalorieTarget($goalReason as string | null), adjustKcal: nudge,
       usualKcal: weekly.latest.meanIntake,
     });
     // The pace the plan is built for; 0.5 kg/week when only a stored target exists.
-    const cutting = goalKg != null && currentKg != null && currentKg - goalKg > 0.5;
+    const cutting = !keepSince && goalKg != null && currentKg != null && currentKg - goalKg > 0.5;
     const plan = target.direction === 'lose' ? target.planKgPerWeek : cutting && target.direction == null ? 0.5 : null;
     // "Too fast" means past 1% of bodyweight a week, whatever the plan said.
     const pace = paceVsPlan(weight, plan, currentKg ? currentKg * 0.01 : null);
@@ -142,6 +154,9 @@ export const body: Readable<Body> = derived(
         today, trendOn: (ymd) => weightVerdict(weights, Date.parse(`${ymd}T12:00:00`))?.trendKg ?? null,
       }),
       logShortKcal: short >= 100 ? Math.round(short / 10) * 10 : null,
+      keepSince,
+      goalHeld: !keepSince && goalKg != null && firstKg != null && firstKg > goalKg + 1
+        && heldUnder(goalKg + 0.05, (ymd) => weightVerdict(weights, Date.parse(`${ymd}T12:00:00`))?.trendKg ?? null, today),
     };
   },
 );
@@ -184,17 +199,6 @@ export const scaleUp: Readable<UpExplained | null> = derived(
   },
 );
 
-/** The Today hero and the page's glow, read off the same trend (src/lib/pulse.ts). */
-export const todayPulse: Readable<Pulse> = derived([body, liveProfile()], ([$b, $p]) => {
-  const program = ($p as any)?.program ?? null;
-  const week = programWeek(program, $b.today);
-  return pulse({
-    weight: $b.weight, pace: $b.pace, firstKg: $b.firstKg, goalKg: $b.goalKg, next: $b.next,
-    planKgPerWeek: $b.target.direction === 'lose' ? $b.target.planKgPerWeek : null,
-    restartedOn: week === 1 || week === 2 ? program.start : null,
-  });
-});
-
 /** Why the scale isn't moving — once, for Today and Progress alike. */
 export const stall: Readable<StallDiagnosis | null> = derived(
   [body, liveWorkoutLogs(), liveActivitySessions(), shape],
@@ -214,3 +218,32 @@ export const line: Readable<LineState | null> = derived(
     $today as string,
   ),
 );
+
+/** The Today hero and the page's glow, read off the same trend (src/lib/pulse.ts).
+ *  While keeping it off, with the days the trend stayed under the ceiling. */
+export const todayPulse: Readable<Pulse> = derived([body, liveProfile(), line, liveWeights()], ([$b, $p, $line, $weights]) => {
+  const program = ($p as any)?.program ?? null;
+  const week = programWeek(program, $b.today);
+  let keep: KeepInput | null = null;
+  if ($b.keepSince && $b.goalKg != null) {
+    const weights = (($weights as any[]) ?? []).map((w) => ({ date: w.date, weight: +w.weight }));
+    const ceilingKg = $line && !$line.misdrawn ? $line.kg : $b.goalKg + LINE_MARGIN_KG;
+    // The last sixty days at most, from the day keeping began.
+    let inside = 0, days = 0;
+    for (let k = 59; k >= 0; k--) {
+      const d = shiftYmd(-k, new Date(`${$b.today}T12:00:00`));
+      if (d < $b.keepSince) continue;
+      const t = weightVerdict(weights, Date.parse(`${d}T12:00:00`))?.trendKg;
+      if (t == null) continue;
+      days++;
+      if (t <= ceilingKg) inside++;
+    }
+    keep = { goalKg: $b.goalKg, ceilingKg, inside, days, since: $b.keepSince };
+  }
+  return pulse({
+    weight: $b.weight, pace: $b.pace, firstKg: $b.firstKg, goalKg: $b.goalKg, next: $b.next,
+    planKgPerWeek: $b.target.direction === 'lose' ? $b.target.planKgPerWeek : null,
+    restartedOn: week === 1 || week === 2 ? program.start : null,
+    keep,
+  });
+});

@@ -30,6 +30,21 @@ export interface PulseInput {
    *  weeks ago: new training holds water, and the scale can rise as the work
    *  starts. null otherwise. */
   restartedOn?: string | null;
+  /** Keeping it off (user_settings.keep_since): the range and how the trend
+   *  has kept to it. null while losing toward the goal. */
+  keep?: KeepInput | null;
+}
+
+export interface KeepInput {
+  goalKg: number;
+  /** The ceiling now (line.ts), else a kilo over the goal. */
+  ceilingKg: number;
+  /** Days since keeping began (sixty at most) with a trend, and how many of
+   *  them it sat at or under the ceiling. A rate, never a streak: a day over
+   *  costs one day. */
+  inside: number;
+  days: number;
+  since: string;
 }
 
 export interface Pulse {
@@ -51,6 +66,7 @@ export interface Pulse {
 export function pulse(i: PulseInput): Pulse {
   const w = i.weight;
   const trend = w?.trendKg ?? null;
+  if (i.keep && trend != null) return keeping(i.keep, w!, trend);
   const kg = trend ?? w?.latestKg ?? null;
   const stop = i.next && !i.next.reached ? i.next : null;
   const target = stop ? stop.kg : i.goalKg;
@@ -131,4 +147,36 @@ export function pulse(i: PulseInput): Pulse {
     ? { tilt: Math.abs(toward) < 0.05 ? 0 : Math.max(-1, Math.min(1, toward)), left: 'today', right: goal }
     : null;
   return { kg, caption, pct, tone, story, stats, beam };
+}
+
+/**
+ * Keeping it off: the trend against the ceiling, how the days have gone, and
+ * a balance between the ceiling and the goal that stays level while the trend
+ * holds, leaning toward the goal as it falls and toward the ceiling as it
+ * climbs. Over the ceiling is amber and points at the plan (CommitmentAlerts
+ * shows it), never red.
+ */
+function keeping(k: KeepInput, w: WeightVerdict, trend: number): Pulse {
+  const st = weightUnit() === 'st';
+  const u = st ? '' : `${unitWord()} `;
+  const under = k.ceilingKg - trend;
+  const caption = under >= 0
+    ? `${u}trend · ${st ? dwt(under) : dwtNum(under)} under your ceiling`
+    : `${u}trend · ${st ? dwt(under) : dwtNum(under)} over your ceiling`;
+  // Positive is losing; known once the line through the mornings is sure.
+  const rate = w.state === 'answerable' || w.state === 'too-noisy' ? w.rateKgPerWeek : null;
+  const creeping = rate != null && w.hiKgPerWeek < 0;
+  const tone: PulseTone = under < 0 ? 'warn' : creeping ? 'ok' : 'good';
+  const since = new Date(`${k.since}T12:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+  let story = under < 0 ? 'Over your ceiling. Your plan for this is below; the budget is one step under your usual week until you’re back.'
+    : k.days >= 7 ? `Inside your range on ${k.days === k.inside ? 'every one' : k.inside} of the last ${k.days} days.`
+    : `Keeping it off since ${since}.`;
+  if (under >= 0 && creeping) story += ` The trend is creeping up ${dwt(rate!)} a week: still under your ceiling, and this is what it’s for.`;
+  const stats = [
+    { v: wtShort(k.goalKg), l: st ? 'goal' : `goal ${unitWord()}` },
+    { v: wtShort(k.ceilingKg), l: 'ceiling' },
+    { v: k.days ? `${k.inside}/${k.days}` : '—', l: 'days inside' },
+  ];
+  const tilt = rate == null || Math.abs(rate) < 0.1 ? 0 : Math.max(-1, Math.min(1, rate / 0.5));
+  return { kg: trend, caption, pct: null, tone, story, stats, beam: { tilt, left: `ceiling ${wtShort(k.ceilingKg)}`, right: `goal ${wtShort(k.goalKg)}` } };
 }

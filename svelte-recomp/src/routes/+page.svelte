@@ -15,6 +15,7 @@
   import { cleanPlans } from '$lib/plans';
   import CommitmentAlerts from '$lib/components/CommitmentAlerts.svelte';
   import MilestoneMoment from '$lib/components/MilestoneMoment.svelte';
+  import GoalMoment from '$lib/components/GoalMoment.svelte';
   import MonthLetter from '$lib/components/MonthLetter.svelte';
   import Commitments from '$lib/components/Commitments.svelte';
   import { strengthTrend } from '$lib/strength';
@@ -255,6 +256,7 @@
   const focusItems = $derived(
     buildDailyFocus({
       goalKg: GOAL_KG,
+      keeping: !!$body.keepSince,
       currentWeight: currentKg,
       rateKgPerWeek: $body.weight?.rateKgPerWeek ?? 0,
       pace: $body.pace,
@@ -324,6 +326,9 @@
     </div>
   </div>
 {/if}
+
+<!-- The goal held for three days: keep it here, or aim lower. -->
+<GoalMoment onAimLower={() => { editingGoal = true; goalEditKg = null; }} />
 
 <!-- A next stop held for three days: shown once, then the next one is chosen. -->
 <MilestoneMoment />
