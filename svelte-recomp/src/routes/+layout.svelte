@@ -160,7 +160,10 @@
     if (u && !syncStarted) {
       syncStarted = true;
       initSync(u.id);
-      subscribeWebPush(u.id);
+      // Only refresh a subscription the person already allowed: asking for
+      // notifications the moment a stranger arrives is how browsers learn to
+      // block a site. Onboarding asks, when they choose the morning reminder.
+      if (typeof Notification !== 'undefined' && Notification.permission === 'granted') subscribeWebPush(u.id);
       // Native Android shell only: pull OnePlus Watch data from Health Connect
       // into the app. No-ops in the browser/PWA.
       syncHealthConnect(u.id);

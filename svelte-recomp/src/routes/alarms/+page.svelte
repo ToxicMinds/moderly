@@ -104,6 +104,19 @@
     scheduleAlarms();
   }
 
+  // Web only: whether reminders can reach this browser.
+  const iphone = typeof navigator !== 'undefined' && /iPhone|iPad/.test(navigator.userAgent);
+  let webPushState = $state<'na' | 'ask' | 'blocked' | 'on'>('na');
+  $effect(() => {
+    if (typeof Notification === 'undefined' || !('serviceWorker' in navigator)) return;
+    webPushState = Notification.permission === 'granted' ? 'on' : Notification.permission === 'denied' ? 'blocked' : 'ask';
+  });
+  async function allowWebPush() {
+    const { subscribeWebPush } = await import('$lib/push');
+    await subscribeWebPush(uid);
+    webPushState = Notification.permission === 'granted' ? 'on' : Notification.permission === 'denied' ? 'blocked' : 'ask';
+  }
+
   async function scheduleAlarms() {
     // In the APK, Android owns the schedule (see nativeAlarms.ts) — the WebView has
     // no Notifications API, so the service-worker path below can only ever work on
@@ -153,6 +166,17 @@
   <span class="sync-dot" class:synced={$syncStatus === 'synced'} class:syncing={$syncStatus === 'syncing'} class:error={$syncStatus === 'error'}></span>
   {#if $syncStatus === 'synced'}Synced just now{:else if $syncStatus === 'syncing'}Syncing…{:else if $syncStatus === 'error'}Sync error — check your connection{:else}Not connected{/if}
 </div>
+
+{#if webPushState === 'ask'}
+  <!-- On the web, reminders need the browser's permission; asked only here
+       and in setup, when the person chooses them. -->
+  <div class="card" style="padding:13px 14px">
+    <p style="font-size:0.875rem;line-height:1.5;color:var(--text);margin:0 0 10px">Allow notifications so your reminders can reach you{iphone ? '. On iPhone, add Moderly to your Home Screen first (Share, then Add to Home Screen) and open it from there' : ''}.</p>
+    <button class="btn bp bsm" onclick={allowWebPush}>Allow notifications</button>
+  </div>
+{:else if webPushState === 'blocked'}
+  <div class="card" style="padding:13px 14px"><p style="font-size:0.875rem;line-height:1.5;color:var(--muted);margin:0">Notifications are blocked for this site in your browser's settings, so reminders can't reach you here.</p></div>
+{/if}
 
 <Moments />
 

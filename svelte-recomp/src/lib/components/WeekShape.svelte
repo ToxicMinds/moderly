@@ -64,14 +64,15 @@
   .ws-col{display:flex;flex-direction:column;align-items:center;gap:5px;min-width:0;--c:var(--muted)}
   .ws-col.hot{--c:var(--led-warn)}
   .ws-n{font-family:var(--font-display);font-size:0.9375rem;font-weight:700;letter-spacing:.01em;color:var(--c);
-    font-variant-numeric:lining-nums tabular-nums;white-space:nowrap;text-shadow:0 0 8px color-mix(in srgb,var(--c) 45%,transparent)}
-  .ws-bar{position:relative;width:70%;height:84px;background:color-mix(in srgb,var(--c) 12%,#000);
+    font-variant-numeric:lining-nums tabular-nums;white-space:nowrap}
+  /* A measuring rule's ticks, filled to the day's share: the app's own idiom. */
+  .ws-bar{position:relative;width:70%;height:84px;background:color-mix(in srgb,var(--c) 14%,var(--bg3));border-radius:3px;
     -webkit-mask:repeating-linear-gradient(0deg,#000 0 5px,transparent 5px 7px);mask:repeating-linear-gradient(0deg,#000 0 5px,transparent 5px 7px)}
-  .ws-bar i{position:absolute;left:0;right:0;bottom:0;background:var(--c);box-shadow:0 0 8px color-mix(in srgb,var(--c) 55%,transparent)}
-  .ws-d{font-family:var(--font-label);font-size:0.875rem;font-weight:700;color:#ece9e2}
-  .ws-kg{font-size:0.6875rem;font-weight:700;color:#8b9097;min-height:1em;font-variant-numeric:lining-nums tabular-nums}
+  .ws-bar i{position:absolute;left:0;right:0;bottom:0;background:var(--c)}
+  .ws-d{font-family:var(--font-label);font-size:0.875rem;font-weight:700;color:var(--text)}
+  .ws-kg{font-size:0.6875rem;font-weight:700;color:var(--muted);min-height:1em;font-variant-numeric:lining-nums tabular-nums}
   .ws-kg.hi{color:var(--led-warn)}
-  .ws-kg.lo{color:#ece9e2}
+  .ws-kg.lo{color:var(--text)}
   .ws-key{display:flex;justify-content:space-between;gap:10px;font-size:0.6875rem;color:var(--muted);margin-top:6px}
   .ws-foot{font-size:0.8125rem;line-height:1.5;color:var(--muted);margin:10px 0 0}
 </style>

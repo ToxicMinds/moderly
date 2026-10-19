@@ -192,6 +192,9 @@
         if (keeping && weightKg && !$_existing?.line) await saveLine(weightKg + LINE_MARGIN_KG, todayYmd());
         if (native) await saveMoments({ on: wantMoments, after: '06:00', hold: wantMoments });
         else if (wantWeighIn) {
+          // The tap on Start is the gesture browsers want before asking.
+          const { subscribeWebPush } = await import('$lib/push');
+          await subscribeWebPush(uid);
           // One weigh-in reminder per user, ever (a fixed auto_key), so finishing
           // setup twice can't stack two.
           const { error: alarmErr } = await supabase.from('alarms').upsert({

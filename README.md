@@ -16,6 +16,14 @@ your home screen), or the Android app from
 installed by hand for now. No account needed to start. **How it works:**
 [moderly.vercel.app/about](https://moderly.vercel.app/about/).
 
+<p>
+<img src="https://moderly.vercel.app/about/today.webp" alt="Today: the weight trend with a balance tilting toward the next stop" width="250">
+<img src="https://moderly.vercel.app/about/scale-up.webp" alt="When the scale jumps, Moderly explains why from your own data" width="300">
+<img src="https://moderly.vercel.app/about/keep-hero.webp" alt="Keep-it-off mode: days inside your range" width="300">
+</p>
+
+Made-up data. More at [moderly.vercel.app/about](https://moderly.vercel.app/about/).
+
 ## What it does
 
 - **Your trend, not today's number.** One line through your morning weigh-ins, with how

@@ -195,7 +195,8 @@
   stats={[
     { v: changeToDate != null ? `${changeToDate >= 0 ? '−' : '+'}${dwtNum(changeToDate)}` : '—', l: `${changeWord()} to date` },
     { v: wv ? `${wv.rateKgPerWeek >= 0 ? '−' : '+'}${dwtNum(wv.rateKgPerWeek, 2)}` : '—', l: `${changeWord()} / week` },
-    { v: strengthArrow, l: 'strength' }
+    // Strength only for people whose lifts it can read; anyone else sees their goal.
+    strengthArrow !== '—' ? { v: strengthArrow, l: 'strength' } : { v: goalKg != null ? wtShort(goalKg) : '—', l: 'goal' }
   ]} />
 
 {#if wv}
