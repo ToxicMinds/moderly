@@ -67,9 +67,15 @@ live Vercel site, so the installed app loads the same build a browser does.
   `svelte-recomp/android/**` triggers `.github/workflows/build-app-apk.yml`, which
   publishes to the `recompos-app-latest` GitHub release.
 
-Since `1774240` every APK is signed with the committed `recompos.keystore`, so installs
-are true in-place updates — data and login survive. `ApkInstallerPlugin` gives a one-tap
-in-app update.
+Every APK is signed in CI from repository secrets, so installs are true in-place
+updates (data and login survive); `ApkInstallerPlugin` gives a one-tap in-app update.
+The original key leaked into this repo's history, so since build 13 every APK carries
+APK Signature Scheme v3 key rotation (v1/v2 with the old key, v3 with the Moderly key and
+an old -> new lineage). The workflow's `update` job installs the current release on an
+Android 14 emulator, updates it to the new build, checks app data survived and that an
+old-key-only APK is refused; `publish` runs only after it. Bump `versionCode` and
+`LATEST_NATIVE_BUILD` together, and deploy the web only after the release is published,
+or the app offers an update the release doesn't have yet.
 
 ## Deploy
 
@@ -84,10 +90,10 @@ vercel --prod --yes --token "$VERCEL_TOKEN"
 - Use `/usr/local/bin/vercel`. `npx vercel` fails here (Node 25 vs the CLI engine range).
 - Quote `"$VERCEL_TOKEN"` — unquoted trips the CLI's "contents are invalid" check.
 - The live app is **`svelte-recomp.vercel.app`** (the APK's `server.url`), also served
-  at **`recompos-app.vercel.app`** (a free second name added 2026-10-18 for sharing and
-  SEO; same deployment). `recompos.vercel.app` is NOT ours: a different Next.js
-  "RecompOS" outside this Vercel account (verified 2026-10-18). Checking it after a
-  deploy shows unrelated HTML and looks like a failure.
+  at **`moderly.vercel.app`** (the public name; landing page at `/about/`, guides under
+  `/guides/`). `recompos.vercel.app` is NOT ours: a different Next.js "RecompOS"
+  outside this Vercel account (verified 2026-10-18). Checking it after a deploy shows
+  unrelated HTML and looks like a failure.
 - Verify: `curl -sI https://svelte-recomp.vercel.app/ | grep -i '^age'`. A large `age`
   means the deploy didn't land.
 - The `vercel` MCP tools are authed to a different account and cannot see this project.
@@ -140,7 +146,10 @@ insert rejected `42501`, cross-user update/delete affected 0 rows.
 
 ## Supabase notes
 
-Project ref `jerbhsasccvjelkkphgu`. The anon and service_role JWTs authenticate data
+Project ref `jerbhsasccvjelkkphgu`. **The shell exports SUPABASE_PROJECT_REF and
+SUPABASE_ACCESS_TOKEN for a different project**: always source
+`~/.config/recompos/supabase.env` in the same command, and have scripts that write
+assert the ref first. The anon and service_role JWTs authenticate data
 calls only — service_role gets **401 from `api.supabase.com`** and cannot run migrations
 or deploy functions. Only the `sbp_…` personal access token can. Edge functions live
 under the **root** `supabase/functions/` — the only copy (a second copy under
