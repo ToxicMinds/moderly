@@ -1067,7 +1067,7 @@ check('CI fails loudly rather than shipping an unsignable APK', async () => {
   // The old key leaked: every APK carries the rotation to the new one, and the
   // old key may not sign a rollback.
   assert.match(wf, /--next-signer "\$\{NEW\[@\]\}" --lineage "\$K\/lineage\.bin"/);
-  assert.match(wf, /--set-rollback false/);
+  assert.match(wf, /grep -q "Has rollback capability      : false"/, 'the old key may not sign a rollback (apksigner’s default, checked)');
   // The release moves only after an emulator proved the update keeps data and
   // refuses the old key alone.
   assert.match(wf, /publish:\n\s*needs: update/);

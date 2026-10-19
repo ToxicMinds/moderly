@@ -97,7 +97,7 @@ jobs:
 
       # The old key is public, so the platform must stop accepting it: the new
       # key becomes the app's signer through a signed lineage (old -> new), and
-      # the old key loses "rollback", so once a phone has this build an APK
+      # the old key has no "rollback" right, so once a phone has this build an APK
       # signed with the old key alone can't update it. v1/v2 stay signed with
       # the old key for Android < 9, which can't follow a rotation.
       - name: Rotate the signing key
@@ -112,9 +112,11 @@ jobs:
           K="$HOME/.recompos"
           OLD=(--ks "$K/recompos.keystore" --ks-key-alias "$OLD_ALIAS" --ks-pass env:OLD_PASS)
           NEW=(--ks "$K/moderly.p12" --ks-key-alias "$NEW_ALIAS" --ks-pass env:NEW_PASS)
-          "$SIGNER" rotate --out "$K/rotated.bin" --old-signer "${OLD[@]}" --new-signer "${NEW[@]}"
-          "$SIGNER" lineage --in "$K/rotated.bin" --out "$K/lineage.bin" --signer "${OLD[@]}" --set-rollback false
-          "$SIGNER" lineage --in "$K/lineage.bin" --print-certs
+          "$SIGNER" rotate --out "$K/lineage.bin" --old-signer "${OLD[@]}" --new-signer "${NEW[@]}"
+          # apksigner gives the old key no rollback capability by default (and
+          # `lineage --set-rollback false` then has nothing to write); check it.
+          "$SIGNER" lineage --in "$K/lineage.bin" --print-certs | tee lineage.txt
+          grep -A6 "Signer #1 in lineage" lineage.txt | grep -q "Has rollback capability      : false"
           cp android/app/build/outputs/apk/debug/app-debug.apk old-key-only.apk
           "$SIGNER" sign --in android/app/build/outputs/apk/debug/app-debug.apk --out moderly.apk \
             "${OLD[@]}" --next-signer "${NEW[@]}" --lineage "$K/lineage.bin" --rotation-min-sdk-version 28

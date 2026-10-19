@@ -1,0 +1,26 @@
+/* Moderly guides: one reading column in the app's "Brass balance" look. */
+@font-face{font-family:'Cormorant Garamond';src:url('/fonts/cormorant-latin.woff2') format('woff2');font-weight:300 700;font-display:swap}
+@font-face{font-family:'Atkinson Hyperlegible Next';src:url('/fonts/atkinson-latin.woff2') format('woff2');font-weight:200 800;font-display:swap}
+:root{--ink:#101826;--ink2:#182337;--rule:#2A3854;--chalk:#EDE7DA;--muted:#9AA6B8;--brass:#C9A54E;color-scheme:dark}
+@media (prefers-color-scheme:light){:root{--ink:#F1F2F4;--ink2:#FFFFFF;--rule:#D3D7DE;--chalk:#101826;--muted:#4E5A6B;--brass:#8A6A1F;color-scheme:light}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ink);color:var(--chalk);font:1.0625rem/1.65 'Atkinson Hyperlegible Next',system-ui,sans-serif;font-variant-numeric:lining-nums}
+main{max-width:700px;margin:0 auto;padding-block:28px 64px;padding-left:max(20px,env(safe-area-inset-left,0px));padding-right:max(20px,env(safe-area-inset-right,0px))}
+a{color:var(--brass);text-underline-offset:3px}
+.top{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:32px}
+.top a.brand{font-family:'Cormorant Garamond',Georgia,serif;font-size:1.6rem;font-weight:700;color:var(--chalk);text-decoration:none}
+.top a.go{background:var(--brass);color:var(--ink);font-weight:700;text-decoration:none;padding:10px 16px;border-radius:12px}
+h1,h2{font-family:'Cormorant Garamond',Georgia,serif;font-weight:700;line-height:1.08;text-wrap:balance}
+h1{font-size:clamp(2.4rem,7vw,3.4rem);margin:0 0 14px}
+h2{font-size:1.9rem;margin:40px 0 10px}
+.lede{font-size:1.2rem;color:var(--chalk)}
+.meta{font-size:.875rem;color:var(--muted);margin-bottom:24px}
+.box{background:var(--ink2);border:1px solid var(--rule);border-radius:14px;padding:16px 18px;margin:20px 0}
+.box b{color:var(--brass)}
+table{border-collapse:collapse;width:100%;font-size:.9375rem;margin:12px 0}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--rule);vertical-align:top}
+.tbl{overflow-x:auto}
+.cta{margin:44px 0 0;padding:20px;border:1px solid var(--rule);border-radius:16px;background:var(--ink2)}
+.cta a.go{display:inline-block;margin-top:8px;background:var(--brass);color:var(--ink);font-weight:700;text-decoration:none;padding:12px 18px;border-radius:12px}
+.src{font-size:.875rem;color:var(--muted)}
+.src li{margin:5px 0}
