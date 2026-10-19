@@ -161,9 +161,12 @@ jobs:
           set -eu
           PKG=com.toxicminds.recompos
           adb install current.apk
-          adb shell run-as $PKG sh -c 'mkdir -p files && echo kept > files/update-marker'
+          # One string per adb shell: adb joins its arguments and the device's
+          # shell re-splits them, so inner quotes must survive the trip.
+          adb shell "run-as $PKG sh -c 'mkdir -p files && echo kept > files/update-marker'"
+          adb shell "run-as $PKG cat files/update-marker"
           adb install -r moderly.apk
-          adb shell run-as $PKG cat files/update-marker | grep -q kept
+          adb shell "run-as $PKG cat files/update-marker" | grep -q kept
           echo "updated in place, data kept"
           if adb install -r old-key-only.apk; then
             echo "::error::An APK signed with the old key alone still updates the app."
