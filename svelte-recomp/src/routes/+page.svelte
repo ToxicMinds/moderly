@@ -97,6 +97,19 @@
     finally { periodSaving = false; }
   }
 
+  // iPhone, in Safari rather than from the Home Screen: there's no store
+  // listing and no install prompt, so say how, once.
+  const IOS_KEY = 'recompos.iosHint';
+  let iosHint = $state(false);
+  try {
+    const standalone = (navigator as any).standalone === true || matchMedia('(display-mode: standalone)').matches;
+    iosHint = /iPhone|iPad/.test(navigator.userAgent) && !standalone && !localStorage.getItem(IOS_KEY);
+  } catch { /* storage disabled */ }
+  function hideIosHint() {
+    iosHint = false;
+    try { localStorage.setItem(IOS_KEY, '1'); } catch { /* storage disabled */ }
+  }
+
   let editingGoal = $state(false);
   let goalEditKg = $state<number | null>(null);
 
@@ -323,6 +336,13 @@
     </div>
     {#if saveMsg}<div class="mw-err">{saveMsg}</div>{/if}
     <p class="mw-hint">{#if lastWeighLabel}Last reading {lastWeighLabel}.{' '}{/if}Same time, before food or drink. One morning is noise; the trend — the line through five weeks of mornings — is the number.</p>
+  </div>
+{/if}
+
+{#if iosHint}
+  <div class="card sv">
+    <p class="sv-t"><b>On iPhone:</b> tap Share, then Add to Home Screen. Moderly opens like an app, and can remind you in the morning.</p>
+    <div class="sv-row"><button class="sv-later" onclick={hideIosHint}>Got it</button></div>
   </div>
 {/if}
 
