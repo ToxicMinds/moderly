@@ -4058,6 +4058,32 @@ check('a sport night is anyone’s sport: the plan for after it is named for no 
   assert.match(b.body, /^19:00 Football\.$/m); assert.match(b.body, /^After sport: Shake first\.$/m);
 });
 
+check('period-aware weight learns the person’s own swing, and says only that it’s learning before three cycles', async () => {
+  const { cycleInfo, cycleNote } = await import('../src/lib/cycle.ts');
+  const day = (n) => { const d = new Date('2026-05-01T12:00:00'); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
+  // Four cycles of 28 days; mornings read +0.8 kg in the five days before a
+  // start and its first two, and scatter ±0.2 otherwise.
+  const starts = [0, 28, 56, 84, 112].map(day);
+  const residuals = [];
+  for (let n = 0; n < 112; n++) {
+    const toNext = 28 - (n % 28);
+    const near = (n % 28) <= 1 || toNext <= 5;
+    residuals.push({ date: day(n), kg: near ? 0.8 : (n % 3 - 1) * 0.2 });
+  }
+  const i = cycleInfo(starts, residuals, day(130));
+  assert.equal(i.cycles, 4); assert.equal(i.lengthDays, 28); assert.equal(i.nextStart, day(140));
+  assert.equal(i.swingKg, 0.8);
+  assert.equal(cycleNote(i, starts, day(137)), 'Around your period your mornings usually read 0.8 kg above your trend; this looks like that.', 'three days before the next');
+  assert.equal(cycleNote(i, starts, day(125)), null, 'mid-cycle: nothing to say');
+  // Two cycles in: it doesn't pretend to know.
+  const early = cycleInfo(starts.slice(0, 3), residuals.slice(0, 56), day(60));
+  assert.equal(early.swingKg, null);
+  assert.match(cycleNote(early, starts.slice(0, 3), day(57)), /^Around a period many people hold some water\. After three cycles/);
+  // Learned, and it hardly moves this person: silence, not a claim.
+  const flat = cycleInfo(starts, residuals.map((r) => ({ ...r, kg: 0.05 })), day(130));
+  assert.equal(cycleNote(flat, starts, day(137)), null);
+});
+
 // --- Importing weigh-ins from another app ------------------------------------
 
 check('a weight history comes in from any app, one morning a day, in kg', async () => {

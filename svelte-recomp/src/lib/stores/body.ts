@@ -26,6 +26,7 @@ import { heldUnder, milestoneState, type MilestoneState } from '$lib/milestone';
 import { pulse, type KeepInput, type Pulse } from '$lib/pulse';
 import { programWeek } from '$lib/program';
 import { explainUp, type UpExplained } from '$lib/scaleUp';
+import { cycleInfo, cycleNote } from '$lib/cycle';
 
 export interface DayIntake { kcal: number; protein: number; carbs: number; fat: number; items: number }
 
@@ -180,14 +181,14 @@ export const shape: Readable<WeekShape | null> = derived(
 /** "Why is the scale up?": this morning's reading explained from the person's
  *  own log when it's high (src/lib/scaleUp.ts); null on an ordinary morning. */
 export const scaleUp: Readable<UpExplained | null> = derived(
-  [body, liveWeights(), shape, liveWorkoutLogs(), liveActivitySessions(), liveSessionCompletions()],
-  ([$b, $weights, $shape, $logs, $activity, $done]) => {
+  [body, liveWeights(), shape, liveWorkoutLogs(), liveActivitySessions(), liveSessionCompletions(), liveProfile(), liveDailyLogs()],
+  ([$b, $weights, $shape, $logs, $activity, $done, $profile, $daily]) => {
     const weights = (($weights as any[]) ?? []).map((w) => ({ date: w.date, weight: +w.weight }));
     const today = weights.find((w) => w.date === $b.today);
     if (!today) return null;
     const before = weights.filter((w) => w.date < $b.today);
     const prev = before.at(-1) ?? null;
-    return explainUp({
+    const input = {
       today: $b.today, kg: today.weight, prev: prev ? { date: prev.date, kg: prev.weight } : null,
       trendKg: $b.weight?.trendKg ?? null,
       // The trend as it stood before this morning's reading.
@@ -195,7 +196,18 @@ export const scaleUp: Readable<UpExplained | null> = derived(
       scatterKg: $b.weight?.scatterKg ?? null,
       intake: $b.intake, weekdayOffsets: $shape?.scale ?? null,
       trained: trainingDays([...(($logs as any[]) ?? []), ...(($done as any[]) ?? [])], ($activity as any[]) ?? []),
+    };
+    const plain = explainUp(input);
+    if (!plain || !($profile as any)?.cycle_aware) return plain;
+    // Period-aware: only on a high morning, the person's own swing (cycle.ts),
+    // from the last two hundred days of mornings against their trend.
+    const starts = (($daily as any[]) ?? []).filter((l) => l.period).map((l) => l.date as string);
+    const from = shiftYmd(-200, new Date(`${$b.today}T12:00:00`));
+    const residuals = weights.filter((w) => w.date >= from).flatMap((w) => {
+      const t = weightVerdict(weights, Date.parse(`${w.date}T12:00:00`))?.trendKg;
+      return t == null ? [] : [{ date: w.date, kg: w.weight - t }];
     });
+    return explainUp({ ...input, cycleNote: cycleNote(cycleInfo(starts, residuals, $b.today), starts, $b.today) });
   },
 );
 

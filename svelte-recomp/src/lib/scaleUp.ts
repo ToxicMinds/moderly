@@ -26,6 +26,8 @@ export interface UpInput {
   weekdayOffsets: (number | null)[] | null;
   /** Days with training in them. */
   trained: Set<string>;
+  /** Period-aware weight, when it's on and today is near a period (cycle.ts). */
+  cycleNote?: string | null;
 }
 
 export interface UpExplained { title: string; reasons: string[]; trend: string }
@@ -59,6 +61,7 @@ export function explainUp(i: UpInput): UpExplained | null {
     const usual = median(usualDays);
     if (y - usual >= 350) reasons.push(`Yesterday you logged ${round10(y)} kcal, about ${round10(y - usual)} more than your usual day. A bigger day holds extra food and water in you for a day or two.`);
   }
+  if (i.cycleNote) reasons.push(i.cycleNote);
   // 2. The person's own weekly rhythm.
   const dow = (new Date(`${i.today}T12:00:00`).getDay() + 6) % 7;
   const off = i.weekdayOffsets?.[dow] ?? null;

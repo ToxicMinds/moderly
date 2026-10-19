@@ -31,6 +31,8 @@ installed by hand for now. No account needed to start. **How it works:**
   ceiling, your own plan comes back with one gentle step down.
 - **When the scale jumps, it says why**, from your own log: a bigger day, the
   weekend, a first workout after a break, or nothing it can see.
+- **Period-aware weight, if you want it:** mark the first day of each period; after
+  three cycles Moderly learns your own water swing and explains those mornings.
 - **Plans for the hard moments.** Write what you'll do on a Friday night or a late
   evening; the evening notification hands it back at that moment, with a line from
   Epictetus or Marcus Aurelius.

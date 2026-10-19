@@ -88,6 +88,15 @@
     try { localStorage.setItem(LATER_KEY, String(laterAt)); } catch { /* storage disabled */ }
   }
 
+  let periodSaving = $state(false);
+  async function togglePeriod() {
+    if (!uid || periodSaving) return;
+    periodSaving = true;
+    try { await upsertRecord('daily_logs', { user_id: uid, date: today, period: !todayLog?.period }); }
+    catch (e) { console.error('Period save failed:', e); }
+    finally { periodSaving = false; }
+  }
+
   let editingGoal = $state(false);
   let goalEditKg = $state<number | null>(null);
 
@@ -327,6 +336,13 @@
   </div>
 {/if}
 
+{#if ($_profile as any)?.cycle_aware}
+  <!-- Period-aware weight (Settings): one tap marks the first day. -->
+  <button class="pd" class:on={!!todayLog?.period} onclick={togglePeriod} disabled={periodSaving}>
+    {todayLog?.period ? 'Period started today ✓' : 'Period started today? Tap to mark it'}
+  </button>
+{/if}
+
 <!-- The goal held for three days: keep it here, or aim lower. -->
 <GoalMoment onAimLower={() => { editingGoal = true; goalEditKg = null; }} />
 
@@ -393,6 +409,8 @@
 
 <style>
   .mw{padding:13px 14px}
+  .pd{display:block;width:100%;margin:-6px 0 14px;background:none;border:1px dashed var(--border2);border-radius:var(--r-md);padding:9px 12px;font:inherit;font-size:0.8125rem;font-weight:700;color:var(--muted);text-align:left;cursor:pointer}
+  .pd.on{border-style:solid;color:var(--text)}
   .su{padding:13px 14px}
   .su-t{font-family:var(--font-display);font-size:1.375rem;font-weight:700;color:var(--text);margin-bottom:6px}
   .su-r{margin:0;padding-left:1.05rem;font-size:0.875rem;line-height:1.5;color:var(--text)}

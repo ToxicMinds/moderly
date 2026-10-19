@@ -124,6 +124,13 @@
   const unitsKey = $derived((($_profile as any)?.units as string | undefined) ?? 'metric');
   const UNIT_CHOICES = [{ v: 'metric', l: 'kg' }, { v: 'imperial', l: 'lb' }, { v: 'stone', l: 'st' }] as const;
   let unitsErr = $state('');
+  const cycleOn = $derived(!!($_profile as any)?.cycle_aware);
+  async function toggleCycle() {
+    const id = $user?.id;
+    if (!id) return;
+    try { await upsertRecord('user_settings', { user_id: id, cycle_aware: !cycleOn, updated_at: new Date().toISOString() }); }
+    catch (e: any) { unitsErr = 'Could not change it: ' + (e?.message || String(e)).slice(0, 100); }
+  }
   async function chooseUnits(v: string) {
     unitsErr = '';
     const id = $user?.id;
@@ -542,6 +549,10 @@
       </div>
     </div>
     {#if unitsErr}<div class="menu-note">{unitsErr}</div>{/if}
+    <button class="menu-item" onclick={toggleCycle}>
+      <span>Period-aware weight</span><span class="menu-val">{cycleOn ? 'On' : 'Off'}</span>
+    </button>
+    {#if cycleOn}<div class="menu-note">Mark the first day of each period on Today. After three cycles Moderly learns how much your weight moves around a period and explains those mornings. Off by default; turning it off keeps the dates you marked.</div>{/if}
     <button class="menu-item" onclick={toggleTheme}>
       <span>Theme</span><span class="menu-val">☀️ / 🌙</span>
     </button>
