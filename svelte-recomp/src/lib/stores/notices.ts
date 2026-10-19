@@ -80,3 +80,6 @@ export const hasProblems = derived(notices, ($n) => $n.some((x) => x.level === '
 
 /** The "Save your account" sheet, opened from Settings or Today's reminder. */
 export const saveAccountOpen = writable(false);
+
+/** "Bring your weigh-ins", opened from Settings or day one on Today. */
+export const importOpen = writable(false);

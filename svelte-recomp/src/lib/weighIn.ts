@@ -29,6 +29,9 @@ export async function saveWeighIn(uid: string, kg: number, ctx: {
     id: existing?.id || undefined,
     user_id: uid, date: ctx.today, weight: kg,
     created_at: new Date().toISOString(),
+    // A reading typed here is the person's own: it replaces an imported one
+    // for that day, and undoing the import must never take it away.
+    source: null,
   });
   haptic('success');
   // Fire-and-forget: a Health Connect write must never be able to fail the

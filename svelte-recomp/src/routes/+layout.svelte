@@ -5,7 +5,8 @@
   import { syncStatus } from '$lib/stores/sync';
   import { user, authReady, initAuth, signOut, deleteAccount, isTrial } from '$lib/stores/user';
   import SaveAccount from '$lib/components/SaveAccount.svelte';
-  import { saveAccountOpen } from '$lib/stores/notices';
+  import { saveAccountOpen, importOpen } from '$lib/stores/notices';
+  import ImportWeights from '$lib/components/ImportWeights.svelte';
   import { initSync, destroySync, upsertRecord } from '$lib/stores/sync';
   import { subscribeWebPush } from '$lib/push';
   import { playAlarmMelody } from '$lib/alarmSound';
@@ -514,6 +515,7 @@
   </Modal>
 
   <SaveAccount open={$saveAccountOpen} onclose={() => saveAccountOpen.set(false)} />
+  <ImportWeights open={$importOpen} onclose={() => importOpen.set(false)} />
 
   <Modal open={menuOpen} onclose={() => (menuOpen = false)}>
     <div class="menu-h">Settings</div>
@@ -544,6 +546,9 @@
     </button>
     <button class="menu-item" onclick={toggleHaptics}>
       <span>Haptics</span><span class="menu-val">{haptics ? 'On 📳' : 'Off'}</span>
+    </button>
+    <button class="menu-item" onclick={() => { menuOpen = false; importOpen.set(true); }}>
+      <span>Import weigh-ins</span><span class="menu-val">From another app</span>
     </button>
     <!-- Your data is yours. Everything the account owns, in one tap, in a format
          a spreadsheet or another app can actually read. -->

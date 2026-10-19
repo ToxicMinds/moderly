@@ -3392,7 +3392,9 @@ check('one weigh-in path, one place the commitments are saved', async () => {
   const { readFileSync } = await import('node:fs');
   const files = await srcFiles();
   const weighs = files.filter((f) => /upsertRecords?\('weights'/.test(readFileSync(f, 'utf8')));
-  assert.deepEqual(weighs.sort(), ['src/lib/components/Onboarding.svelte', 'src/lib/weighIn.ts'], 'onboarding seeds the first one; everything else goes through saveWeighIn');
+  // Importing a history writes past days in bulk (no typo prompt, no
+  // messages, never over a day already logged); today's reading is saveWeighIn's.
+  assert.deepEqual(weighs.sort(), ['src/lib/components/ImportWeights.svelte', 'src/lib/components/Onboarding.svelte', 'src/lib/weighIn.ts'], 'onboarding seeds the first one; an import adds past days; everything else goes through saveWeighIn');
   // A write that carries one of them, not a file that merely reads one.
   const commits = files.filter((f) => /upsertRecord\('user_settings',\s*\{[^}]*\b(line|plans|why|milestone):/.test(readFileSync(f, 'utf8')));
   assert.deepEqual(commits, ['src/lib/commitments.ts']);
@@ -3969,11 +3971,81 @@ check('body weight is never printed as raw kg: it goes through units.ts', async 
   for (const f of files) {
     if (LIFTING.test(f)) continue;
     readFileSync(f, 'utf8').split('\n').forEach((line, i) => {
-      if (/^\s*(\/\/|\*|<!--)/.test(line)) return;
+      if (/^\s*(\/\/|\*|<!--)/.test(line) || line.includes('units-ok')) return;
       if (/(toFixed\(\d\)|\})(<\/b>)? ?kg\b/.test(line) || /([kK]g|[wW]eight|trend)\??\.toFixed\(/.test(line) && /\.svelte$/.test(f)) bad.push(`${f}:${i + 1}`);
     });
   }
   assert.deepEqual(bad, [], 'use wt()/dwt() from units.ts');
+});
+
+check('a day is stored on the device once: server-numbered rows are kept only as the server returned them', async () => {
+  const { readFileSync } = await import('node:fs');
+  const sync = readFileSync('src/lib/stores/sync.ts', 'utf8');
+  assert.match(sync, /const SERVER_IDS = new Set\(\['weights', 'steps', 'sessions'\]\);/);
+  assert.match(sync, /SERVER_IDS\.has\(table\) \? await write\.select\(\) : await write/, 'the server’s rows, with their ids, come back');
+  assert.match(sync, /\.where\('\[user_id\+date\]'\)\.anyOf\(rowsBack\.map/, 'those days’ local rows are replaced, not added to');
+  assert.equal((sync.match(/await dropStrays\(table, data\);/g) ?? []).length, 2, 'both full pulls drop rows the server doesn’t have');
+});
+
+// --- Importing weigh-ins from another app ------------------------------------
+
+check('a weight history comes in from any app, one morning a day, in kg', async () => {
+  const { parseWeightFile, readingsFrom, guessUnit, appleRecords } = await import('../src/lib/importWeights.ts');
+  const read = (text, unit = 'kg', dayFirst = false) => { const p = parseWeightFile(text); return { p, r: readingsFrom(p, p.unit ?? unit, dayFirst) }; };
+
+  // Withings: quoted headers with the unit in them.
+  let { p, r } = read('Date,"Weight (kg)","Fat mass (kg)",Comments\n"2024-01-06 07:10:00",83.1,20.0,\n"2024-01-05 07:12:00",83.4,20.1,\n');
+  assert.equal(p.unit, 'kg'); assert.deepEqual(r, [{ date: '2024-01-05', kg: 83.4 }, { date: '2024-01-06', kg: 83.1 }], 'oldest first, the weight column not the fat one');
+
+  // Garmin-style: the unit on every value, and month names.
+  ({ p, r } = read('Time,Weight,Change,BMI\n" Jan 5, 2024",183.6 lbs,0.4 lbs,26.1\n'));
+  assert.equal(p.unit, 'lb'); assert.deepEqual(r, [{ date: '2024-01-05', kg: 83.28 }]);
+
+  // Libra: semicolons, a header written as a comment, the unit in a comment.
+  ({ p, r } = read('#Version:6\n#Units:kg\n\n#date;weight;weight trend;body fat;body fat trend;comment\n2023-03-04T07:12:00.000Z;95,5;95,5;;;\n'));
+  assert.equal(p.unit, 'kg'); assert.deepEqual(r, [{ date: '2023-03-04', kg: 95.5 }], 'a comma decimal in a semicolon file');
+
+  // Samsung Health: a metadata line before the header; Google Fit's "Average weight (kg)".
+  ({ r } = read('com.samsung.health.weight,6302003,5\nstart_time,weight,height,body_fat\n2024-01-05 07:12:00.000,83.4,178,\n'));
+  assert.deepEqual(r, [{ date: '2024-01-05', kg: 83.4 }]);
+  ({ r } = read('Date,Move Minutes count,Average weight (kg),Max weight (kg)\n2024-01-05,30,83.4,83.9\n'));
+  assert.deepEqual(r, [{ date: '2024-01-05', kg: 83.4 }], 'the average, not the max');
+
+  // MyFitnessPal: no unit anywhere, so the person's own unit decides, and US slashes.
+  ({ p, r } = read('Date,Weight\n01/05/2024,183.6\n01/06/2024,183.2\n', 'lb'));
+  assert.equal(p.unit, null); assert.equal(p.dateOrderUnclear, true, '01/05 could be 1 May or 5 January');
+  assert.deepEqual(r.map((x) => x.date), ['2024-01-05', '2024-01-06'], 'month first when chosen');
+  assert.deepEqual(readingsFrom(p, 'lb', true).map((x) => x.date), ['2024-05-01', '2024-06-01'], 'day first when chosen');
+  assert.equal(guessUnit(p, 'kg'), 'lb', 'a median over 150 is pounds');
+  // One day past the 12th settles every date in the file.
+  ({ p, r } = read('Date,Weight\n13/01/2024,83.4\n05/01/2024,83.9\n'));
+  assert.equal(p.dateOrderUnclear, false);
+  assert.deepEqual(r.map((x) => x.date), ['2024-01-05', '2024-01-13'], '05/01 read day-first too');
+
+  // Fitbit JSON (Google Takeout), in the account's unit; Moderly's own export.
+  ({ r } = read('[{"logId":1,"weight":183.6,"bmi":26,"date":"01/05/24","time":"07:12:00","source":"Aria"}]', 'lb'));
+  assert.deepEqual(r, [{ date: '2024-01-05', kg: 83.28 }]);
+  ({ p, r } = read(JSON.stringify({ app: 'Moderly', tables: { weights: [{ date: '2026-10-01', weight: 90.2, created_at: '2026-10-01T07:00:00Z' }] } })));
+  assert.equal(p.format, 'Moderly export'); assert.deepEqual(r, [{ date: '2026-10-01', kg: 90.2 }]);
+
+  // Apple Health: the morning reading wins a day with two; other records ignored.
+  const xml = '<?xml version="1.0"?><HealthData>'
+    + '<Record type="HKQuantityTypeIdentifierStepCount" unit="count" startDate="2024-01-05 08:00:00 +0100" value="900"/>'
+    + '<Record type="HKQuantityTypeIdentifierBodyMass" sourceName="Withings" unit="lb" startDate="2024-01-05 19:40:00 +0100" value="185.0"/>'
+    + '<Record type="HKQuantityTypeIdentifierBodyMass" sourceName="Health" unit="lb" startDate="2024-01-05 07:12:00 +0100" value="183.6">\n <MetadataEntry key="x" value="y"/>\n</Record>'
+    + '</HealthData>';
+  ({ p, r } = read(xml));
+  assert.equal(p.format, 'Apple Health'); assert.deepEqual(r, [{ date: '2024-01-05', kg: 83.28 }]);
+  // Read in pieces cut anywhere, the same records come out, none twice.
+  for (const cut of [40, 150, 177, 260]) {
+    let rest = '', all = [];
+    for (const piece of [xml.slice(0, cut), xml.slice(cut)]) { const o = appleRecords(rest + piece); all = all.concat(o.raw); rest = o.rest; }
+    assert.equal(all.length, 2, `cut at ${cut}`);
+  }
+
+  // Nonsense and typos stay out.
+  ({ r } = read('date,weight\n2024-01-05,8.3\n2024-01-06,830\n2024-01-07,not a weight\n2024-01-08,83.0\n'));
+  assert.deepEqual(r, [{ date: '2024-01-08', kg: 83 }]);
 });
 
 // Nothing may be reported until the async checks have actually settled.

@@ -35,6 +35,9 @@ installed by hand for now. No account needed to start. **How it works:**
 - **Health Connect** on Android: steps, sleep and workouts from your watch.
 - **For anyone:** start without an account and save it later; kilograms, pounds or
   stone; a walking week if you don't go to a gym. For adults (18+).
+- **Bring your history:** import weigh-ins from Apple Health, Libra, Happy Scale,
+  MyFitnessPal, Withings, Fitbit, Google Fit, Samsung Health or any CSV, so the trend
+  starts on day one. Read on the device; one reading a day; undoable.
 
 ## Principles
 

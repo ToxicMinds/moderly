@@ -11,6 +11,7 @@
   import PageHero from './PageHero.svelte';
   import { editing } from '$lib/commitments';
   import { wtShortU, wtNum } from '$lib/units';
+  import { importOpen } from '$lib/stores/notices';
 
   let { greeting = 'Today', sub = '', mornings = null } = $props<{
     greeting?: string; sub?: string;
@@ -51,6 +52,7 @@
         </li>
       {/each}
     </ol>
+    <button type="button" class="ph-import" onclick={() => importOpen.set(true)}>Weighed yourself in another app? Bring your history and the trend starts today →</button>
   </PageHero>
 {:else}
   <PageHero title={greeting} {sub} tone={p.tone} pct={p.pct}
@@ -88,4 +90,5 @@
   .ph-step-txt{display:flex;flex-direction:column;gap:2px;min-width:0}
   .ph-step-txt b{font-size:0.875rem;font-weight:800;color:var(--text)}
   .ph-step-txt em{font-style:normal;font-size:0.75rem;line-height:1.4;color:var(--muted)}
+  .ph-import{display:block;width:100%;text-align:left;background:none;border:none;padding:10px 2px 0;font:inherit;font-size:0.8125rem;font-weight:700;color:var(--amber);cursor:pointer}
 </style>

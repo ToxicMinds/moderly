@@ -4,12 +4,33 @@ import db from '$lib/db/dexie';
 import type { RealtimeChannel, RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 import { notify } from './notices';
 import { pageAll } from '$lib/paging';
+import { userId } from './user';
 
 export type SyncStatus = 'idle' | 'syncing' | 'synced' | 'error';
 export const syncStatus = writable<SyncStatus>('idle');
 export const syncError = writable<string | null>(null);
 
 const channels: RealtimeChannel[] = [];
+
+// Tables whose local key is an id the SERVER assigns (bigint identity), not a
+// natural key. A row put on this device before the server has given it an id
+// gets a second, local one: the same weigh-in stored twice, which the trend
+// then counts twice. So rows of these tables are written locally only as the
+// server returned them, and a full pull removes any local row the server
+// doesn't have.
+const SERVER_IDS = new Set(['weights', 'steps', 'sessions']);
+
+/** After a full pull of one of those tables: drop this device's rows the
+ *  server doesn't have (strays from before this fix, or rows deleted on
+ *  another device while this one was offline). Local writes only ever follow
+ *  a server write, so nothing unsaved can be lost here. */
+async function dropStrays(table: string, data: any[]) {
+  if (!SERVER_IDS.has(table)) return;
+  const uid = get(userId);
+  if (!uid) return;
+  const ids = new Set(data.map((r) => r.id));
+  await dexieTable(table).where('user_id').equals(uid).filter((r: any) => !ids.has(r.id)).delete();
+}
 
 const TABLES = ['alarms', 'daily_logs', 'checks', 'tracks', 'weights', 'steps', 'sessions', 'user_settings', 'workout_schedule', 'workout_sessions_custom', 'workout_logs', 'food_logs', 'biometrics', 'recipes_custom', 'activity_sessions'] as const;
 
@@ -99,6 +120,7 @@ export async function initSync(uid: string) {
       try {
         const data = await pullTable(table);
         if (data.length > 0) await dexieTable(table).bulkPut(data);
+        await dropStrays(table, data);
         lastPulled.set(table, JSON.stringify(data));
 
         const channel = supabase
@@ -159,6 +181,7 @@ export async function refetchAll(): Promise<void> {
         const seen = JSON.stringify(data);
         if (lastPulled.get(table) === seen) return;
         if (data.length > 0) await dexieTable(table).bulkPut(data);
+        await dropStrays(table, data);
         lastPulled.set(table, seen);
       } catch (e: any) {
         failures.push(table);
@@ -241,11 +264,24 @@ export async function upsertRecords(table: string, rows: Record<string, any>[]) 
       ? rows.map(({ id, ...rest }) => rest)
       : rows;
 
-    const { error } = await supabase.from(table).upsert(remote, onConflict ? { onConflict } : {});
+    const write = supabase.from(table).upsert(remote, onConflict ? { onConflict } : {});
+    const { data: saved, error } = SERVER_IDS.has(table) ? await write.select() : await write;
 
     if (error) {
       syncStatus.set('error');
       throw error;
+    }
+
+    if (SERVER_IDS.has(table)) {
+      // This device keeps the server's rows, with the server's ids: those
+      // days' local rows are replaced, never added to.
+      const rowsBack = (saved ?? []) as any[];
+      if (table !== 'sessions' && rowsBack.length) {
+        await dexieTable(table).where('[user_id+date]').anyOf(rowsBack.map((r) => [r.user_id, r.date])).delete();
+      }
+      if (rowsBack.length) await dexieTable(table).bulkPut(rowsBack);
+      syncStatus.set('synced');
+      return;
     }
 
     // Defensive: Svelte 5 $state proxies (arrays/objects) can fail
