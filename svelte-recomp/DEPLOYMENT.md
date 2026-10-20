@@ -91,7 +91,7 @@ supabase functions deploy send-alarm-push --project-ref jerbhsasccvjelkkphgu
 | Setting | Value |
 |---|---|
 | Production URL | **https://svelte-recomp.vercel.app** |
-| Vercel project | `nikibmacc-2092s-projects/svelte-recomp` |
+| Vercel project | `svelte-recomp` (team: `vercel whoami`) |
 | Project ID | `prj_JCoFsmV7KyTnkeadpZsx5vwJgS0J` |
 | Root Directory | `svelte-recomp` |
 | Framework | SvelteKit (`@sveltejs/adapter-auto` → Vercel adapter, auto-detected) |
@@ -112,7 +112,7 @@ vercel deploy --prod --token <your-vercel-token>
 
 ## Vercel account
 
-- Account: `nikibmacc-2092`
+- Account: the one in `~/.config/recompos/vercel.env` (`vercel whoami` names it)
 - CLI installed locally via `brew install vercel-cli`; authenticate with `vercel login`
   or `vercel --token <token>` (get a token from https://vercel.com/account/tokens —
   never commit it, keep it in your password manager).

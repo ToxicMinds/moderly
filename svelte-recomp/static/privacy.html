@@ -29,7 +29,7 @@ li{margin:6px 0}
 <main>
 <a class="home" href="/">← Moderly</a>
 <h1>Privacy</h1>
-<p class="updated">Last updated 18 October 2026</p>
+<p class="updated">Last updated 20 October 2026</p>
 
 <p class="short"><strong>The short version.</strong> Moderly keeps your data to run the app
 for you, in the EU. It leaves only when you use a feature that needs it: an AI estimate, a
@@ -66,8 +66,9 @@ the app works offline. The app itself is served by Vercel.</p>
 <p>Only when you use the feature:</p>
 <ul>
 <li><strong>An AI estimate</strong> (food from a photo or a description, a recipe idea):
-sent to Google's Gemini API. Moderly uses Gemini's free tier for now, and on the free tier
-Google may use what is sent to improve its products, and people at Google may read it.
+sent to Google's Gemini API. Moderly uses Gemini's free tier for now, but because Moderly is
+run from the EU, Google's terms give it the paid tier's data rules: Google does not use what is
+sent to improve its products, and keeps it only for a limited time, to detect misuse.
 Photos go only to Gemini. A text request (a description, a recipe) may go to Kilo's AI
 gateway or Pollinations when Gemini is busy. Moderly does not keep a photo sent only for an
 estimate.</li>

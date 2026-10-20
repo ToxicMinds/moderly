@@ -24,7 +24,7 @@ the wrong directory.
 | Repo | `ToxicMinds/moderly` (**public**; was `schedule`, old URLs redirect) | private |
 | Stack | SvelteKit 5 PWA + Capacitor Android | NestJS + Next.js, pnpm monorepo |
 | Data | Supabase `jerbhsasccvjelkkphgu` | its own Supabase + Neo4j |
-| Hosting | Vercel `svelte-recomp`, account `nikibmacc-2092` | Render |
+| Hosting | Vercel `svelte-recomp` (account: `vercel whoami`) | Render |
 | Secrets | `~/.config/recompos/*.env` | `.env.local` in that repo |
 
 ## Credentials — all three are already stored. Never ask for them again.
