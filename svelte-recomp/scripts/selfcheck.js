@@ -1223,10 +1223,34 @@ check('photos go to Gemini alone, and body photos only once Gemini is on its pai
   assert.match(llm, /name: 'gemini', vision: true/);
   assert.match(llm, /openAiCompatible\('kilo', KILO_URL, false,/, 'no photo through a free gateway');
   assert.match(llm, /openAiCompatible\('pollinations', POLLINATIONS_URL, false,/);
-  assert.match(llm, /PROVIDERS\.filter\(\(p\) => \(!a\.image \|\| p\.vision\)/);
+  assert.match(llm, /const chain = a\.image \? geminiModels\.map\(geminiModel\) : PROVIDERS;\n  const providers = chain\.filter\(\(p\) => \(!a\.image \|\| p\.vision\)/, 'a photo races Gemini models only');
   const bf = readFileSync('../supabase/functions/estimate-bf/index.ts', 'utf8');
   assert.ok(bf.indexOf('if (!GEMINI_PAID)') > 0 && bf.indexOf('if (!GEMINI_PAID)') < bf.indexOf('await ask('), 'refused before any provider sees it');
   assert.match(readFileSync('static/privacy.html', 'utf8'), /no body photo leaves Moderly/);
+});
+
+check('a photo races the Gemini models, so one stuck model costs a stagger, not the whole wait', async () => {
+  // 2026-10-20: three meal photos failed in a row. Gemini answered 503 "high
+  // demand" or not at all, and its models were tried one after another, so two
+  // 20 s timeouts used up the 40 s deadline before the others were asked.
+  const realFetch = globalThis.fetch, realDeno = globalThis.Deno;
+  globalThis.Deno = { env: { get: (k) => (k === 'GEMINI_API_KEY' ? 'test' : undefined) } };
+  globalThis.fetch = async (url, init) => {
+    const model = String(url).match(/models\/([^:]+):/)?.[1];
+    if (model === 'gemini-3.5-flash') return new Promise((_, no) => init.signal.addEventListener('abort', () => no(new Error('aborted'))));
+    if (model === 'gemini-3.1-flash-lite') return new Response('{"error":{"message":"high demand"}}', { status: 503 });
+    return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: '{"ok":1}' }] } }] }));
+  };
+  try {
+    const { ask } = await import('../../supabase/functions/_shared/llm.ts?race');
+    const t0 = Date.now();
+    const r = await ask({ prompt: 'p', image: { mime: 'image/jpeg', data: 'x' }, timeoutMs: 5000 }, (s) => JSON.parse(s), { staggerMs: 50, deadlineMs: 2000 });
+    assert.equal(r.provider, 'gemini-3.5-flash-lite');
+    assert.ok(Date.now() - t0 < 1000, 'answered without waiting out the stuck model');
+  } finally {
+    globalThis.fetch = realFetch;
+    if (realDeno === undefined) delete globalThis.Deno; else globalThis.Deno = realDeno;
+  }
 });
 
 check('a trial gets a smaller AI allowance, keeps no photos, and is deleted after 30 idle days', async () => {

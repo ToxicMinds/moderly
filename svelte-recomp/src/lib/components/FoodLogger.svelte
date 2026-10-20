@@ -41,6 +41,8 @@
   let saving = $state(false);
   let photoMode: 'meal' | 'label' = 'meal';
   let fileInput: HTMLInputElement | undefined = $state();
+  // Kept after a failed attempt, so trying again doesn't mean taking it again.
+  let retryPhoto: { image: string; mode: 'meal' | 'label' } | null = $state(null);
   let inputEl: HTMLInputElement | undefined = $state();
 
   const history = $derived(historyFoods(logs));
@@ -101,7 +103,7 @@
   }
 
   function reset() {
-    pending = null; query = ''; notice = ''; working = ''; missBarcode = null;
+    pending = null; query = ''; notice = ''; working = ''; missBarcode = null; retryPhoto = null;
     products = []; productState = 'idle';
   }
 
@@ -142,12 +144,17 @@
     const input = e.target as HTMLInputElement;
     const file = input.files?.[0];
     input.value = '';
-    if (!file) return;
-    notice = ''; working = photoMode === 'label' ? 'Reading the label…' : 'Looking at your plate…';
+    if (file) await readPhoto(file, photoMode);
+  }
+
+  async function readPhoto(photo: File | string, mode: 'meal' | 'label') {
+    retryPhoto = null;
+    notice = ''; working = mode === 'label' ? 'Reading the label…' : 'Looking at your plate…';
+    let image = typeof photo === 'string' ? photo : '';
     try {
       // A label needs legible small print; a plate doesn't.
-      const image = await fileToDownscaledDataUrl(file, { maxEdge: photoMode === 'label' ? 1600 : 1024, quality: 0.85 });
-      const r = await estimateWithAI({ image, mode: photoMode, description: photoMode === 'meal' ? query.trim() || undefined : undefined });
+      image ||= await fileToDownscaledDataUrl(photo as File, { maxEdge: mode === 'label' ? 1600 : 1024, quality: 0.85 });
+      const r = await estimateWithAI({ image, mode, description: mode === 'meal' ? query.trim() || undefined : undefined });
       if ('error' in r) { notice = r.error; return; }
       if (r.mode === 'label') {
         const servings = [
@@ -164,7 +171,10 @@
         pending = { kind: 'meal', name: r.name, items: r.items.length ? r.items : [{ ...r, name: r.name, grams: null }], note: `AI estimate · ${r.confidence} confidence`, source: 'ai', mult: 1 };
       }
     } catch {
-      notice = 'Photo analysis is unreachable right now. Describe the food in words instead — that works offline too.';
+      if (image) retryPhoto = { image, mode };
+      notice = image
+        ? 'The photo reader didn’t answer this time. Try again in a minute, or describe the food in words — that works offline too.'
+        : 'Couldn’t open that photo. Try another, or describe the food in words.';
     } finally {
       working = '';
     }
@@ -245,6 +255,9 @@
 
   {#if working}<div class="lg-working" aria-live="polite"><span class="lg-dot"></span>{working}</div>{/if}
   {#if notice}<div class="lg-notice" aria-live="polite">{notice}</div>{/if}
+  {#if retryPhoto && notice && !working}
+    <div class="lg-miss"><button class="btn bp" onclick={() => retryPhoto && readPhoto(retryPhoto.image, retryPhoto.mode)}>Try the same photo again</button></div>
+  {/if}
   {#if missBarcode && !pending}
     <div class="lg-miss">
       <button class="btn bp" onclick={() => photo('label')}>Snap its nutrition table</button>

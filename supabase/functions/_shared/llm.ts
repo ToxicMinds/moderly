@@ -8,8 +8,8 @@
 //
 // Photos go to Gemini alone (decided 2026-10-18): a food or body photo is too
 // personal to send through a free gateway whose data handling we can't check.
-// When Gemini is busy, a photo estimate fails and the person can describe the
-// food in words instead, which every provider can answer.
+// When every Gemini model is busy, a photo estimate fails; the app keeps the
+// photo for another try, and words work with every provider.
 //
 // WHY (2026-10-16): each function called ONE hardcoded Gemini model with no
 // timeout. Measured from this project's edge runtime that day,
@@ -132,36 +132,41 @@ async function rediscover() {
   } catch { /* keep the old list; the other providers still run */ }
 }
 
-const gemini: Provider = {
-  name: 'gemini', vision: true,
-  async run(a, parse, signal) {
-    if (!GEMINI_KEY) throw new Error('gemini: no key');
-    let last = 'gemini: no model answered';
-    for (let i = 0; i < geminiModels.length; i++) {
-      const model = geminiModels[i];
-      try {
-        let res = await geminiCall(model, a, 'minimal', signal);
-        let body = await res.json().catch(() => ({}));
-        // Some models (gemini-flash-latest) reject 'minimal'; 'low' is the floor there.
-        if (res.status === 400 && /thinking/i.test(body?.error?.message ?? '')) {
-          res = await geminiCall(model, a, 'low', signal);
-          body = await res.json().catch(() => ({}));
-        }
-        if (!res.ok) {
-          last = `${model}: HTTP ${res.status} ${scrub(body?.error?.message ?? '')}`;
-          if (res.status === 404 && i === geminiModels.length - 1 && !rediscovered) await rediscover();
-          continue;
-        }
-        const text = (body?.candidates?.[0]?.content?.parts ?? []).map((p: any) => p.text ?? '').join('');
-        return { value: parse(text), provider: model };
-      } catch (e) {
-        if (e instanceof Refusal || signal.aborted) throw e;
-        last = `${model}: ${scrub(String((e as Error)?.message ?? e))}`;
+/** Try `models` in turn. Every model's failure is kept: the log used to show
+ *  only the last one, which hid what the others had done. */
+async function geminiRun<T>(models: string[], a: Ask, parse: (t: string) => T, signal: AbortSignal) {
+  if (!GEMINI_KEY) throw new Error('gemini: no key');
+  const fails: string[] = [];
+  for (const model of models) {
+    try {
+      let res = await geminiCall(model, a, 'minimal', signal);
+      let body = await res.json().catch(() => ({}));
+      // Some models (gemini-flash-latest) reject 'minimal'; 'low' is the floor there.
+      if (res.status === 400 && /thinking/i.test(body?.error?.message ?? '')) {
+        res = await geminiCall(model, a, 'low', signal);
+        body = await res.json().catch(() => ({}));
       }
+      if (!res.ok) {
+        fails.push(`${model}: HTTP ${res.status} ${scrub(body?.error?.message ?? '')}`);
+        if (res.status === 404 && model === geminiModels.at(-1) && !rediscovered) await rediscover();
+        continue;
+      }
+      const text = (body?.candidates?.[0]?.content?.parts ?? []).map((p: any) => p.text ?? '').join('');
+      return { value: parse(text), provider: model };
+    } catch (e) {
+      if (e instanceof Refusal || signal.aborted) throw e;
+      fails.push(`${model}: ${scrub(String((e as Error)?.message ?? e))}`);
     }
-    throw new Error(last);
-  },
-};
+  }
+  throw new Error(fails.join(' | ') || 'gemini: no model answered');
+}
+
+const gemini: Provider = { name: 'gemini', vision: true, run: (a, parse, signal) => geminiRun(geminiModels, a, parse, signal) };
+// A photo has no provider but Gemini, so its models race instead of queueing:
+// a stuck or overloaded model then costs one stagger, not the whole deadline.
+// (2026-10-20: three photos in a row failed, the first on HTTP 503 "high
+// demand", the next two waiting out 20 s timeouts one model after another.)
+const geminiModel = (model: string): Provider => ({ name: 'gemini', vision: true, run: (a, parse, signal) => geminiRun([model], a, parse, signal) });
 
 function openAiCompatible(name: string, url: string, vision: boolean, models: (a: Ask) => string[], extra: Record<string, unknown> = {}): Provider {
   return {
@@ -217,14 +222,15 @@ const PROVIDERS: Provider[] = [
 export const GEMINI_PAID: boolean = (globalThis as any).Deno?.env.get('GEMINI_TIER') === 'paid';
 
 export function ask<T>(a: Ask, parse: (text: string) => T, opts: Options = {}): Promise<{ value: T; provider: string }> {
-  const providers = PROVIDERS.filter((p) => (!a.image || p.vision) && (!opts.only || opts.only.includes(p.name)));
+  const chain = a.image ? geminiModels.map(geminiModel) : PROVIDERS;
+  const providers = chain.filter((p) => (!a.image || p.vision) && (!opts.only || opts.only.includes(p.name)));
   const stagger = opts.staggerMs ?? (a.image ? 9_000 : 6_000);
   const ctrl = new AbortController();
   const errors: string[] = [];
   return new Promise((resolve, reject) => {
     if (!providers.length) return reject(Object.assign(new Error('no provider matches'), { errors }));
     let next = 0, running = 0, done = false, timer: number | undefined;
-    const deadline = setTimeout(() => end(new Error('deadline')), opts.deadlineMs ?? 40_000);
+    const deadline = setTimeout(() => { errors.push(`deadline, ${running} still running`); end(new Error('deadline')); }, opts.deadlineMs ?? 40_000);
     function end(v: { value: T; provider: string } | Error) {
       if (done) return;
       done = true;
