@@ -1,0 +1,18 @@
+{
+  "appId": "com.toxicminds.recompos",
+  "appName": "Moderly",
+  "webDir": "build",
+  "server": {
+    "url": "https://svelte-recomp.vercel.app",
+    "androidScheme": "https"
+  },
+  "android": {
+    "backgroundColor": "#101826"
+  },
+  "plugins": {
+    "LocalNotifications": {
+      "smallIcon": "ic_stat_moderly",
+      "iconColor": "#C9A54E"
+    }
+  }
+}

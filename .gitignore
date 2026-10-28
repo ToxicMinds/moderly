@@ -1,0 +1,12 @@
+# Editor-local, machine-specific. The Java extension writes this the moment
+# anyone opens svelte-recomp/android/ — it is not project configuration.
+.vscode/
+
+# Signing keys never live in this repo. It is PUBLIC, and an APK signed with
+# this key installs as an in-place update over everyone's existing app.
+# Real home: ~/.config/recompos/recompos.keystore (mode 600) and the
+# ANDROID_KEYSTORE_B64 repository secret. See svelte-recomp/android/app/build.gradle.
+*.keystore
+*.jks
+.DS_Store
+.idea/

@@ -1,0 +1,167 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Health Connect read permissions (OnePlus Watch data) -->
+    <uses-permission android:name="android.permission.health.READ_STEPS" />
+    <uses-permission android:name="android.permission.health.READ_SLEEP" />
+    <uses-permission android:name="android.permission.health.READ_HEART_RATE" />
+    <uses-permission android:name="android.permission.health.READ_RESTING_HEART_RATE" />
+    <uses-permission android:name="android.permission.health.READ_HEART_RATE_VARIABILITY" />
+    <uses-permission android:name="android.permission.health.READ_EXERCISE" />
+    <uses-permission android:name="android.permission.health.READ_ACTIVE_CALORIES_BURNED" />
+    <uses-permission android:name="android.permission.health.READ_TOTAL_CALORIES_BURNED" />
+    <uses-permission android:name="android.permission.health.READ_DISTANCE" />
+    <!-- Weigh-ins from a smart scale's app (build 13+; asked on its own, see
+         syncScaleWeights in src/lib/health/healthConnect.ts). -->
+    <uses-permission android:name="android.permission.health.READ_WEIGHT" />
+
+    <!-- Health Connect WRITE permissions. The watch was a one-way street: a
+         session logged by hand in this app (the "watch missed one" flow) and a
+         weigh-in typed into Progress existed here and nowhere else, so the
+         user's own workout history disagreed with itself depending on which app
+         they opened. Only these two are declared — things the user explicitly
+         entered. Writing anything derived or estimated into the platform record
+         would pollute every other app that reads it.
+         Keep in sync with WRITE_PERMISSION in src/lib/health/permissions.ts. -->
+    <uses-permission android:name="android.permission.health.WRITE_EXERCISE" />
+    <uses-permission android:name="android.permission.health.WRITE_WEIGHT" />
+
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- Haptics. The native @capacitor/haptics plugin (and the WebView's
+         navigator.vibrate fallback) both no-op silently without this, which is
+         exactly why the app felt nothing on the moments that matter — a PR, a
+         new low, hitting protein. Declaring it lets the OS-grade impact and
+         notification haptics actually fire. -->
+    <uses-permission android:name="android.permission.VIBRATE" />
+
+    <!-- In-app updater. Lets the app install a newly downloaded APK itself (the
+         one-tap "Update" flow), so a native update never means opening a browser
+         or file manager. Android shows the user a one-time "allow from this app"
+         prompt the first time it's used. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
+    <!-- Alarms & reminders.
+         POST_NOTIFICATIONS (Android 13+) is the gate on showing ANY notification.
+         Without it declared, Android auto-denies the runtime request without ever
+         showing a dialog, so every alarm was posted into the void.
+
+         Exact alarms: from Android 12, AlarmManager silently downgrades to an
+         INEXACT alarm — batched with other wakeups, routinely 15+ minutes late —
+         unless one of these is held. An alarm that goes off "sometime in the next
+         quarter hour" is not an alarm. USE_EXACT_ALARM is auto-granted on 13+ and
+         is the correct declaration for an app whose user-facing purpose IS alarms;
+         SCHEDULE_EXACT_ALARM covers 12 and 12L, where the user grants it in
+         Settings (the app deep-links them there once - see nativeAlarms.ts).
+
+         RECEIVE_BOOT_COMPLETED and WAKE_LOCK come from the local-notifications
+         plugin's own manifest via the merger, so they are not repeated here. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"
+        android:maxSdkVersion="32" />
+
+    <!-- Camera. Required for BOTH in-app camera paths, which fail differently
+         without it:
+         1. Barcode scanning uses getUserMedia(). Capacitor's BridgeWebChromeClient
+            .onPermissionRequest() maps the WebView's VIDEO_CAPTURE request onto
+            Manifest.permission.CAMERA and asks the OS for it. Android silently
+            auto-denies a runtime request for a permission the app never declared,
+            so the WebView request was denied with no dialog ever shown.
+         2. The "photo of food" <input capture> path needs it so Capacitor takes
+            the runtime-permission branch of isMediaCaptureSupported() rather than
+            the undeclared-permission shortcut.
+         The device is NOT required to have a camera — barcode entry falls back to
+         typing the number, so keep this optional or Play/installers would filter
+         camera-less devices. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+
+    <!-- Morning briefing: the weather where the phone is. APPROXIMATE only —
+         a forecast needs the town, not the street, and Android's dialog then
+         offers nothing finer. Read through the WebView's navigator.geolocation
+         (Capacitor's BridgeWebChromeClient asks the OS); the coordinates are
+         rounded before they leave the phone (src/lib/weather.ts). -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+
+    <application
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/AppTheme">
+
+        <activity
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation"
+            android:name=".MainActivity"
+            android:label="@string/title_activity_main"
+            android:theme="@style/AppTheme.NoActionBarLaunch"
+            android:launchMode="singleTask"
+            android:exported="true">
+
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!-- Health Connect permissions rationale (Android 13 and below) -->
+            <intent-filter>
+                <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE" />
+            </intent-filter>
+
+        </activity>
+
+        <!-- Health Connect permissions rationale (Android 14+) -->
+        <activity-alias
+            android:name="ViewPermissionUsageActivity"
+            android:exported="true"
+            android:targetActivity=".MainActivity"
+            android:permission="android.permission.START_VIEW_PERMISSION_USAGE">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW_PERMISSION_USAGE" />
+                <category android:name="android.intent.category.HEALTH_PERMISSIONS" />
+            </intent-filter>
+        </activity-alias>
+
+        <!-- Morning briefing and evening hold: each posted at the first unlock
+             inside its window (see MomentClock). Re-arms after a reboot, which
+             clears alarms, and after an update. -->
+        <receiver
+            android:name=".MomentReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths"></meta-data>
+        </provider>
+    </application>
+
+    <!-- Health Connect package visibility (Android 11+ package-visibility rules) -->
+    <queries>
+        <package android:name="com.google.android.apps.healthdata" />
+        <intent>
+            <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE" />
+        </intent>
+
+        <!-- Camera app visibility. Under Android 11+ package-visibility rules,
+             Intent(MediaStore.ACTION_IMAGE_CAPTURE).resolveActivity() returns null
+             without this — so Capacitor's showImageCapturePicker() bailed out and
+             fell back to the plain file picker. THAT is why "photo of food" could
+             only ever open the gallery. -->
+        <intent>
+            <action android:name="android.media.action.IMAGE_CAPTURE" />
+        </intent>
+    </queries>
+
+</manifest>

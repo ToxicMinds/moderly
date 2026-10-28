@@ -1,0 +1,101 @@
+apply plugin: 'com.android.application'
+
+android {
+    namespace "com.toxicminds.recompos"
+    compileSdk rootProject.ext.compileSdkVersion
+    defaultConfig {
+        applicationId "com.toxicminds.recompos"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        versionCode 13
+        versionName "2.2"
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        aaptOptions {
+             // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
+             // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
+            ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
+        }
+    }
+    // Every APK is signed with ONE stable key so installs are true in-place
+    // updates (no uninstall, data + login preserved). Before it, CI regenerated
+    // a throwaway debug key every run, so each APK had a different signature and
+    // Android refused to update over the previous one.
+    //
+    // The key itself is NOT in this repo any more. It lived here — with its
+    // password in this file — in a PUBLIC repository, which meant anyone could
+    // sign an APK that Android would accept as an in-place update to
+    // com.toxicminds.recompos, on a package that ships its own APK installer.
+    //
+    // It now comes from, in order:
+    //   1. ANDROID_KEYSTORE_FILE / ANDROID_KEYSTORE_PASSWORD env  (CI, from
+    //      repository secrets — the workflow decodes ANDROID_KEYSTORE_B64)
+    //   2. ~/.config/recompos/recompos.keystore                   (this machine)
+    // With neither, the release/debug signingConfig is left unset and Gradle
+    // falls back to its own debug key: a local build still works, and the ONLY
+    // consequence is that its output cannot update a properly-signed install.
+    // That is the right failure — a missing key must never silently produce an
+    // APK signed by something else that looks legitimate.
+    def ksPath = System.getenv('ANDROID_KEYSTORE_FILE')
+        ?: "${System.getProperty('user.home')}/.config/recompos/recompos.keystore"
+    def ksFile = file(ksPath)
+    def ksPass = System.getenv('ANDROID_KEYSTORE_PASSWORD')
+    def ksAlias = System.getenv('ANDROID_KEY_ALIAS') ?: 'recompos'
+    def haveKeystore = ksFile.exists() && ksPass != null && !ksPass.isEmpty()
+
+    if (!haveKeystore) {
+        logger.warn("RecompOS: no signing keystore at ${ksPath} — this build CANNOT update an installed app.")
+    }
+
+    signingConfigs {
+        stable {
+            if (haveKeystore) {
+                storeFile ksFile
+                storePassword ksPass
+                keyAlias ksAlias
+                keyPassword ksPass
+                storeType 'PKCS12'
+            }
+        }
+    }
+    buildTypes {
+        debug {
+            // Only claim the stable config when the key is actually present;
+            // otherwise leave Gradle's own debug signing in place (see above).
+            if (haveKeystore) signingConfig signingConfigs.stable
+        }
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            if (haveKeystore) signingConfig signingConfigs.stable
+        }
+    }
+}
+
+repositories {
+    flatDir{
+        dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'
+    }
+}
+
+dependencies {
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
+    implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
+    implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
+    implementation project(':capacitor-android')
+    testImplementation "junit:junit:$junitVersion"
+    androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
+    androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
+    implementation project(':capacitor-cordova-android-plugins')
+}
+
+apply from: 'capacitor.build.gradle'
+
+try {
+    def servicesJSON = file('google-services.json')
+    if (servicesJSON.text) {
+        apply plugin: 'com.google.gms.google-services'
+    }
+} catch(Exception e) {
+    logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
+}

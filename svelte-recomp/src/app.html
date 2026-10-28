@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#101826" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Moderly" />
+    <title>Moderly — lose weight moderately, keep it off</title>
+    <meta name="description" content="A free, open-source weight-loss app for people doing it on their own: a trend instead of the daily scale, a calorie budget learned from your own log, and a plan for the moments that undo most diets. No ads, no account needed to start." />
+    <link rel="canonical" href="https://moderly.vercel.app/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Moderly" />
+    <meta property="og:title" content="Moderly — lose weight moderately, keep it off" />
+    <meta property="og:description" content="A free, open-source weight-loss app that learns from your own scale, so a rough food log is good enough. No ads. No account needed to start." />
+    <meta property="og:url" content="https://moderly.vercel.app/" />
+    <meta property="og:image" content="https://moderly.vercel.app/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="manifest" href="%sveltekit.assets%/manifest.json" />
+    <link rel="apple-touch-icon" href="%sveltekit.assets%/apple-touch-icon.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="%sveltekit.assets%/favicon-32.png" />
+    <link rel="icon" type="image/svg+xml" href="%sveltekit.assets%/icon.svg" />
+    %sveltekit.head%
+    <script>
+      /* Apply the saved theme and text size BEFORE first paint.
+         Both were applied from an $effect, i.e. after hydration, so the app
+         painted at the wrong size/colour and then jumped. A text-size setting
+         that visibly snaps on every launch reads as a bug, so it goes here —
+         synchronous, blocking, before the first frame. Wrapped in try/catch
+         because a WebView with storage disabled must still boot. */
+      try {
+        if (localStorage.getItem('theme') === 'light')
+          document.documentElement.setAttribute('data-theme', 'light');
+        var s = parseFloat(localStorage.getItem('uiScale'));
+        if (s >= 1 && s <= 1.4)
+          document.documentElement.style.setProperty('--ui-scale', String(s));
+      } catch (e) {}
+    </script>
+  </head>
+  <body data-sveltekit-preload-data="hover">
+    <div style="display:contents">%sveltekit.body%</div>
+  </body>
+</html>

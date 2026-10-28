@@ -1,0 +1,41 @@
+{
+	"name": "svelte-recomp",
+	"private": true,
+	"version": "0.0.1",
+	"type": "module",
+	"scripts": {
+		"dev": "vite dev",
+		"build": "vite build",
+		"preview": "vite preview",
+		"prepare": "svelte-kit sync || echo ''",
+		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+		"selfcheck": "node scripts/selfcheck.js",
+		"check:videos": "node scripts/check-videos.mjs",
+		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
+		"verify": "node scripts/selfcheck.js && svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --threshold error && vite build"
+	},
+	"devDependencies": {
+		"@capacitor/android": "^7.6.8",
+		"@capacitor/cli": "^7.6.8",
+		"@sveltejs/adapter-auto": "^7.0.1",
+		"@sveltejs/adapter-static": "^3.0.10",
+		"@sveltejs/kit": "^2.57.0",
+		"@sveltejs/vite-plugin-svelte": "^7.0.0",
+		"svelte": "^5.55.2",
+		"svelte-check": "^4.4.6",
+		"typescript": "^6.0.2",
+		"vite": "^8.0.7"
+	},
+	"dependencies": {
+		"@capacitor/app": "^7.1.2",
+		"@capacitor/core": "^7.6.8",
+		"@capacitor/filesystem": "^7.1.8",
+		"@capacitor/haptics": "^7.0.5",
+		"@capacitor/local-notifications": "^7.0.7",
+		"@capacitor/share": "^7.0.4",
+		"@kiwi-health/capacitor-health-connect": "^0.0.42",
+		"@supabase/supabase-js": "^2.107.0",
+		"barcode-detector": "3.2.2",
+		"dexie": "^4.4.3"
+	}
+}

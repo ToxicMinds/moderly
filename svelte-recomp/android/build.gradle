@@ -1,0 +1,56 @@
+// Top-level build file where you can add configuration options common to all sub-projects/modules.
+
+buildscript {
+    
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:8.9.1'
+        classpath 'com.google.gms:google-services:4.4.2'
+
+        // NOTE: Do not place your application dependencies here; they belong
+        // in the individual module build.gradle files
+    }
+}
+
+apply from: "variables.gradle"
+
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+// Kotlin and Java tasks in the same module must agree on a JVM target, and the
+// plugins here do NOT agree with each other:
+//   @kiwi-health/capacitor-health-connect  pins Kotlin 1.8.20 + Java 17 — it
+//                                          CANNOT target 21 at all
+//   @capacitor/filesystem                  declares Java 21
+// The build runs on JDK 21, so AGP pushes every Kotlin task to 21 by default,
+// which the old Kotlin compiler rejects. Forcing every module to 17 instead —
+// which is what this block used to do — fixed health-connect and then broke
+// filesystem the moment it was added, with "Inconsistent JVM-target
+// compatibility detected ... (21) and ... (17)".
+//
+// Neither constant is right, because the constraint belongs to ONE plugin. So
+// pin only that one, by name, and leave every other module on AGP's default —
+// which already follows the module's own Java target and is what filesystem
+// needs. (Reading android.compileOptions.targetCompatibility here to derive the
+// value generically does NOT work: inside afterEvaluate AGP 8.9 has not resolved
+// it yet and throws "targetCompatibility is not yet finalized".)
+subprojects { proj ->
+    if (proj.name == 'kiwi-health-capacitor-health-connect') {
+        proj.afterEvaluate {
+            if (proj.hasProperty('android') && proj.android.hasProperty('kotlinOptions')) {
+                proj.android.kotlinOptions.jvmTarget = '17'
+            }
+        }
+    }
+}
+
+task clean(type: Delete) {
+    delete rootProject.buildDir
+}
