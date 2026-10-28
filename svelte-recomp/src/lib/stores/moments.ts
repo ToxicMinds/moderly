@@ -19,6 +19,8 @@ import { lastMonth, monthLetter } from '$lib/week';
 import { forecastHere } from '$lib/weather';
 import { OFF_TREND_KG } from '$lib/scale';
 import { toUnit, weightUnit, type WeightUnit } from '$lib/units';
+import { eveningFrom } from '$lib/brain';
+import { brainToday } from './brain';
 
 /** user_settings.briefing: the morning switch and time, and the evening's. */
 export interface MomentSetting { on: boolean; after: string; hold: boolean }
@@ -90,15 +92,17 @@ export const briefings: Readable<Array<Briefing & { actions: MomentActions }>> =
 );
 
 /** The evening hold written for today and tomorrow. Only today's knows the
- *  food; tomorrow's is rewritten tomorrow, whenever the app is next open. */
-export const holds: Readable<Briefing[]> = derived(
-  [body, liveSchedule(), liveProfile()],
-  ([$body, $schedule, $profile]) => {
+ *  food; tomorrow's is rewritten tomorrow, whenever the app is next open.
+ *  Today's is the coach brain's when it wrote one (stores/brain), and null
+ *  when it chose silence: it replaces this one message, never adds one. */
+export const holds: Readable<Array<Briefing | null>> = derived(
+  [body, liveSchedule(), liveProfile(), brainToday],
+  ([$body, $schedule, $profile, $brain]) => {
     const sched = ($schedule as any[]) ?? [];
     const plans = cleanPlans(($profile as any)?.plans);
     return [$body.today, shiftYmd(1, new Date(`${$body.today}T12:00:00`))].map((date, i) => {
       const day = sched.find((s) => s.day_of_week === new Date(`${date}T12:00:00`).getDay());
-      return composeHold({
+      const hold = composeHold({
         date, plans, why: ($profile as any)?.why ?? null,
         // A night the program says no games isn't a sport night.
         sportDay: !!sportOf(day) && !(sportOf(day) === 'Badminton' && badmintonRule(($profile as any)?.program, date)?.play === false),
@@ -107,6 +111,7 @@ export const holds: Readable<Briefing[]> = derived(
           proteinG: $body.intake.get(date)?.protein ?? 0, proteinTargetG: $body.proteinTargetG,
         } : null,
       });
+      return i === 0 ? eveningFrom(hold, $brain) : hold;
     });
   },
 );
@@ -118,7 +123,7 @@ export const moments: Readable<Moment[]> = derived([momentSetting, briefings, ho
   if (!$s) return [];
   const out: Moment[] = [];
   if ($s.on) for (const b of $b) out.push({ ...b, key: 'morning', after: minutesOf($s.after), until: 12 * 60 });
-  if ($s.hold) for (const h of $h) out.push({ ...h, key: 'evening', after: holdAfter(new Date(`${h.date}T12:00:00`).getDay()), until: HOLD_UNTIL });
+  if ($s.hold) for (const h of $h) if (h) out.push({ ...h, key: 'evening', after: holdAfter(new Date(`${h.date}T12:00:00`).getDay()), until: HOLD_UNTIL });
   return out;
 });
 

@@ -33,6 +33,7 @@
   import { offTrend } from '$lib/scale';
   import { badmintonRule } from '$lib/program';
   import { sportOf } from '$lib/plans';
+  import { coachOn, coachNotes, brainNote, runBrainIfDue, setCoach, forgetCoach } from '$lib/stores/brain';
   import { untrack } from 'svelte';
   import { situationalNudges, minutesOfDay } from '$lib/situational';
   import { todayYmd } from '$lib/date';
@@ -131,6 +132,14 @@
     if (!id) return;
     try { await upsertRecord('user_settings', { user_id: id, cycle_aware: !cycleOn, updated_at: new Date().toISOString() }); }
     catch (e: any) { unitsErr = 'Could not change it: ' + (e?.message || String(e)).slice(0, 100); }
+  }
+  async function toggleCoach() {
+    try { await setCoach(!$coachOn); }
+    catch (e: any) { unitsErr = 'Could not change it: ' + (e?.message || String(e)).slice(0, 100); }
+  }
+  async function forgetCoachNotes() {
+    try { await forgetCoach(); }
+    catch (e: any) { unitsErr = 'Could not forget: ' + (e?.message || String(e)).slice(0, 100); }
   }
   async function chooseUnits(v: string) {
     unitsErr = '';
@@ -338,6 +347,15 @@
       briefing: briefingOn,
       hold: holdOn,
     }), now);
+  });
+
+  // ── THE COACH BRAIN ──────────────────────────────────────────────────────
+  // Asked again as the clock and the day move; stores/brain decides whether
+  // it's due (on, after 15:00, the day changed) and does nothing otherwise.
+  $effect(() => {
+    void $nowTick; void $body;
+    if (!$user || $syncStatus !== 'synced') return;
+    untrack(() => runBrainIfDue());
   });
 
   // Global safety net: catch any error that escapes normal event handlers or
@@ -562,6 +580,18 @@
     <button class="menu-item" onclick={toggleCycle}>
       <span>Period-aware weight</span><span class="menu-val">{cycleOn ? 'On' : 'Off'}</span>
     </button>
+    <button class="menu-item" onclick={toggleCoach}>
+      <span>AI coach</span><span class="menu-val">{$coachOn ? 'On' : 'Off'}</span>
+    </button>
+    <div class="menu-note">
+      {#if $coachOn}
+        Each afternoon it writes tonight's message from your last two weeks, or stays quiet when the day needs nothing, and may notice one pattern on Today.
+        {#if $brainNote}<br>{$brainNote}{/if}
+        {#if $coachNotes}<br><br><b>What it has learned:</b> {$coachNotes} <button class="menu-size" onclick={forgetCoachNotes}>Forget</button>{/if}
+      {:else}
+        Lets an AI write tonight's message, or stay quiet, and notice one pattern a day. Once a day it sends Google's Gemini a two-week summary: weights, calories and protein per day, training, your plans and usual foods. No photos and no name. Off unless you turn it on.
+      {/if}
+    </div>
     {#if cycleOn}<div class="menu-note">Mark the first day of each period on Today. After three cycles Moderly learns how much your weight moves around a period and explains those mornings. Off by default; turning it off keeps the dates you marked.</div>{/if}
     <button class="menu-item" onclick={toggleTheme}>
       <span>Theme</span><span class="menu-val">☀️ / 🌙</span>

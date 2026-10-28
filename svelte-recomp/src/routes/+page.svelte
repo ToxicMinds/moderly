@@ -17,6 +17,7 @@
   import MilestoneMoment from '$lib/components/MilestoneMoment.svelte';
   import GoalMoment from '$lib/components/GoalMoment.svelte';
   import MonthLetter from '$lib/components/MonthLetter.svelte';
+  import CoachNoticed from '$lib/components/CoachNoticed.svelte';
   import Commitments from '$lib/components/Commitments.svelte';
   import { strengthTrend } from '$lib/strength';
   import { primaryActivity, trainedDates } from '$lib/health/exercise';
@@ -366,6 +367,9 @@
 
 <!-- The 1st to the 3rd: last month, told back. -->
 <MonthLetter />
+
+<!-- The AI coach's one pattern for today, when it's on and found one. -->
+<CoachNoticed />
 
 <!-- The line, when the trend is over it, and the plan whose moment it is.
      Nothing on an ordinary day. -->
