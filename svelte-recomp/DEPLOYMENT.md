@@ -98,11 +98,8 @@ supabase functions deploy send-alarm-push --project-ref jerbhsasccvjelkkphgu
 | Build Command | `npm run build` (auto) |
 | Env vars set | `PUBLIC_SUPABASE_URL`, `PUBLIC_SUPABASE_PUBLISHABLE_KEY` — on **Production, Preview, and Development** |
 
-If you want Vercel to auto-deploy on every push to `main` going forward, connect the
-project to the `ToxicMinds/schedule` GitHub repo from the Vercel dashboard
-(Project Settings → Git). Right now it was deployed directly from local source via
-`vercel deploy --prod`, so it is **not yet wired to auto-deploy on git push** — that's
-a one-click toggle in the dashboard if you want it.
+Deploys are made from local source with `vercel deploy --prod`, on purpose: the project
+has no Git integration and must not get one, so a push never deploys by itself.
 
 To redeploy manually any time after making changes:
 ```bash

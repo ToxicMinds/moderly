@@ -49,7 +49,7 @@
 
   // — Today's meal plan (from the Nutrition/Recipes page's weekly plan) —
   // The "Today's Meal" card and its meal_plans lookup are gone. Its planner was
-  // deleted in 3319060, so nothing has written meal_plans since — the card could
+  // deleted in October 2026, so nothing has written meal_plans since — the card could
   // only ever render its empty branch, which told users to go set a meal on a
   // page that no longer offers one. The legacy rows held integer ids into the
   // static recipe array, which is also now deleted, so they are unresolvable;
