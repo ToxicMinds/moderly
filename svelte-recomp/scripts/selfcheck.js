@@ -1147,6 +1147,20 @@ check('the coach brain has no reach: no tools, no one else\'s data, off until co
   assert.match(readFileSync('static/privacy.html', 'utf8'), /<strong>The AI coach<\/strong>, only if you turn it on/, 'disclosed before anyone can turn it on');
 });
 
+check('nobody can raise their own AI allowance, so no one account can switch AI off for everyone', async () => {
+  // Security review 2026-10-28: ai_take took its limit from the caller, so a
+  // saved account calling /rest/v1/rpc/ai_take with p_limit 1000000 could spend
+  // the shared daily ceiling. Live proof after the fix: 60 of 61 calls allowed.
+  const { readFileSync, readdirSync } = await import('node:fs');
+  const dir = '../supabase/migrations';
+  const last = readdirSync(dir).filter((f) => readFileSync(`${dir}/${f}`, 'utf8').includes('function public.ai_take')).sort().at(-1);
+  const sql = readFileSync(`${dir}/${last}`, 'utf8');
+  assert.match(sql, /cap\s+integer := case p_bucket when 'ai' then 60 when 'search' then 400 else 60 end;/, 'the allowance is the server\'s');
+  assert.match(sql, /lim\s+integer := least\(greatest\(coalesce\(p_limit, 0\), 0\), cap\);/, 'p_limit can only lower it');
+  assert.match(sql, /if trial then\s+lim := least\(lim, 15\);/, 'trials stay at 15');
+  assert.match(readFileSync('../supabase/functions/_shared/auth.ts', 'utf8'), /DAILY = \{ ai: 60, search: 400 \}/, 'the functions ask for no more than the cap');
+});
+
 check('one definition of "trained today", and the watch counts', async () => {
   // 2026-10-26: a 44-minute gym session on the watch at 14:39, no sets typed
   // in, and at 17:30 the app asked "Training day — still on?". Four screens
