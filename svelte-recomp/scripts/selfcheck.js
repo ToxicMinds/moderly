@@ -1161,6 +1161,15 @@ check('nobody can raise their own AI allowance, so no one account can switch AI 
   assert.match(readFileSync('../supabase/functions/_shared/auth.ts', 'utf8'), /DAILY = \{ ai: 60, search: 400 \}/, 'the functions ask for no more than the cap');
 });
 
+check('an upstream error never carries a Gemini key back to the app, old format or new', async () => {
+  // 2026-10-28: the new key came as AQ.… (53 chars), which the AIza-only scrub missed.
+  const { readFileSync } = await import('node:fs');
+  const src = readFileSync('../supabase/functions/_shared/llm.ts', 'utf8');
+  const re = new RegExp(src.match(/const scrub = \(s: string\) => s\.replace\(\/(.+?)\/g, '\[key\]'\)/)[1], 'g');
+  const old = 'AIza' + 'Sy' + 'x'.repeat(33), auth = 'AQ.' + 'Ab8RN6' + 'x-y_z.'.repeat(8);
+  for (const k of [old, auth]) assert.equal(`bad key ${k} sent`.replace(re, '[key]'), 'bad key [key] sent', k.slice(0, 4));
+});
+
 check('one definition of "trained today", and the watch counts', async () => {
   // 2026-10-26: a 44-minute gym session on the watch at 14:39, no sets typed
   // in, and at 17:30 the app asked "Training day — still on?". Four screens
@@ -1411,7 +1420,8 @@ check('photos go to Gemini alone, and body photos only once Gemini is on its pai
   assert.match(llm, /const chain = a\.image \? geminiModels\.map\(geminiModel\) : PROVIDERS;\n  const providers = chain\.filter\(\(p\) => \(!a\.image \|\| p\.vision\)/, 'a photo races Gemini models only');
   const bf = readFileSync('../supabase/functions/estimate-bf/index.ts', 'utf8');
   assert.ok(bf.indexOf('if (!GEMINI_PAID)') > 0 && bf.indexOf('if (!GEMINI_PAID)') < bf.indexOf('await ask('), 'refused before any provider sees it');
-  assert.match(readFileSync('static/privacy.html', 'utf8'), /no body photo leaves Moderly/);
+  // Paid since 2026-10-28; the page says so, and where a body photo goes.
+  assert.match(readFileSync('static/privacy.html', 'utf8'), /Body fat from a photo:<\/strong> the photo goes only to Gemini's paid tier, never\nto the free gateways/);
 });
 
 check('a photo races the Gemini models, so one stuck model costs a stagger, not the whole wait', async () => {

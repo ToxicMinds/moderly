@@ -88,8 +88,9 @@ export type Options = { only?: unknown[] | null; staggerMs?: number; deadlineMs?
 type Provider = { name: string; vision: boolean; run: <T>(a: Ask, parse: (t: string) => T, s: AbortSignal) => Promise<{ value: T; provider: string }> };
 
 const withTimeout = (s: AbortSignal, ms: number) => AbortSignal.any([s, AbortSignal.timeout(ms)]);
-// Never let an upstream message carry a credential back to a client.
-const scrub = (s: string) => s.replace(/AIza[0-9A-Za-z_-]{20,}/g, '[key]').slice(0, 200);
+// Never let an upstream message carry a credential back to a client. Google's
+// keys were AIza…; AI Studio has issued AQ.… auth keys since mid-2026.
+const scrub = (s: string) => s.replace(/AIza[0-9A-Za-z_-]{20,}|AQ\.[0-9A-Za-z_.-]{20,}/g, '[key]').slice(0, 200);
 
 let geminiModels = GEMINI_MODELS;
 let rediscovered = false;

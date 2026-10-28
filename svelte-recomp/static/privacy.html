@@ -66,9 +66,8 @@ the app works offline. The app itself is served by Vercel.</p>
 <p>Only when you use the feature:</p>
 <ul>
 <li><strong>An AI estimate</strong> (food from a photo or a description, a recipe idea):
-sent to Google's Gemini API. Moderly uses Gemini's free tier for now, but because Moderly is
-run from the EU, Google's terms give it the paid tier's data rules: Google does not use what is
-sent to improve its products, and keeps it only for a limited time, to detect misuse.
+sent to Google's Gemini API on its paid tier: Google does not use what is sent to improve its
+products, and keeps it only for a limited time, to detect misuse.
 Photos go only to Gemini. A text request (a description, a recipe) may go to Kilo's AI
 gateway or Pollinations when Gemini is busy. Moderly does not keep a photo sent only for an
 estimate.</li>
@@ -81,9 +80,8 @@ the notes the coach keeps about you. No photos and no name. It goes to Gemini on
 the free gateways. The app checks every reply before showing it and drops any that invents a
 number or says something it never would. The coach's notes are kept in your account and shown
 in Settings, where Forget clears them; turning the coach off stops it.</li>
-<li><strong>Body fat from a photo</strong> is switched off until Moderly's AI runs on
-Gemini's paid tier, where Google doesn't use what is sent to improve its products. Until
-then no body photo leaves Moderly.</li>
+<li><strong>Body fat from a photo:</strong> the photo goes only to Gemini's paid tier, never
+to the free gateways, and Google doesn't use it to improve its products.</li>
 <li><strong>Food search and barcodes:</strong> your search words go to Open Food Facts.</li>
 <li><strong>The weather in the morning briefing:</strong> your approximate location,
 rounded to about a kilometre, goes to Open-Meteo. Moderly does not store it.</li>
