@@ -15,6 +15,7 @@ import db from '$lib/db/dexie';
 import { supabase } from '$lib/db/client';
 import { upsertRecords } from '$lib/stores/sync';
 import { buildActivitySessions } from './exercise';
+import { sleepNights } from './sleep';
 import { isAndroidApp } from '$lib/platform';
 import { type RecordType, READ_TYPES, READ_PERMISSION, WRITE_TYPES, canWrite, readTypesKey } from './permissions';
 import { pickOriginByDay, countOrigins, percentile, changedDays, sameSessions } from './dedupe';
@@ -225,24 +226,22 @@ function aggregate(
     ? { total: todayPick.total, origin: todayPick.origin, candidates: todayPick.candidates }
     : { total: 0, origin: null, candidates: {} };
 
-  // — Sleep: attribute a night to the WAKE day (endTime) so it reads as
-  // "today's" readiness after you get up. Pick one source, then take that
-  // source's LONGEST session for the day — the main night. Summing every
-  // session would fold afternoon naps into "last night's sleep", and summing
-  // across sources counted the same night twice when both the watch and the
-  // phone recorded it. —
-  const sleepPick = pickOriginByDay(sleeps, {
-    dayOf: (s) => ymd(s.endTime),
-    valueOf: sleepMinutes,
-    originOf,
+  // — Sleep: sessions a watch split (awake at 3 a.m., asleep again by 4) are
+  // joined into one night first (health/sleep.ts), attributed to the WAKE day
+  // so it reads as "today's" readiness after you get up. Pick one source, then
+  // take that source's LONGEST night for the day: summing every night would
+  // fold afternoon naps into "last night's sleep", and summing across sources
+  // counted the same night twice when both the watch and the phone recorded it. —
+  const nights = sleepNights(sleeps, { originOf, minutesOf: sleepMinutes, dayOf: ymd });
+  const sleepPick = pickOriginByDay(nights, {
+    dayOf: (n) => n.day,
+    valueOf: (n) => n.minutes,
+    originOf: (n) => n.origin,
     preferred
   });
   const sleepMinByDay: Record<string, number> = {};
   for (const [day, pick] of Object.entries(sleepPick)) {
-    const longest = pick.records.reduce(
-      (best: number, s: any) => Math.max(best, sleepMinutes(s)),
-      0
-    );
+    const longest = pick.records.reduce((best, n) => Math.max(best, n.minutes), 0);
     if (longest > 0) sleepMinByDay[day] = longest;
   }
 

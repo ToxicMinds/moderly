@@ -4459,6 +4459,38 @@ check('the welcome screen scrolls, so Start now is reachable on a small phone', 
   assert.doesNotMatch(gate, /min-height:100dvh/, 'a full-height floor would push the button off the screen again');
 });
 
+check('a night the watch split in two is one night, and a nap stays a nap', async () => {
+  // 2026-10-29: awake in the night, asleep again an hour later. Health Connect
+  // held two sessions; the longest-session rule kept 4.3 of 6.5 hours.
+  const { sleepNights, NIGHT_GAP_MIN } = await import('../src/lib/health/sleep.ts');
+  const W = 'watch', P = 'phone';
+  const s = (start, end, origin = W) => ({ startTime: start, endTime: end, origin });
+  const mins = (x) => (Date.parse(x.endTime) - Date.parse(x.startTime)) / 60000;
+  const nights = (list) => sleepNights(list, { originOf: (x) => x.origin, minutesOf: mins, dayOf: (t) => new Date(t).toISOString().slice(0, 10) });
+
+  const split = nights([s('2026-10-28T21:40:00Z', '2026-10-29T02:00:00Z'), s('2026-10-29T03:00:00Z', '2026-10-29T05:10:00Z')]);
+  assert.equal(split.length, 1, 'one night');
+  assert.equal(split[0].day, '2026-10-29', 'counted on the day it ends');
+  assert.equal(split[0].minutes, 260 + 130, 'both parts add up: 6.5 hours');
+
+  const withNap = nights([s('2026-10-28T21:40:00Z', '2026-10-29T05:10:00Z'), s('2026-10-29T12:00:00Z', '2026-10-29T12:40:00Z')]);
+  assert.equal(withNap.length, 2, 'an afternoon nap is its own sleep');
+  assert.equal(Math.max(...withNap.map((n) => n.minutes)), 450, 'and the night stays the longest');
+
+  const longWake = nights([s('2026-10-28T21:00:00Z', '2026-10-29T00:00:00Z'), s(new Date(Date.parse('2026-10-29T00:00:00Z') + (NIGHT_GAP_MIN + 1) * 60000).toISOString(), '2026-10-29T06:00:00Z')]);
+  assert.equal(longWake.length, 2, 'past the gap, two sleeps');
+
+  const twice = nights([s('2026-10-28T22:00:00Z', '2026-10-29T06:00:00Z'), s('2026-10-28T22:05:00Z', '2026-10-29T05:55:00Z')]);
+  assert.equal(twice.length, 1);
+  assert.equal(twice[0].minutes, 480, 'the same sleep recorded twice is not counted twice');
+
+  const twoSources = nights([s('2026-10-28T22:00:00Z', '2026-10-29T06:00:00Z', W), s('2026-10-28T22:10:00Z', '2026-10-29T06:00:00Z', P)]);
+  assert.equal(twoSources.length, 2, 'sources stay apart, so the day can pick one');
+
+  const { readFileSync } = await import('node:fs');
+  assert.match(readFileSync('src/lib/health/healthConnect.ts', 'utf8'), /const nights = sleepNights\(sleeps,/, 'the sync counts nights, not sessions');
+});
+
 // Nothing may be reported until the async checks have actually settled.
 await Promise.all(pending);
 
