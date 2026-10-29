@@ -26,6 +26,7 @@
   import { LINE_MARGIN_KG } from '$lib/line';
   import { saveMoments } from '$lib/stores/moments';
   import { isAndroidApp } from '$lib/platform';
+  import { noteEvent } from '$lib/events';
   import WeightInput from './WeightInput.svelte';
   import { dwt, roundIn, setUnits, type Units, wtShortU } from '$lib/units';
 
@@ -46,6 +47,11 @@
   // logging in reads as "my data is gone", which is what it must never feel like.
   const _existing = liveProfile();
   const returning = $derived(!!$_existing && ($_existing.goal_kg != null || $_existing.onboarded_at != null));
+  // Where new people stop: each screen reached, then the finish (lib/events).
+  // Someone coming back to fill a gap isn't new, so isn't counted.
+  $effect(() => {
+    if (!returning) noteEvent(step === 0 ? 'setup_1' : step === 1 ? 'setup_2' : 'setup_3');
+  });
   let prefilled = $state(false);
 
   // Pounds in the US, stone in the UK, kilograms everywhere else, until they say.
@@ -177,6 +183,7 @@
         onboarded_at: $_existing?.onboarded_at ?? new Date().toISOString(),
         updated_at: new Date().toISOString(),
       });
+      if (!returning) noteEvent('setup_done');
 
       // Today's weight is the first dot on the trend, unless today has one.
       if (weightKg) {

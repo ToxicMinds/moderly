@@ -4426,6 +4426,27 @@ check('one place says which phone this is, and Android-only parts ask for Androi
   assert.match(readFileSync('src/lib/stores/nativeUpdate.ts', 'utf8'), /const isNative = isAndroidApp\(\);/, 'the APK updater runs on Android only');
 });
 
+check('drop-off is counted in our own database, by a fixed list, and only the owner reads it', async () => {
+  // 2026-10-29: the owner asked for numbers on where new people give up.
+  // No trackers: note_event writes one row per person, event and day, and
+  // owner_metrics answers only app_owners. The app's list and the database's
+  // list must be the same, or an event is silently dropped.
+  const { readFileSync } = await import('node:fs');
+  const sql = readFileSync('../supabase/migrations/20261029100000_app_events.sql', 'utf8');
+  const ts = readFileSync('src/lib/events.ts', 'utf8');
+  const inSql = sql.match(/p_event not in \(([^)]*)\)/)[1].match(/'([a-z_0-9]+)'/g).map((s) => s.slice(1, -1));
+  const inTs = ts.match(/APP_EVENTS = \[([^\]]*)\]/)[1].match(/'([a-z_0-9]+)'/g).map((s) => s.slice(1, -1));
+  assert.deepEqual(inTs, inSql, 'events.ts and note_event list the same events');
+  for (const t of ['app_events', 'app_owners']) {
+    assert.match(sql, new RegExp(`alter table public\\.${t} enable row level security`), `${t} has RLS`);
+    assert.doesNotMatch(sql, new RegExp(`create policy[^;]*on public\\.${t}`), `${t} has no policies: no client reads it`);
+  }
+  assert.match(sql, /if not exists \(select 1 from public\.app_owners where user_id = auth\.uid\(\)\) then\s+raise exception 'not allowed'/, 'owner_metrics answers only the owner');
+  assert.match(sql, /revoke all on function public\.owner_metrics\(integer\) from public, anon;/);
+  assert.doesNotMatch(readFileSync('src/lib/stores/sync.ts', 'utf8'), /'app_events'|'app_owners'/, 'never synced to the phone');
+  assert.match(readFileSync('static/privacy.html', 'utf8'), /Which setup screen you reached, and the days you opened the app/, 'the privacy page says so');
+});
+
 // Nothing may be reported until the async checks have actually settled.
 await Promise.all(pending);
 
