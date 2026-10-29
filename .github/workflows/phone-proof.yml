@@ -102,7 +102,11 @@ jobs:
         run: |
           curl -fsSL "https://get.maestro.mobile.dev" | bash
           export PATH="$HOME/.maestro/bin:$PATH"
-          maestro --device "${{ steps.sim.outputs.udid }}" test e2e/first-run.yaml
+          maestro --device "${{ steps.sim.outputs.udid }}" test e2e/first-run.yaml || {
+            xcrun simctl io "${{ steps.sim.outputs.udid }}" screenshot proof/flow-failed.png
+            cp -r "$HOME/.maestro/tests" proof/maestro-debug
+            exit 1
+          }
 
       - name: Keep the proof
         if: always()
@@ -136,6 +140,9 @@ jobs:
           adb logcat -c
           cd svelte-recomp
           maestro test e2e/first-run.yaml || status=$?
+          adb exec-out screencap -p > proof/android-screen.png || true
+          adb shell uiautomator dump /sdcard/ui.xml > /dev/null && adb pull /sdcard/ui.xml proof/android-ui.xml || true
+          cp -r "$HOME/.maestro/tests" proof/maestro-debug || true
           adb logcat -d -s Capacitor/Console Capacitor > proof/android-console.txt || true
           echo "The app's web console:"; tail -60 proof/android-console.txt
           exit ${status:-0}

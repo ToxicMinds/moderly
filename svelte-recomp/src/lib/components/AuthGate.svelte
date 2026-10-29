@@ -38,6 +38,19 @@
   }
 </script>
 
+<!-- One consent box for both ways in. The privacy link sits outside the
+     label: inside it, a tap on the sentence could open the page instead of
+     ticking the box. -->
+{#snippet consentBox()}
+  <div class="ag-consent-row">
+    <label class="ag-consent">
+      <input type="checkbox" bind:checked={consent}>
+      <span>I agree that Moderly keeps my weight, food and health data to run the app for me.</span>
+    </label>
+    <a class="ag-how" href="/privacy.html">How it's kept</a>
+  </div>
+{/snippet}
+
 <div id="auth-gate">
   <div class="ag">
     <header class="ag-head">
@@ -61,10 +74,7 @@
       </ul>
 
       {#if err}<div class="ag-err" role="alert">{err}</div>{/if}
-      <label class="ag-consent">
-        <input type="checkbox" bind:checked={consent}>
-        <span>I agree that Moderly keeps my weight, food and health data to run the app for me. <a href="/privacy.html">How it's kept</a></span>
-      </label>
+      {@render consentBox()}
       <button class="btn bp bfl ag-go" onclick={start} disabled={busy || !consent}>{busy ? 'Starting…' : 'Start now'}</button>
       <p class="ag-note">No email needed to start. Save your account whenever you like.</p>
       <button class="ag-switch" onclick={() => { mode = 'login'; err = ''; }}>I have an account</button>
@@ -77,10 +87,7 @@
         <input id="auth-pass" type="password" autocomplete={mode === 'login' ? 'current-password' : 'new-password'} bind:value={password} placeholder="••••••••"
           onkeydown={(e) => e.key === 'Enter' && submit()}>
         {#if mode === 'signup'}
-          <label class="ag-consent">
-            <input type="checkbox" bind:checked={consent}>
-            <span>I agree that Moderly keeps my weight, food and health data to run the app for me. <a href="/privacy.html">How it's kept</a></span>
-          </label>
+          {@render consentBox()}
         {/if}
         <button class="btn bp bfl ag-go" onclick={submit} disabled={busy || (mode === 'signup' && !consent)}>
           {busy ? 'Please wait…' : mode === 'login' ? 'Log in' : 'Create account'}
@@ -112,9 +119,11 @@
   .ag-box{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);padding:20px 18px}
   .ag-box input{margin-bottom:12px}
   .ag-err{background:var(--rb);color:var(--led-bad);font-size:0.8125rem;font-weight:600;padding:8px 10px;border-radius:var(--r-sm);margin-bottom:12px}
-  .ag-consent{display:flex;gap:10px;align-items:flex-start;font-size:0.8125rem;line-height:1.45;color:var(--text);margin:0 0 14px;cursor:pointer}
+  .ag-consent-row{margin:0 0 14px}
+  .ag-consent{display:flex;gap:10px;align-items:flex-start;font-size:0.8125rem;line-height:1.45;color:var(--text);cursor:pointer}
+  .ag-how{display:inline-block;margin:2px 0 0 30px;font-size:0.8125rem;color:var(--amber)}
   .ag-consent input{width:20px;height:20px;flex-shrink:0;margin:1px 0 0;accent-color:var(--amber)}
-  .ag-consent a,.ag-links a{color:var(--amber)}
+  .ag-links a{color:var(--amber)}
   .ag-go{font-size:1rem;padding-block:14px}
   .ag-note{font-size:0.8125rem;color:var(--muted);text-align:center;margin:10px 0 0}
   .ag-switch{display:block;width:100%;text-align:center;background:none;border:none;color:var(--text);text-decoration:underline;text-underline-offset:3px;font-family:inherit;font-size:0.875rem;font-weight:600;margin-top:14px;cursor:pointer;padding:4px}
