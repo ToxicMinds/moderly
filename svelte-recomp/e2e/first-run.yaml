@@ -8,9 +8,14 @@ appId: com.toxicminds.recompos
 - launchApp:
     clearState: true
 - extendedWaitUntil:
-    visible: "Start now"
+    visible: "A trend, not today's number."
     timeout: 90000
 - takeScreenshot: proof/flow-1-door
+# On a small screen the box and the button sit below the fold, as for a person.
+- scrollUntilVisible:
+    element:
+      text: "Start now"
+    direction: DOWN
 - tapOn: "I agree that Moderly.*"
 - tapOn: "Start now"
 - extendedWaitUntil:
