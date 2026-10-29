@@ -109,11 +109,14 @@ jobs:
         run: |
           curl -fsSL "https://get.maestro.mobile.dev" | bash
           export PATH="$HOME/.maestro/bin:$PATH"
-          maestro --device "${{ steps.sim.outputs.udid }}" test e2e/first-run.yaml || {
+          status=0
+          maestro --device "${{ steps.sim.outputs.udid }}" test e2e/first-run.yaml || status=$?
+          # The flow's own screenshots live with its debug files; keep them either way.
+          cp -r "$HOME/.maestro/tests" proof/maestro-debug || true
+          if [ "$status" -ne 0 ]; then
             xcrun simctl io "${{ steps.sim.outputs.udid }}" screenshot proof/flow-failed.png
-            cp -r "$HOME/.maestro/tests" proof/maestro-debug
-            exit 1
-          }
+            exit "$status"
+          fi
 
       - name: Keep the proof
         if: always()
