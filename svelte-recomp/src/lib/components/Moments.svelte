@@ -4,13 +4,16 @@
   // src/lib/briefing.ts and src/lib/hold.ts. When they go out: MomentClock.java.
   import { onMount } from 'svelte';
   import { briefings, holds, momentSetting, forecast, refreshForecast, saveMoments, type MomentSetting } from '$lib/stores/moments';
-  import { isNativeApp, momentsStatus, momentsSupport, showMomentNow, type MomentsState } from '$lib/nativeAlarms';
+  import { momentsStatus, momentsSupport, showMomentNow, type MomentsState } from '$lib/nativeAlarms';
+  import { isAndroidApp, isIOSApp } from '$lib/platform';
   import { holdAfter } from '$lib/hold';
   import { locationRefused } from '$lib/weather';
   import { todayDate } from '$lib/stores/refresh';
   import { updateState } from '$lib/stores/nativeUpdate';
 
-  const native = isNativeApp();
+  // The unlock moments live in the Android app; iPhone gets them next.
+  const native = isAndroidApp();
+  const elsewhere = isIOSApp() ? 'It’s coming to the iPhone app next.' : 'It comes with the Android app.';
   let support = $state<'all' | 'morning' | null | undefined>(undefined);
   let status = $state<MomentsState | null>(null);
   let saving = $state(false);
@@ -107,7 +110,7 @@
   </p>
 
   {#if !native}
-    <div class="mb-note">It comes with the Android app.</div>
+    <div class="mb-note">{elsewhere}</div>
   {:else if support === null}
     <div class="mb-note">It needs the app update: tap Update at the top of the screen.</div>
   {:else if support && s.on}
@@ -153,7 +156,7 @@
   </p>
 
   {#if !native}
-    <div class="mb-note">It comes with the Android app.</div>
+    <div class="mb-note">{elsewhere}</div>
   {:else if support === null || support === 'morning'}
     <div class="mb-note">It needs the app update: tap Update at the top of the screen.</div>
   {:else if support && s.hold}

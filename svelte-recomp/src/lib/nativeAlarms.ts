@@ -17,6 +17,7 @@
 // Web keeps the service-worker path — see scheduleAlarms() in routes/alarms/+page.svelte.
 
 import { nudgeFireAt, type Nudge } from './situational.ts';
+import { isAndroidApp, isNativeApp } from './platform.ts';
 
 export interface AlarmRow {
   id: string;
@@ -64,11 +65,7 @@ async function cancelRange(LN: any, belongs: (id: number) => boolean): Promise<v
   if (mine.length > 0) await LN.cancel({ notifications: mine });
 }
 
-export function isNativeApp(): boolean {
-  if (typeof window === 'undefined') return false;
-  const cap = (window as any).Capacitor;
-  return !!cap?.isNativePlatform?.();
-}
+export { isNativeApp };
 
 /**
  * Hand the whole alarm list to Android. Returns false when this isn't the native
@@ -153,7 +150,9 @@ async function readyPlugin(): Promise<{ LN: any } | null> {
       if (exact.exact_alarm === 'prompt') await LocalNotifications.changeExactNotificationSetting();
     } catch { /* older plugin/OS: exact-alarm API absent, nothing to ask for */ }
 
-    await LocalNotifications.createChannel({
+    // Channels are Android's; on an iPhone the call is unimplemented and would
+    // take every reminder down with it.
+    if (isAndroidApp()) await LocalNotifications.createChannel({
       id: CHANNEL_ID,
       name: 'Alarms & reminders',
       description: 'Weigh-ins, meals, training prep',

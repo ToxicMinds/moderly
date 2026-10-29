@@ -17,6 +17,7 @@
 // than rejecting the promise. Every write here is gated on canWrite() first.
 
 import { canWrite } from './permissions.ts';
+import { isAndroidApp } from '../platform.ts';
 
 /** What the app knows about a session the user logged by hand. */
 export interface LoggedSession {
@@ -105,8 +106,7 @@ export async function writeBackToHealth(
   weights: Array<{ time: Date; kg: number }>
 ): Promise<WriteResult> {
   try {
-    const { Capacitor } = await import('@capacitor/core');
-    if (!Capacitor?.isNativePlatform?.()) return { written: 0, skipped: ['not the native app'] };
+    if (!isAndroidApp()) return { written: 0, skipped: ['not the Android app'] };
 
     const { HealthConnect } = await import('@kiwi-health/capacitor-health-connect');
     const { availability } = await HealthConnect.checkAvailability();

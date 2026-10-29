@@ -10,10 +10,7 @@
 // Used by BOTH the data export and the weekly-summary share, which is why it
 // lives here rather than inside either of them.
 
-function isNative(): boolean {
-  if (typeof window === 'undefined') return false;
-  return !!(window as any).Capacitor?.isNativePlatform?.();
-}
+import { isNativeApp as isNative } from './platform.ts';
 
 export type DeliveryMethod = 'download' | 'share-sheet' | 'clipboard' | 'failed';
 

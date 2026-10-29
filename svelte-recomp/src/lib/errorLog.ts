@@ -19,6 +19,7 @@
  *      stacks are stripped to app frames.
  */
 import { supabase } from '$lib/db/client';
+import { platform } from '$lib/platform';
 
 /** Errors sent to the server this session. Bounds the blast radius of a loop. */
 const MAX_PER_SESSION = 25;
@@ -49,15 +50,6 @@ function cleanStack(stack: string | undefined): string | null {
   return lines.length ? lines.join('\n').slice(0, 2000) : null;
 }
 
-function platform(): string {
-  try {
-    const p = (globalThis as any).Capacitor?.getPlatform?.();
-    if (typeof p === 'string' && p !== 'web') return p;
-  } catch {
-    /* ignore */
-  }
-  return 'web';
-}
 
 export type ErrorKind = 'error' | 'unhandledrejection' | 'notice' | 'render';
 

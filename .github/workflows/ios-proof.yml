@@ -1,0 +1,99 @@
+name: iPhone proof
+
+# Proves the iPhone side on Apple's own simulator, before anything is bought.
+# No Apple account is needed: signing only matters for a real phone.
+#
+#   web     the live site as a stranger in WebKit at iPhone size: Start now,
+#           every tab, no page errors; the trial deletes itself after.
+#   safari  the live site in the simulator's own Safari.
+#   app     the Capacitor iPhone shell, built unsigned for the simulator,
+#           installed and launched, with its console log.
+#
+# Screenshots and logs are the run's artifact, "iphone-proof".
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "svelte-recomp/ios/**"
+      - "svelte-recomp/capacitor.config.json"
+      - "svelte-recomp/scripts/iphone-proof.mjs"
+      - ".github/workflows/ios-proof.yml"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  proof:
+    runs-on: macos-15
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: svelte-recomp
+    env:
+      # Public, non-secret values, as in the Android build.
+      PUBLIC_SUPABASE_URL: https://jerbhsasccvjelkkphgu.supabase.co
+      PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_H8G1aDyFJFLmgxrTc8qKeA_kxyXRLyk
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install, build the web bundle, sync the iPhone project
+        run: |
+          npm ci
+          npm run build
+          npx cap sync ios
+
+      - name: Boot an iPhone simulator
+        id: sim
+        run: |
+          UDID=$(xcrun simctl list devices available -j | python3 -c 'import sys, json; d = json.load(sys.stdin)["devices"]; c = [x for k, v in sorted(d.items()) if "iOS" in k for x in v if x["name"].startswith("iPhone")]; print(c[-1]["udid"])')
+          xcrun simctl boot "$UDID"
+          xcrun simctl bootstatus "$UDID" -b
+          mkdir -p proof
+          xcrun simctl list devices | grep "$UDID" | tee proof/device.txt
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+
+      - name: "web: the live site as a stranger, WebKit at iPhone size"
+        run: |
+          npm i --no-save playwright@1.55.0
+          npx playwright install webkit
+          node scripts/iphone-proof.mjs proof
+
+      - name: "safari: the live site in the simulator's Safari"
+        run: |
+          xcrun simctl openurl "${{ steps.sim.outputs.udid }}" https://moderly.vercel.app/
+          sleep 25
+          xcrun simctl io "${{ steps.sim.outputs.udid }}" screenshot proof/safari.png
+
+      - name: "app: build the iPhone shell for the simulator"
+        run: |
+          xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Debug \
+            -sdk iphonesimulator -destination "id=${{ steps.sim.outputs.udid }}" \
+            -derivedDataPath build-ios CODE_SIGNING_ALLOWED=NO build > proof/xcodebuild.txt 2>&1 \
+            || { tail -40 proof/xcodebuild.txt; exit 1; }
+          tail -3 proof/xcodebuild.txt
+
+      - name: "app: install, launch, screenshot, console"
+        run: |
+          U="${{ steps.sim.outputs.udid }}"
+          xcrun simctl install "$U" build-ios/Build/Products/Debug-iphonesimulator/App.app
+          xcrun simctl launch "$U" com.toxicminds.recompos
+          sleep 30
+          xcrun simctl io "$U" screenshot proof/app.png
+          xcrun simctl spawn "$U" log show --last 3m --style compact --predicate 'process == "App"' > proof/app-log.txt || true
+          echo "Web console lines from the app:"
+          grep -F "⚡️" proof/app-log.txt | tail -40 || true
+
+      - name: Keep the proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: iphone-proof
+          path: svelte-recomp/proof

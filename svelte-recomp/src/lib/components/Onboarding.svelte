@@ -25,7 +25,7 @@
   import { saveWhy, savePlans, saveLine } from '$lib/commitments';
   import { LINE_MARGIN_KG } from '$lib/line';
   import { saveMoments } from '$lib/stores/moments';
-  import { isNativeApp } from '$lib/nativeAlarms';
+  import { isAndroidApp } from '$lib/platform';
   import WeightInput from './WeightInput.svelte';
   import { dwt, roundIn, setUnits, type Units, wtShortU } from '$lib/units';
 
@@ -87,7 +87,8 @@
     planText = planCue ? cleanPlans($_existing?.plans)[c] ?? '' : '';
   }
   const cueInfo = $derived(planCue ? CUES.find((x) => x.cue === planCue)! : null);
-  const native = isNativeApp();
+  // The unlock moments are Android's; everywhere else, a plain morning reminder.
+  const native = isAndroidApp();
   let wantMoments = $state(true);
   let wantWeighIn = $state(true);
   let weighInTime = $state('07:00');

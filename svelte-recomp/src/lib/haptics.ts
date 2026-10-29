@@ -19,6 +19,8 @@
 //   3. User can switch it off (Settings), and it silences itself entirely
 //      under prefers-reduced-motion. Absent hardware is a no-op.
 
+import { isNativeApp } from './platform.ts';
+
 export type Haptic =
   | 'tap'        // lightest — nav taps, minor selects
   | 'select'     // a hair firmer — a choice landed
@@ -87,8 +89,7 @@ async function ensureNative(): Promise<void> {
   if (resolved) return;
   resolved = true;
   try {
-    const { Capacitor } = await import('@capacitor/core');
-    isNative = !!Capacitor?.isNativePlatform?.();
+    isNative = isNativeApp();
     if (isNative) {
       plugin = await import('@capacitor/haptics');
     }

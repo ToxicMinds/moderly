@@ -29,6 +29,8 @@
  * one ships over the air.
  */
 
+import { platform as platformOf } from './platform.ts';
+
 // ponytail: Android status bars are 24dp, but cutout devices size them taller
 // (~32-40dp). CSS px == dp in the WebView, so this is a real measurement, not a
 // magic number. If a device still clips, this is the single knob to turn.
@@ -64,24 +66,15 @@ function computedPx(prop: string): number {
   }
 }
 
-function detectPlatform(): string {
-  // The native bridge injects window.Capacitor as a global, so this resolves
-  // synchronously and without depending on the dynamic import succeeding.
-  const g = (globalThis as any).Capacitor;
-  const p = g?.getPlatform?.();
-  if (typeof p === 'string') return p;
-  return 'web';
-}
-
 export async function applySafeAreaFallback(): Promise<void> {
   if (typeof document === 'undefined') return;
 
-  let platform = detectPlatform();
+  let platform: string = platformOf();
   if (platform === 'web') {
     // Fall back to the module in case the global is not installed yet.
     try {
       const { Capacitor } = await import('@capacitor/core');
-      if (Capacitor?.isNativePlatform?.()) platform = Capacitor.getPlatform?.() ?? 'web';
+      platform = platformOf(Capacitor);
     } catch {
       /* plain web build — nothing to compensate for */
     }

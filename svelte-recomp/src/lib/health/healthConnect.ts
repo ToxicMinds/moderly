@@ -15,6 +15,7 @@ import db from '$lib/db/dexie';
 import { supabase } from '$lib/db/client';
 import { upsertRecords } from '$lib/stores/sync';
 import { buildActivitySessions } from './exercise';
+import { isAndroidApp } from '$lib/platform';
 import { type RecordType, READ_TYPES, READ_PERMISSION, WRITE_TYPES, canWrite, readTypesKey } from './permissions';
 import { pickOriginByDay, countOrigins, percentile, changedDays, sameSessions } from './dedupe';
 import { preferredSource } from './watches';
@@ -135,8 +136,8 @@ function startOfDaysAgo(n: number): Date {
 /** Lazily resolve the native plugin (dynamic import keeps it out of SSR/prerender). */
 async function getNative(): Promise<{ Capacitor: any; HealthConnect: any } | null> {
   try {
+    if (!isAndroidApp()) return null;
     const { Capacitor } = await import('@capacitor/core');
-    if (!Capacitor?.isNativePlatform?.()) return null;
     const { HealthConnect } = await import('@kiwi-health/capacitor-health-connect');
     return { Capacitor, HealthConnect };
   } catch {

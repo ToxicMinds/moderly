@@ -19,6 +19,7 @@
 // actually surfaces the "Reinstall" prompt inside the app people already have.
 
 import { writable } from 'svelte/store';
+import { isAndroidApp } from '../platform.ts';
 
 // Keep EQUAL to `versionCode` in android/app/build.gradle. Bump both together
 // whenever a native change ships — that's the whole trigger for an in-place
@@ -63,7 +64,7 @@ async function nativeBits(): Promise<NativeBits | null> {
     const core = await import('@capacitor/core');
     const Capacitor = core.Capacitor;
     const registerPlugin = core.registerPlugin;
-    const isNative = !!Capacitor?.isNativePlatform?.();
+    const isNative = isAndroidApp();
     if (!isNative) {
       return {
         isNative: false,

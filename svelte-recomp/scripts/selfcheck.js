@@ -4392,6 +4392,40 @@ check('a weight history comes in from any app, one morning a day, in kg', async 
   assert.deepEqual(r, [{ date: '2024-01-08', kg: 83 }]);
 });
 
+check('one place says which phone this is, and Android-only parts ask for Android', async () => {
+  // 2026-10-29, adding the iPhone shell: seven files each asked Capacitor
+  // "native?" their own way, and Health Connect and the APK updater asked only
+  // that. On an iPhone they would call a plugin that isn't there, and the
+  // updater would offer an Android download as a "Reinstall".
+  const { platform } = await import('../src/lib/platform.ts');
+  const cap = (native, p) => ({ isNativePlatform: () => native, getPlatform: () => p });
+  assert.equal(platform(cap(true, 'android')), 'android');
+  assert.equal(platform(cap(true, 'ios')), 'ios');
+  assert.equal(platform(cap(false, 'web')), 'web');
+  assert.equal(platform(undefined), 'web');
+
+  const { readdirSync, readFileSync, statSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const files = [];
+  (function walk(dir) {
+    for (const e of readdirSync(dir)) {
+      const full = join(dir, e);
+      if (statSync(full).isDirectory()) walk(full);
+      else if (/\.(ts|svelte)$/.test(full)) files.push(full);
+    }
+  })('src');
+  for (const f of files) {
+    const src = readFileSync(f, 'utf8');
+    if (f !== join('src', 'lib', 'platform.ts')) {
+      assert.doesNotMatch(src, /isNativePlatform|getPlatform\(/, `${f} asks the platform itself; use $lib/platform`);
+    }
+    if (src.includes("import('@kiwi-health/capacitor-health-connect')")) {
+      assert.match(src, /if \(!isAndroidApp\(\)\) return/, `${f} reaches Health Connect without asking for Android`);
+    }
+  }
+  assert.match(readFileSync('src/lib/stores/nativeUpdate.ts', 'utf8'), /const isNative = isAndroidApp\(\);/, 'the APK updater runs on Android only');
+});
+
 // Nothing may be reported until the async checks have actually settled.
 await Promise.all(pending);
 
