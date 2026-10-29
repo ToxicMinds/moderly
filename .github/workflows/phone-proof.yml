@@ -72,9 +72,16 @@ jobs:
           npx playwright install webkit
           node scripts/iphone-proof.mjs proof
 
+      # A picture for the record, not a gate: the web step above already ran the
+      # whole first run in Safari's engine, and the simulator's own Safari has
+      # timed out on openurl (POSIX 60) once.
       - name: "safari: the live site in the simulator's Safari"
+        continue-on-error: true
         run: |
-          xcrun simctl openurl "${{ steps.sim.outputs.udid }}" https://moderly.vercel.app/
+          for try in 1 2; do
+            xcrun simctl openurl "${{ steps.sim.outputs.udid }}" https://moderly.vercel.app/ && break
+            sleep 10
+          done
           sleep 25
           xcrun simctl io "${{ steps.sim.outputs.udid }}" screenshot proof/safari.png
 
