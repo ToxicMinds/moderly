@@ -4447,6 +4447,18 @@ check('drop-off is counted in our own database, by a fixed list, and only the ow
   assert.match(readFileSync('static/privacy.html', 'utf8'), /Which setup screen you reached, and the days you opened the app/, 'the privacy page says so');
 });
 
+check('the welcome screen scrolls, so Start now is reachable on a small phone', async () => {
+  // 2026-10-29: html and body never scroll, and #pages scrolls only the
+  // signed-in app. The welcome screen sat outside it at min-height 100dvh, so
+  // on a small Android screen the consent box and Start now were unreachable.
+  const { readFileSync } = await import('node:fs');
+  assert.match(readFileSync('src/app.css', 'utf8'), /html,body\{height:100%;overflow:hidden/, 'the premise: the page itself never scrolls');
+  const gate = readFileSync('src/lib/components/AuthGate.svelte', 'utf8').match(/#auth-gate\{[^}]*\}/)[0];
+  assert.match(gate, /overflow-y:auto/, 'the welcome screen is its own scroll area');
+  assert.match(gate, /min-height:0/, 'and may shrink to the screen, so it can scroll');
+  assert.doesNotMatch(gate, /min-height:100dvh/, 'a full-height floor would push the button off the screen again');
+});
+
 // Nothing may be reported until the async checks have actually settled.
 await Promise.all(pending);
 

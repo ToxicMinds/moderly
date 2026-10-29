@@ -106,8 +106,12 @@
 </div>
 
 <style>
-  #auth-gate{display:flex;justify-content:center;min-height:100dvh;padding:calc(var(--st) + 32px) 20px calc(var(--sb) + 28px)}
-  .ag{width:100%;max-width:400px;display:flex;flex-direction:column}
+  /* Its own scroll area: html and body never scroll (app.css), and the signed-in
+     app scrolls inside #pages, which this screen sits outside. Without it, on a
+     small phone or with large text, the consent box and Start now were cut off
+     with no way to reach them (found by the phone proof, 2026-10-29). */
+  #auth-gate{flex:1;min-height:0;overflow-y:auto;overscroll-behavior-y:contain;display:flex;justify-content:center;align-items:flex-start;padding:calc(var(--st) + 32px) 20px calc(var(--sb) + 28px)}
+  .ag{width:100%;max-width:400px;min-height:100%;display:flex;flex-direction:column}
   .ag-head{text-align:center;margin-bottom:22px}
   .ag-mark{width:64px;height:64px;color:var(--amber);display:block;margin:0 auto 6px}
   .ag-name{font-family:var(--font-display);font-size:3.25rem;font-weight:700;line-height:.95;margin:0;color:var(--text)}
