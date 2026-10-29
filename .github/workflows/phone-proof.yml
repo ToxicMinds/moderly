@@ -1,0 +1,158 @@
+name: Phone proof
+
+# Proves both phones before anything is bought; no Apple or Google developer
+# account is needed. Two jobs, side by side:
+#
+#   iphone   on Apple's simulator (macOS runner):
+#              web     the live site in Safari's engine at iPhone size, as a
+#                      stranger: start, finish setup, weigh-in shown on Today,
+#                      every tab, no page errors; the trial deletes itself;
+#              safari  the live site in the simulator's own Safari;
+#              app     the iPhone app built unsigned, launched with its web
+#                      console captured, then e2e/first-run.yaml.
+#   android  on an Android 14 emulator: the APK people have now (the
+#            release), then the same e2e/first-run.yaml, with its console.
+#
+# Screenshots, consoles and logs are the artifacts "iphone-proof" and
+# "android-proof".
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "svelte-recomp/ios/**"
+      - "svelte-recomp/capacitor.config.json"
+      - "svelte-recomp/e2e/**"
+      - "svelte-recomp/scripts/iphone-proof.mjs"
+      - ".github/workflows/phone-proof.yml"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  iphone:
+    runs-on: macos-15
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: svelte-recomp
+    env:
+      # Public, non-secret values, as in the Android build.
+      PUBLIC_SUPABASE_URL: https://jerbhsasccvjelkkphgu.supabase.co
+      PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_H8G1aDyFJFLmgxrTc8qKeA_kxyXRLyk
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install, build the web bundle, sync the iPhone project
+        run: |
+          npm ci
+          npm run build
+          npx cap sync ios
+
+      - name: Boot an iPhone simulator
+        id: sim
+        run: |
+          UDID=$(xcrun simctl list devices available -j | python3 -c 'import sys, json; d = json.load(sys.stdin)["devices"]; c = [x for k, v in sorted(d.items()) if "iOS" in k for x in v if x["name"].startswith("iPhone") and "SE" not in x["name"]]; print(c[-1]["udid"])')
+          xcrun simctl boot "$UDID"
+          xcrun simctl bootstatus "$UDID" -b
+          mkdir -p proof
+          xcrun simctl list devices | grep "$UDID" | tee proof/device.txt
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+
+      - name: "web: the first run as a stranger, Safari's engine at iPhone size"
+        run: |
+          npm i --no-save playwright@1.55.0
+          npx playwright install webkit
+          node scripts/iphone-proof.mjs proof
+
+      - name: "safari: the live site in the simulator's Safari"
+        run: |
+          xcrun simctl openurl "${{ steps.sim.outputs.udid }}" https://moderly.vercel.app/
+          sleep 25
+          xcrun simctl io "${{ steps.sim.outputs.udid }}" screenshot proof/safari.png
+
+      - name: "app: build the iPhone app for the simulator"
+        run: |
+          xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Debug \
+            -sdk iphonesimulator -destination "id=${{ steps.sim.outputs.udid }}" \
+            -derivedDataPath build-ios CODE_SIGNING_ALLOWED=NO build > proof/xcodebuild.txt 2>&1 \
+            || { tail -40 proof/xcodebuild.txt; exit 1; }
+          tail -3 proof/xcodebuild.txt
+
+      - name: "app: launch with its web console, screenshot"
+        run: |
+          U="${{ steps.sim.outputs.udid }}"
+          xcrun simctl install "$U" build-ios/Build/Products/Debug-iphonesimulator/App.app
+          # Capacitor prints the page's console to the app's stdout.
+          xcrun simctl launch --console-pty "$U" com.toxicminds.recompos > proof/app-console.txt 2>&1 &
+          sleep 35
+          xcrun simctl io "$U" screenshot proof/app.png
+          xcrun simctl terminate "$U" com.toxicminds.recompos || true
+          echo "The app's web console:"
+          cat proof/app-console.txt | tail -60
+
+      - name: "app: the first-run flow"
+        run: |
+          curl -fsSL "https://get.maestro.mobile.dev" | bash
+          export PATH="$HOME/.maestro/bin:$PATH"
+          maestro --device "${{ steps.sim.outputs.udid }}" test e2e/first-run.yaml
+
+      - name: Keep the proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: iphone-proof
+          path: svelte-recomp/proof
+
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: The APK people have now, and Maestro
+        run: |
+          curl -fsSL -o moderly.apk https://github.com/ToxicMinds/moderly/releases/download/recompos-app-latest/recompos.apk
+          curl -fsSL "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+          mkdir -p svelte-recomp/proof
+          cat > android-proof.sh <<'EOF'
+          set -e
+          adb install moderly.apk
+          adb logcat -c
+          cd svelte-recomp
+          maestro test e2e/first-run.yaml || status=$?
+          adb logcat -d -s Capacitor/Console Capacitor > proof/android-console.txt || true
+          echo "The app's web console:"; tail -60 proof/android-console.txt
+          exit ${status:-0}
+          EOF
+
+      - name: The first-run flow on an emulator (Android 14)
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          script: sh android-proof.sh
+
+      - name: Keep the proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-proof
+          path: svelte-recomp/proof

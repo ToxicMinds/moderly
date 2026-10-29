@@ -25,17 +25,35 @@ try {
   await page.locator('input[type=checkbox]').first().check();
   await page.locator('button:has-text("Start now")').click();
   await page.waitForFunction(() => Object.keys(localStorage).some((k) => k.endsWith('-auth-token')), null, { timeout: 30_000 });
-  await page.waitForTimeout(6000);
-  await page.screenshot({ path: `${out}/web-2-started.png` });
   console.log('started a trial');
+
+  // Setup, as a person would: today's weight, height and goal; sex, birth
+  // year, activity; then start. Today's weight becomes the first weigh-in.
+  await page.getByRole('button', { name: 'kg', exact: true }).click();
+  await page.fill('#ob-weight', '92.4');
+  await page.fill('#ob-height', '175');
+  await page.fill('#ob-goal', '80');
+  await page.screenshot({ path: `${out}/web-2-setup.png` });
+  await page.getByRole('button', { name: 'Continue' }).click();
+  await page.getByRole('button', { name: 'Female' }).click();
+  await page.fill('#ob-year', '1990');
+  await page.locator('.ob-act').first().click();
+  await page.getByRole('button', { name: 'Continue' }).click();
+  await page.getByRole('button', { name: /^(Skip and start|Start)$/ }).click();
+  await page.waitForTimeout(6000);
+  await page.screenshot({ path: `${out}/web-3-today.png` });
+  const today = await page.locator('body').innerText();
+  if (!/92\.4/.test(today)) crashes.push('the weigh-in from setup is not on Today');
+  else console.log('setup done; Today shows the 92.4 kg weigh-in');
 
   for (const tab of ['track', 'plan', 'workouts', 'progress', 'recipes']) {
     await page.goto(`${SITE}/${tab}`, { waitUntil: 'networkidle', timeout: 60_000 });
     await page.waitForTimeout(2500);
-    await page.screenshot({ path: `${out}/web-3-${tab}.png` });
-    const chars = (await page.locator('body').innerText()).trim().length;
-    console.log(`${tab}: ${chars} characters on screen`);
-    if (chars < 40) crashes.push(`${tab} rendered almost nothing`);
+    await page.screenshot({ path: `${out}/web-4-${tab}.png` });
+    const text = (await page.locator('body').innerText()).trim();
+    console.log(`${tab}: ${text.length} characters on screen`);
+    if (text.length < 40) crashes.push(`${tab} rendered almost nothing`);
+    if (/Where you are, and where/.test(text)) crashes.push(`${tab} still shows setup`);
   }
   session = await page.evaluate(() => {
     const k = Object.keys(localStorage).find((x) => x.endsWith('-auth-token'));

@@ -1,0 +1,24 @@
+# The first minute in a real phone build, the same steps on both phones: the
+# iPhone app on Apple's simulator and the Android app on Android's emulator
+# (.github/workflows/phone-proof.yml). Both shells load the same live web app,
+# whose whole first run (setup, weigh-in, every tab) scripts/iphone-proof.mjs
+# drives in Safari's engine; this flow proves each shell gets a stranger in.
+appId: com.toxicminds.recompos
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "Start now"
+    timeout: 90000
+- takeScreenshot: proof/flow-1-door
+- tapOn: "I agree that Moderly.*"
+- tapOn: "Start now"
+- extendedWaitUntil:
+    visible: "Where you are.*"
+    timeout: 60000
+- takeScreenshot: proof/flow-2-signed-in
+# Best effort past here: typing into a web page from outside it varies by shell.
+- tapOn:
+    text: "kg"
+    optional: true
+- takeScreenshot: proof/flow-3-setup
