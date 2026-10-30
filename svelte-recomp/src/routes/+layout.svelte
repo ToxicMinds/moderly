@@ -168,6 +168,25 @@
     initAuth();
   });
 
+  // An iPhone home-screen app draws under the status bar, yet WebKit sizes the
+  // page as if the bar took its own room: a strip that tall stayed empty under
+  // the tab bar. Measured, not assumed, so the day WebKit fixes it this adds 0.
+  $effect(() => {
+    if (!(navigator as any).standalone) return;
+    const root = document.documentElement;
+    const fit = () => {
+      const app = document.getElementById('app');
+      if (!app) return;
+      const added = parseFloat(root.style.getPropertyValue('--ios-gap')) || 0;
+      const full = innerHeight > innerWidth ? Math.max(screen.width, screen.height) : Math.min(screen.width, screen.height);
+      const gap = Math.round(full - (app.getBoundingClientRect().height - added));
+      root.style.setProperty('--ios-gap', `${gap > 0 && gap < 100 ? gap : 0}px`);
+    };
+    fit();
+    addEventListener('resize', fit);
+    return () => removeEventListener('resize', fit);
+  });
+
   // The boot screen's coin (src/app.html) spins until the app knows who's here.
   $effect(() => {
     if (!$authReady) return;
@@ -532,12 +551,6 @@
   <div id="topbar">
     <div class="flex ac gap2">
       <div id="topbar-title" class="wordmark"><b>Slim</b> Chance</div>
-      <div id="sync-dot"
-        class:synced={$syncStatus === 'synced'}
-        class:syncing={$syncStatus === 'syncing'}
-        class:error={$syncStatus === 'error'}
-        title={$syncStatus}
-      ></div>
     </div>
     <div class="flex ac gap2">
       <UpdateBadge />
@@ -760,11 +773,7 @@
   .ptr-spin.spinning{animation:ptr-rot .8s linear infinite}
   @keyframes ptr-rot{to{transform:rotate(360deg)}}
   .ptr-text{letter-spacing:.2px}
-#sync-dot{width:7px;height:7px;border-radius:50%;background:var(--border2);margin-left:4px;flex-shrink:0;transition:background .4s}
-  #sync-dot.synced{background:var(--led-good);box-shadow:0 0 6px color-mix(in srgb,var(--led-good) 60%,transparent)}
-  #sync-dot.syncing{background:var(--led-warn);animation:pulse 1s infinite}
-  #sync-dot.error{background:var(--led-bad);box-shadow:0 0 6px color-mix(in srgb,var(--led-bad) 60%,transparent)}
-  #app{display:flex;flex-direction:column;height:100vh;height:100dvh}
+  #app{display:flex;flex-direction:column;height:100vh;height:calc(100dvh + var(--ios-gap,0px))}
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
   @keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
   #pages > :global(*){animation:fadeUp .35s var(--ease)}

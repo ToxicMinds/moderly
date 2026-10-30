@@ -337,7 +337,7 @@
 
 {#if iosHint}
   <div class="card sv">
-    <p class="sv-t"><b>On iPhone:</b> tap Share, then Add to Home Screen. Slim Chance opens like an app, and can remind you in the morning.</p>
+    <p class="sv-t"><b>On iPhone:</b> tap Share, then Add to Home Screen. Slim Chance opens like an app, full screen, one tap from your home screen.</p>
     <div class="sv-row"><button class="sv-later" onclick={hideIosHint}>Got it</button></div>
   </div>
 {/if}
@@ -439,9 +439,10 @@
   .sv-t{font-size:0.875rem;line-height:1.5;color:var(--text);margin:0 0 10px}
   .sv-row{display:flex;align-items:center;gap:14px}
   .sv-later{background:none;border:none;font:inherit;font-size:0.8125rem;font-weight:700;color:var(--muted);cursor:pointer;text-decoration:underline;text-underline-offset:3px}
-  .mw-top{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:8px}
-  .mw-top .card-lbl{margin:0}
-  .mw-trend{font-size:0.8125rem;color:var(--muted)}
+  /* Each half stays whole: with big text the trend drops under the label. */
+  .mw-top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;column-gap:10px;row-gap:2px;margin-bottom:8px}
+  .mw-top .card-lbl{margin:0;white-space:nowrap}
+  .mw-trend{font-size:0.8125rem;color:var(--muted);white-space:nowrap}
   .mw-trend b{font-family:var(--font-display);font-size:1.125rem;color:var(--text)}
   .mw-row{display:flex;gap:8px}
   .mw-row :global(input){flex:1;min-width:0;font-size:1.25rem;font-weight:700;text-align:center;font-variant-numeric:lining-nums tabular-nums}

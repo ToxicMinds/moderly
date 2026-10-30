@@ -1,9 +1,12 @@
 <script lang="ts">
-  // One dot for the whole app. It used to check only the web build, so it said
+  // One dot for the whole app, the only one in the top bar: its colour says
+  // whether everything is saved, a tap checks for updates. It used to check
+  // only the web build, so it said
   // "Up to date" while the phone app itself was mid-update (the banner below
   // was downloading build 10 at that moment). Up to date now means both.
   import { updateAvailable, checkingUpdate, swVersion, applyUpdate, checkForUpdate } from '$lib/stores/appUpdate';
   import { updateState, checkForNativeUpdate, installNativeUpdate } from '$lib/stores/nativeUpdate';
+  import { syncStatus } from '$lib/stores/sync';
 
   /** The installed app is behind and can update in place. */
   const appBehind = $derived($updateState.available && $updateState.mode === 'inplace');
@@ -49,8 +52,10 @@
     <button
       class="upd upd-ok"
       class:checking={$checkingUpdate}
+      class:syncing={$syncStatus === 'syncing'}
+      class:error={$syncStatus === 'error'}
       onclick={manualCheck}
-      title={$swVersion ? `You're on the latest build (${$swVersion.slice(0, 8)}) — tap to re-check` : 'Up to date — tap to check for updates'}
+      title={`${$syncStatus === 'error' ? 'Not saved yet, will retry' : $syncStatus === 'syncing' ? 'Saving' : 'Saved'} · ${$swVersion ? `latest build (${$swVersion.slice(0, 8)})` : 'up to date'} — tap to check for updates`}
     >
       <span class="upd-ico">{$checkingUpdate ? '⟳' : '●'}</span>
     </button>
@@ -69,6 +74,9 @@
      disturbing the top bar's layout. */
   .upd-ok::after{content:'';position:absolute;inset:-14px}
   .upd-ok:active{opacity:1}
+  /* The one status dot: saving, or not saved yet. */
+  .upd-ok.syncing{color:var(--led-warn);opacity:1}
+  .upd-ok.error{color:var(--led-bad);opacity:1}
   .upd-ok.checking .upd-ico{animation:updspin .8s linear infinite}
   .upd-new{font-size:0.6875rem;color:var(--bg);background:var(--amber);border-radius:var(--r-sm);padding:4px 8px;animation:updpulse 1.6s ease-in-out infinite}
   .upd-new:active{transform:scale(.94)}

@@ -75,6 +75,8 @@
    broken layout. Text grows, chrome stays put. */
 html{font-size:calc(16px * var(--ui-scale,1));font-variant-numeric:lining-nums}
 html,body{height:100%;overflow:hidden;-webkit-text-size-adjust:100%}
+/* An iPhone home-screen app's lost status-bar strip, measured in +layout.svelte. */
+html{height:calc(100% + var(--ios-gap,0px))}
 body{
   font-family:var(--font-body);
   background:var(--bg);

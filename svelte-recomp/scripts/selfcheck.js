@@ -3856,6 +3856,16 @@ check('each goes out at the first unlock inside its window (MomentClock.java)', 
   assert.match(r.stdout, /MomentClock: ok/);
 });
 
+check('an iPhone home-screen app fills the screen: the status bar’s strip is measured and given back, never assumed', async () => {
+  const { readFileSync } = await import('node:fs');
+  const layout = readFileSync('src/routes/+layout.svelte', 'utf8');
+  assert.match(layout, /if \(!\(navigator as any\)\.standalone\) return;/, 'only in an iPhone home-screen app');
+  assert.match(layout, /gap > 0 && gap < 100 \? gap : 0/, 'a measured gap, bounded; zero once WebKit fixes it');
+  assert.match(layout, /#app\{[^}]*height:calc\(100dvh \+ var\(--ios-gap,0px\)\)/);
+  assert.match(readFileSync('src/app.css', 'utf8'), /\nhtml\{height:calc\(100% \+ var\(--ios-gap,0px\)\)\}/, 'the page grows with it, once, or it clips the app');
+  assert.ok(!/id="sync-dot"/.test(layout), 'one status dot in the top bar, not two');
+});
+
 check('the boot screen and the tab loader spin the same coin, still for anyone who asked for less motion', async () => {
   const { readFileSync } = await import('node:fs');
   const drawing = (src) => src.match(/<svg class="cspin"[^>]*>([\s\S]*?)<\/svg>/)[1];
