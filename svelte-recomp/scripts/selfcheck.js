@@ -1415,7 +1415,7 @@ check('the privacy page names every outside service the code talks to', async ()
     'search.openfoodfacts.org': 'Open Food Facts', 'world.openfoodfacts.org': 'Open Food Facts',
     'api.open-meteo.com': 'Open-Meteo', 'www.youtube-nocookie.com': 'YouTube', 'www.youtube.com': 'YouTube', 'github.com': 'GitHub',
     // Not outside: the app's own address, written into the calendar reminder.
-    'slimchance.vercel.app': 'Slim Chance',
+    'slimchance.app': 'Slim Chance',
   };
   const files = [
     ...readdirSync('src', { recursive: true }).map((f) => `src/${f}`),

@@ -12,19 +12,19 @@ The name is the joke; the odds are real. A coin landing on its edge is the textb
 chance (it's the mark), and every morning the app tells you yours: the odds in ten that
 your weight is really coming off. It was called Moderly until 30 October 2026.
 
-**Use it:** [slimchance.vercel.app](https://slimchance.vercel.app) in any browser (add it to
+**Use it:** [slimchance.app](https://slimchance.app) in any browser (add it to
 your home screen), or the Android app from
 [Releases](https://github.com/ToxicMinds/moderly/releases/tag/recompos-app-latest),
 installed by hand for now. No account needed to start. **How it works:**
-[slimchance.vercel.app/about](https://slimchance.vercel.app/about/).
+[slimchance.app/about](https://slimchance.app/about/).
 
 <p>
-<img src="https://slimchance.vercel.app/about/today.webp" alt="Today: the weight trend, and ten coins for the odds it's coming off" width="250">
-<img src="https://slimchance.vercel.app/about/scale-up.webp" alt="When the scale jumps, Slim Chance explains why from your own data" width="300">
-<img src="https://slimchance.vercel.app/about/keep-hero.webp" alt="Keep-it-off mode: days inside your range" width="300">
+<img src="https://slimchance.app/about/today.webp" alt="Today: the weight trend, and ten coins for the odds it's coming off" width="250">
+<img src="https://slimchance.app/about/scale-up.webp" alt="When the scale jumps, Slim Chance explains why from your own data" width="300">
+<img src="https://slimchance.app/about/keep-hero.webp" alt="Keep-it-off mode: days inside your range" width="300">
 </p>
 
-Made-up data. More at [slimchance.vercel.app/about](https://slimchance.vercel.app/about/).
+Made-up data. More at [slimchance.app/about](https://slimchance.app/about/).
 
 ## What it does
 

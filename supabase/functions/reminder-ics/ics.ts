@@ -13,7 +13,7 @@ function fold(line: string): string {
 }
 
 /** A daily event at hh:mm from `today` (YYYY-MM-DD), with an alert at that minute; null for a bad time. */
-export function dailyReminderIcs(hhmm: string, today: string, site = 'https://slimchance.vercel.app/'): string | null {
+export function dailyReminderIcs(hhmm: string, today: string, site = 'https://slimchance.app/'): string | null {
   const m = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(hhmm);
   if (!m || !/^\d{4}-\d{2}-\d{2}$/.test(today)) return null;
   const day = today.replaceAll('-', '');
