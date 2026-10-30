@@ -572,7 +572,9 @@ check('the hero reads the trend, the distance to the next stop, and a pace that 
   assert.equal(drift.story, 'The trend is flat right now.');
   assert.equal(drift.odds.lit, 0);
   assert.equal(pulse({ weight: wv(70, -0.3), pace: 'too-early', firstKg: 65, goalKg: 76, next: null }).odds.text, 'Almost certainly going up.', 'a gain goal counts the gain');
-  assert.equal(pulse({ weight: { ...wv(70, 0), state: 'not-enough' }, pace: 'too-early', firstKg: 70, goalKg: 66, next: null }).odds, null, 'no line, no odds');
+  const first = pulse({ weight: { ...wv(70, 0), state: 'not-enough', weighInsNeeded: 6 }, pace: 'too-early', firstKg: 70, goalKg: 66, next: null });
+  assert.equal(first.odds, null, 'no line, no odds');
+  assert.equal(first.story, '6 more mornings on the scale and you get your first odds.', 'and it says when they come');
 });
 
 check('the odds are the verdict’s own interval, read against a loss that counts', async () => {

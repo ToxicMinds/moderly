@@ -118,6 +118,9 @@ export function pulse(i: PulseInput): Pulse {
     const n = w?.weighInsNeeded;
     const plan = i.planKgPerWeek != null && i.planKgPerWeek > 0 ? i.planKgPerWeek : null;
     story = kg == null ? 'Weigh in tomorrow morning, before food or drink: the trend starts there.'
+      // Before the first line there are no odds yet: say when they come, the
+      // reason to step on the scale again tomorrow.
+      : n && w?.state === 'not-enough' ? `${n} more morning${n === 1 ? '' : 's'} on the scale and you get your first odds.`
       : n && n <= 7 ? `${n} more morning${n === 1 ? '' : 's'} on the scale and the trend can say how fast it’s moving.`
       // Months of mornings, a gentle plan and a swinging scale: what IS known.
       : trend != null && plan != null && (w?.n ?? 0) >= 14
