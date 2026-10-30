@@ -3868,6 +3868,41 @@ check('an iPhone home-screen app fills the screen: the status bar’s strip is m
   assert.ok(!/id="sync-dot"/.test(layout), 'one status dot in the top bar, not two');
 });
 
+check('getting fitter: the heart and the lifts answer it, plainly, and only when the data can', async () => {
+  // 2026-10-30, the owner: people want to lose weight and know they're getting
+  // fitter, not fancy numbers.
+  const { fitness } = await import('../src/lib/fitness.ts');
+  const none = { direction: 'insufficient', avgPct: 0, liftsUp: 0, liftsDown: 0, comparableLifts: 0, topMover: null, windowDays: 21 };
+  const day = (k) => { const d = new Date('2026-10-30T12:00:00'); d.setDate(d.getDate() - k); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+  let seed = 5; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647 - 0.5);
+  // Twelve weeks of a watch's resting heart rate falling 64 → 58, with its wobble.
+  const hr = []; for (let k = 84; k >= 0; k--) hr.push({ date: day(k), bpm: 58 + (k / 84) * 6 + rnd() * 2 });
+  const base = { today: '2026-10-30', steps: new Map(), trained: new Set(), strength: none };
+  const f = fitness({ ...base, restingHr: hr });
+  assert.equal(f.state, 'fitter');
+  assert.equal(f.headline, 'Yes, you’re getting fitter.');
+  assert.match(f.signs[0].text, /^Resting heart rate 6[3-5] → 5[7-9] bpm since August: your heart does the same work with fewer beats\.$/);
+  const flat = hr.map((p) => ({ date: p.date, bpm: 60 + rnd() * 2 }));
+  assert.equal(fitness({ ...base, restingHr: flat }).state, 'holding');
+  const rising = fitness({ ...base, restingHr: hr.map((p) => ({ date: p.date, bpm: 124 - p.bpm })) });
+  assert.equal(rising.state, 'slipping');
+  assert.match(rising.signs[0].text, /Short sleep, stress, an illness or a hard week of training can all do that\.$/, 'reasons, never blame');
+  // Ten readings say nothing about the heart; training and steps alone never decide it.
+  const steps = new Map(); for (let k = 1; k <= 56; k++) steps.set(day(k), k <= 28 ? 9000 : 7000);
+  const trained = new Set(); for (let k = 0; k < 56; k += k < 28 ? 2 : 4) trained.add(day(k));
+  const thin = fitness({ ...base, restingHr: hr.slice(-10), steps, trained });
+  assert.equal(thin.state, 'not-enough');
+  assert.deepEqual(thin.signs.map((s) => [s.key, s.good]), [['training', true], ['steps', true]]);
+  assert.equal(thin.signs[0].text, 'Training 3.5 days a week, up from 2.');
+  assert.equal(thin.signs[1].text, '9,000 steps a day, up from 7,000.');
+  // Lifts up with a steady heart: fitter. Lifts down while the heart falls: mixed.
+  const lifts = { ...none, direction: 'up', avgPct: 6.2, comparableLifts: 3, liftsUp: 2, topMover: { name: 'Bench press', pct: 8.1 } };
+  const l = fitness({ ...base, restingHr: flat, strength: lifts });
+  assert.equal(l.state, 'fitter');
+  assert.equal(l.signs.find((s) => s.key === 'strength').text, 'Lifts up 6% on the 3 weeks before (Bench press +8.1%).');
+  assert.equal(fitness({ ...base, restingHr: hr, strength: { ...lifts, direction: 'down', avgPct: -4 } }).state, 'mixed');
+});
+
 check('no published file names the AI assistant that helped build the app', async () => {
   // The owner's rule (2026-10-30): never mentioned in the code, the pages or git.
   // The words are assembled so this check doesn't match itself.

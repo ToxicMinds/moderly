@@ -5,7 +5,7 @@
   // logged sets, body-fat measurements, food. None of it needed new input; it just
   // had nowhere to be read together. See $lib/recomp.ts for the reasoning.
   import { liveWeights, liveWorkoutLogs, liveTracks, liveFoodLogs, liveGoal, liveActivitySessions } from '$lib/stores/live';
-  import { body, stall } from '$lib/stores/body';
+  import { body, stall, fitness } from '$lib/stores/body';
   import { strengthTrend } from '$lib/strength';
   import { recompVerdict, verdictTone, leanMass, fatMass, type BodyFatPoint } from '$lib/recomp';
   import { liveProfile } from '$lib/stores/live';
@@ -297,6 +297,21 @@
   </div>
 {/if}
 
+<!-- The other thing people want to know: am I getting fitter? Heart and lifts
+     decide it; training and steps sit beside them. -->
+<h2 class="sec-hd">Getting fitter?</h2>
+<div class="card fit-card">
+  <div class="trust-head">{$fitness.headline}</div>
+  {#if $fitness.signs.length}
+    <ul class="fit-signs">
+      {#each $fitness.signs as s (s.key)}<li class:good={s.good === true} class:bad={s.good === false}>{s.text}</li>{/each}
+    </ul>
+  {/if}
+  {#if $fitness.state === 'not-enough'}
+    <div class="trust-foot">A watch that records your resting heart rate, or two weeks of logged lifts, lets this answer properly.</div>
+  {/if}
+</div>
+
 <!-- Fat or muscle: the screen's own question, then what to change and the habits under it. -->
 <h2 class="sec-hd">Fat or muscle?</h2>
 <div class="card verdict-card verdict-{tone}">
@@ -458,6 +473,11 @@
 {/if}
 
 <style>
+  .fit-signs{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:7px}
+  .fit-signs li{position:relative;padding-left:20px;font-size:0.875rem;line-height:1.45;color:var(--text)}
+  .fit-signs li::before{content:'–';position:absolute;left:2px;top:0;font-weight:800;color:var(--muted)}
+  .fit-signs li.good::before{content:'↑';color:var(--led-good)}
+  .fit-signs li.bad::before{content:'↓';color:var(--led-warn)}
   .sec-hd{font-family:var(--font-display);font-size:1.375rem;font-weight:700;line-height:1.1;color:var(--text);margin:26px 2px 10px}
   .trust-more{margin-top:8px}
   .trust-more summary{cursor:pointer;font-size:0.8125rem;font-weight:700;color:var(--amber);list-style:none}

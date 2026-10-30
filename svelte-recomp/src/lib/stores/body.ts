@@ -13,7 +13,7 @@
 // still for seven days and the week's budget is a number you can plan against.
 import { trainedDates } from '$lib/health/exercise';
 import { derived, type Readable } from 'svelte/store';
-import { liveWeights, liveGoal, liveFoodLogs, liveDailyLogs, liveProfile, liveTracks, liveGoalReason, liveWorkoutLogs, liveActivitySessions, liveSessionCompletions } from './live';
+import { liveWeights, liveGoal, liveFoodLogs, liveDailyLogs, liveProfile, liveTracks, liveGoalReason, liveWorkoutLogs, liveActivitySessions, liveSessionCompletions, liveBiometrics, liveDailySteps } from './live';
 import { todayDate } from './refresh';
 import { weightVerdict, paceVsPlan, diagnoseStall, type WeightVerdict, type Pace, type StallDiagnosis } from '$lib/insights';
 import { weeklyMaintenance, type AdaptiveTdee } from '$lib/adaptiveTdee';
@@ -28,6 +28,8 @@ import { pulse, type KeepInput, type Pulse } from '$lib/pulse';
 import { programWeek } from '$lib/program';
 import { explainUp, type UpExplained } from '$lib/scaleUp';
 import { cycleInfo, cycleNote } from '$lib/cycle';
+import { fitness as fitnessOf, type Fitness } from '$lib/fitness';
+import { strengthTrend } from '$lib/strength';
 
 export interface DayIntake { kcal: number; protein: number; carbs: number; fat: number; items: number }
 
@@ -220,6 +222,21 @@ export const line: Readable<LineState | null> = derived(
     (($weights as any[]) ?? []).map((w) => ({ date: w.date, weight: +w.weight })),
     $today as string,
   ),
+);
+
+/** "Am I getting fitter?", beside "am I losing weight?": the resting heart
+ *  rate's trend, lifts, training days and steps (src/lib/fitness.ts). Training
+ *  days from the watch and the log alone, like the stall: the completions store
+ *  keeps only the last ten. */
+export const fitness: Readable<Fitness> = derived(
+  [liveBiometrics(), liveDailySteps(), liveWorkoutLogs(), liveActivitySessions(), todayDate],
+  ([$bio, $steps, $logs, $activity, $today]) => fitnessOf({
+    today: $today as string,
+    restingHr: (($bio as any[]) ?? []).filter((b) => b.resting_hr != null && b.date).map((b) => ({ date: b.date as string, bpm: +b.resting_hr })),
+    steps: $steps as Map<string, number>,
+    trained: trainedDates([], ($activity as any[]) ?? [], ($logs as any[]) ?? []),
+    strength: strengthTrend(($logs as any[]) ?? [], { asOf: Date.parse(`${$today}T12:00:00`) }),
+  }),
 );
 
 /** Every weigh-in with the trend as it stood that morning: Progress's chart,
