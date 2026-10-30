@@ -24,7 +24,7 @@ import { isAndroidApp } from '../platform.ts';
 // Keep EQUAL to `versionCode` in android/app/build.gradle. Bump both together
 // whenever a native change ships — that's the whole trigger for an in-place
 // update prompt.
-export const LATEST_NATIVE_BUILD = 16;
+export const LATEST_NATIVE_BUILD = 17;
 
 // The stable, rolling download link the CI release always publishes to.
 export const APK_URL =
@@ -107,6 +107,9 @@ async function nativeBits(): Promise<NativeBits | null> {
 export async function checkForNativeUpdate(): Promise<void> {
   const bits = await nativeBits();
   if (!bits || !bits.isNative) return;
+  // A store build (it loads slimchance.app): the store updates it, and Play's
+  // policy forbids offering an APK. Only sideloaded builds load vercel.app.
+  if (location.hostname === 'slimchance.app') return;
 
   // Old build (pre-stable-signing): no installer plugin baked in → this app
   // must be replaced once by the new, properly-signed APK.

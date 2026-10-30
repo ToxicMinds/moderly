@@ -9,7 +9,8 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         // Register the custom in-app APK updater before the bridge boots, so the
         // web layer can call ApkInstaller.installFromUrl(...) over the bridge.
-        registerPlugin(ApkInstallerPlugin.class);
+        // Only the sideloaded APK updates itself; Google Play updates the Play build.
+        if (!"play".equals(BuildConfig.FLAVOR)) registerPlugin(ApkInstallerPlugin.class);
         // The morning briefing and the evening hold (MomentsPlugin → MomentReceiver).
         registerPlugin(MomentsPlugin.class);
         super.onCreate(savedInstanceState);

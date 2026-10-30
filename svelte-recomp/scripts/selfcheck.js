@@ -3993,6 +3993,25 @@ check('the build is stamped with its commit only when ship gives one', async () 
   assert.match(readFileSync('scripts/smoke.mjs', 'utf8'), /page\.on\('pageerror'/, 'the live check runs the first screen, not only its HTML');
 });
 
+check('the Google Play build updates only through Play and loads slimchance.app', async () => {
+  // 2026-10-30: Play forbids an app updating itself or installing packages,
+  // and restricts USE_EXACT_ALARM to alarm-clock apps. The sideloaded APK
+  // keeps all three and its vercel.app address, where installs keep their data.
+  const { readFileSync } = await import('node:fs');
+  const gradle = readFileSync('android/app/build.gradle', 'utf8');
+  assert.match(gradle, /productFlavors \{\s+sideload \{ dimension 'store' \}\s+play \{ dimension 'store' \}/);
+  assert.match(gradle, /replace\('"https:\/\/svelte-recomp\.vercel\.app"', '"https:\/\/slimchance\.app"'\)/);
+  const play = readFileSync('android/app/src/play/AndroidManifest.xml', 'utf8');
+  for (const p of ['REQUEST_INSTALL_PACKAGES', 'USE_EXACT_ALARM']) assert.match(play, new RegExp(`android\\.permission\\.${p}" tools:node="remove"`));
+  assert.match(readFileSync('android/app/src/main/java/com/toxicminds/recompos/MainActivity.java', 'utf8'), /if \(!"play"\.equals\(BuildConfig\.FLAVOR\)\) registerPlugin\(ApkInstallerPlugin\.class\);/);
+  assert.match(readFileSync('android/app/src/main/java/com/toxicminds/recompos/MomentReceiver.java', 'utf8'), /am\.canScheduleExactAlarms\(\)/, 'without USE_EXACT_ALARM the moments fall back to an inexact alarm');
+  assert.match(readFileSync('src/lib/stores/nativeUpdate.ts', 'utf8'), /if \(location\.hostname === 'slimchance\.app'\) return;/, 'a store build is never offered an APK');
+  const wf = readFileSync('../.github/workflows/build-app-apk.yml', 'utf8');
+  assert.match(wf, /\.\/gradlew assembleSideloadDebug/);
+  assert.match(wf, /ANDROID_KEYSTORE_FILE="\$HOME\/\.recompos\/moderly\.p12"\n\s+\.\/gradlew bundlePlayRelease/, 'the bundle is signed with the new key, never the leaked one');
+  assert.match(readFileSync('capacitor.config.json', 'utf8'), /"url": "https:\/\/svelte-recomp\.vercel\.app"/, 'the sideloaded app keeps its address');
+});
+
 check('a phone\'s first sync reads a month back, so day one has a heart answer', async () => {
   // 2026-10-30: the first read was 14 days, and "Getting fitter?" needs 21
   // resting-rate days across four weeks, so a new person waited a month.

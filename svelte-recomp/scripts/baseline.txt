@@ -279,6 +279,7 @@ t-critical is the real t value, not the normal approximation
 the 4-day split alternates lower and upper
 the Food hero praises protein when it’s hit and never colours a day still in progress
 the GLP-1 companion keeps a record and never advises
+the Google Play build updates only through Play and loads slimchance.app
 the Stoic lines rotate by date, never at random, and each is sourced
 the Sunday check-ins become a journal, newest first, in the user’s words
 the Sunday review asks about the user’s own plan, in their words

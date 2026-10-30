@@ -93,7 +93,7 @@ jobs:
         run: |
           chmod +x ./gradlew
           export ANDROID_KEYSTORE_FILE="$HOME/.recompos/recompos.keystore"
-          ./gradlew assembleDebug --no-daemon --stacktrace
+          ./gradlew assembleSideloadDebug --no-daemon --stacktrace
 
       # The old key is public, so the platform must stop accepting it: the new
       # key becomes the app's signer through a signed lineage (old -> new), and
@@ -117,10 +117,29 @@ jobs:
           # `lineage --set-rollback false` then has nothing to write); check it.
           "$SIGNER" lineage --in "$K/lineage.bin" --print-certs | tee lineage.txt
           grep -A6 "Signer #1 in lineage" lineage.txt | grep -q "Has rollback capability      : false"
-          cp android/app/build/outputs/apk/debug/app-debug.apk old-key-only.apk
-          "$SIGNER" sign --in android/app/build/outputs/apk/debug/app-debug.apk --out moderly.apk \
+          cp android/app/build/outputs/apk/sideload/debug/app-sideload-debug.apk old-key-only.apk
+          "$SIGNER" sign --in android/app/build/outputs/apk/sideload/debug/app-sideload-debug.apk --out moderly.apk \
             "${OLD[@]}" --next-signer "${NEW[@]}" --lineage "$K/lineage.bin" --rotation-min-sdk-version 28
           "$SIGNER" verify --verbose --print-certs moderly.apk
+
+      # The Google Play build (flavor "play", app/build.gradle): an app bundle
+      # signed with the new key, which is the Play upload key (Google signs what
+      # it ships). It loads slimchance.app and can't install packages; checked
+      # here, kept as an artifact for the Play Console, never published.
+      - name: Build the Google Play bundle
+        working-directory: svelte-recomp/android
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_NEW_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_NEW_KEY_ALIAS }}
+        run: |
+          set -euo pipefail
+          export ANDROID_KEYSTORE_FILE="$HOME/.recompos/moderly.p12"
+          ./gradlew bundlePlayRelease --no-daemon --stacktrace
+          AAB=app/build/outputs/bundle/playRelease/app-play-release.aab
+          unzip -p "$AAB" base/assets/capacitor.config.json | grep -q '"https://slimchance.app"'
+          ! unzip -p "$AAB" base/manifest/AndroidManifest.xml | grep -aq 'REQUEST_INSTALL_PACKAGES'
+          ! unzip -p "$AAB" base/manifest/AndroidManifest.xml | grep -aq 'USE_EXACT_ALARM'
+          cp "$AAB" ../slimchance-play.aab
 
       - name: Shred the keystores
         if: always()
@@ -134,6 +153,14 @@ jobs:
             svelte-recomp/moderly.apk
             svelte-recomp/old-key-only.apk
           if-no-files-found: error
+
+      - name: Keep the Google Play bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: slimchance-play-aab
+          path: svelte-recomp/slimchance-play.aab
+          if-no-files-found: error
+          retention-days: 90
 
   update:
     needs: build

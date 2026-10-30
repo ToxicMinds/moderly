@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The Google Play build (see productFlavors in app/build.gradle). Play updates
+     the app, so it never installs packages itself, and USE_EXACT_ALARM is for
+     alarm-clock and calendar apps: MomentReceiver already falls back to an
+     inexact alarm when exact ones aren't allowed. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" tools:node="remove" />
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" tools:node="remove" />
+</manifest>

@@ -7,7 +7,7 @@ android {
         applicationId "com.toxicminds.recompos"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 16
+        versionCode 17
         versionName "2.5"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
@@ -57,6 +57,20 @@ android {
             }
         }
     }
+    // Two ways out of one app (2026-10-30):
+    //   sideload  the APK on our GitHub release, which updates itself in place
+    //             (ApkInstallerPlugin) and loads svelte-recomp.vercel.app, where
+    //             every install so far keeps its data. Unchanged.
+    //   play      the Google Play build: no self-update and no installing
+    //             packages (Play's policy), no restricted exact-alarm permission
+    //             (src/play/AndroidManifest.xml), and it loads slimchance.app, the
+    //             address it keeps wherever the site is hosted.
+    flavorDimensions 'store'
+    productFlavors {
+        sideload { dimension 'store' }
+        play { dimension 'store' }
+    }
+    buildFeatures { buildConfig true }
     buildTypes {
         debug {
             // Only claim the stable config when the key is actually present;
@@ -67,6 +81,23 @@ android {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
             if (haveKeystore) signingConfig signingConfigs.stable
+        }
+    }
+}
+
+// The Play build loads slimchance.app: the address in the synced
+// capacitor.config.json is swapped as its assets are merged, so the config
+// itself stays one file.
+android.applicationVariants.configureEach { variant ->
+    if (variant.flavorName == 'play') {
+        variant.mergeAssetsProvider.configure { task ->
+            task.doLast {
+                def cfg = new File(task.outputDir.get().asFile, 'capacitor.config.json')
+                if (!cfg.exists()) throw new GradleException('play: no capacitor.config.json in the merged assets; run cap sync first')
+                def text = cfg.text.replace('"https://svelte-recomp.vercel.app"', '"https://slimchance.app"')
+                if (!text.contains('"https://slimchance.app"')) throw new GradleException('play: the server address was not swapped')
+                cfg.text = text
+            }
         }
     }
 }
