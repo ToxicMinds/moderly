@@ -1,7 +1,9 @@
 // After a deploy: every address serves this commit, the pages people land on
 // load, and the edge functions answer. Exits 1 on any failure, and
 // scripts/ship.sh rolls back. Usage: node scripts/smoke.mjs <commit>
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { chromium } from 'playwright-core';
 
 const sha = process.argv[2];
 if (!sha) throw new Error('usage: node scripts/smoke.mjs <commit>');
@@ -34,6 +36,26 @@ for (const [path, marker] of [['/', 'id="boot"'], ['/about/', '<title>Slim Chanc
 const www = await get('https://www.slimchance.app/');
 expect(www.status === 308 && www.location.startsWith('https://slimchance.app'), `www: ${www.status} to ${www.location || 'nowhere'}`);
 
+// The first screen actually runs, at a phone's size: the HTML can be all there
+// while the app itself crashes on start (it happened on a local build,
+// 2026-10-30). Opening it starts no account.
+const browsers = `${homedir()}/.cache/ms-playwright`;
+const chrome = readdirSync(browsers).filter((d) => /^chromium-\d+$/.test(d)).sort().at(-1);
+if (!chrome) throw new Error(`smoke: no Chromium in ${browsers}; run npx playwright install chromium`);
+const browser = await chromium.launch({ executablePath: `${browsers}/${chrome}/chrome-linux64/chrome` });
+try {
+  const page = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  const crashes = [];
+  page.on('pageerror', (e) => crashes.push(e.message));
+  await page.goto(`${site}/`, { waitUntil: 'networkidle', timeout: 60_000 });
+  await page.waitForTimeout(2000);
+  const text = (await page.locator('body').innerText()).trim();
+  expect(!crashes.length, `the first screen threw: ${crashes.join(' / ')}`);
+  expect(text.includes('Start now'), 'the first screen shows no "Start now"');
+} finally {
+  await browser.close();
+}
+
 const ics = await get(`${fn}/reminder-ics?t=07:30`);
 expect(ics.status === 200 && ics.type.startsWith('text/calendar') && ics.body.startsWith('BEGIN:VCALENDAR'), `reminder-ics: ${ics.status} ${ics.type}`);
 const coach = await get(`${fn}/coach`, { method: 'POST', body: '{}', headers: { 'content-type': 'application/json' } });
@@ -43,4 +65,4 @@ if (fails.length) {
   console.error(`smoke: ${fails.length} failed\n  ${fails.join('\n  ')}`);
   process.exit(1);
 }
-console.log(`smoke: ${HOSTS.length} addresses on ${sha}, pages and functions answer.`);
+console.log(`smoke: ${HOSTS.length} addresses on ${sha}; pages load, the first screen runs, functions answer.`);

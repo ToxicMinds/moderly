@@ -27,6 +27,9 @@ export interface FitnessInput {
   steps: Map<string, number>;
   trained: Set<string>;
   strength: StrengthTrend;
+  /** The first day the app holds any of this person's data. Before it, no
+   *  training on record isn't no training. */
+  since: string | null;
 }
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -61,7 +64,7 @@ function strength(s: FitnessInput['strength']): FitnessSign | null {
 
 /** Days trained, the last four weeks against the four before, as counts: a
  *  week of two gym visits after a quiet month reads as the two visits. */
-function training(trained: Set<string>, today: string): FitnessSign | null {
+function training(trained: Set<string>, today: string, since: string | null): FitnessSign | null {
   const base = new Date(`${today}T12:00:00`);
   const days = (from: number, to: number) => {
     let n = 0;
@@ -69,8 +72,11 @@ function training(trained: Set<string>, today: string): FitnessSign | null {
     return n;
   };
   const recent = days(0, 28), before = days(28, 56);
-  if (recent === 0 && before === 0) return null;
   const said = `Trained ${recent} day${recent === 1 ? '' : 's'} in the last four weeks`;
+  // A comparison needs the four weeks before on record: a new phone's first
+  // sync reads one month, and "up from 0" would be the app's gap, not theirs.
+  if (!since || since > shiftYmd(-55, base)) return recent ? { key: 'training', good: null, text: `${said}.` } : null;
+  if (recent === 0 && before === 0) return null;
   if (recent >= before + 2) return { key: 'training', good: true, text: `${said}, up from ${before}.` };
   if (recent <= before - 4) return { key: 'training', good: false, text: `${said}, down from ${before}.` };
   return { key: 'training', good: null, text: `${said}, as in the four before.` };
@@ -99,7 +105,7 @@ function steps(perDay: Map<string, number>, today: string): FitnessSign | null {
 }
 
 export function fitness(i: FitnessInput): Fitness {
-  const signs = [heart(i.restingHr, i.today), strength(i.strength), training(i.trained, i.today), steps(i.steps, i.today)]
+  const signs = [heart(i.restingHr, i.today), strength(i.strength), training(i.trained, i.today, i.since), steps(i.steps, i.today)]
     .filter((s): s is FitnessSign => s != null);
   // The answer rests on the heart and the lifts; training and steps are what
   // feeds them, shown beside it.

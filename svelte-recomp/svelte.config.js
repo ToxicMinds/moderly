@@ -21,7 +21,9 @@ const config = {
         adapter: adapterAuto(),
         // The commit, when shipped through scripts/ship.sh, so the live check can
         // tell the site serves exactly what was verified (ENGINEERING.md).
-        version: { name: process.env.APP_VERSION || Date.now().toString() }
+        // Otherwise SvelteKit's own default: a name made up here would differ
+        // between `vite build` and `vite preview`, and the preview wouldn't start.
+        ...(process.env.APP_VERSION ? { version: { name: process.env.APP_VERSION } } : {})
       }
 };
 

@@ -12,7 +12,7 @@
   import { morningsThisWeek } from '$lib/scale';
   import { saveWeighIn, NeedsConfirm } from '$lib/weighIn';
   import { buildDailyFocus, waterTargetLitres } from '$lib/coach';
-  import { body, stall, line, scaleUp } from '$lib/stores/body';
+  import { body, stall, line, scaleUp, fitness } from '$lib/stores/body';
   import { editing } from '$lib/commitments';
   import { cleanPlans, sportOf } from '$lib/plans';
   import CommitmentAlerts from '$lib/components/CommitmentAlerts.svelte';
@@ -411,6 +411,15 @@
     </span>
     <span class="td-go" aria-hidden="true">›</span>
   </div>
+  <!-- The other answer beside the weight's, once there is one (Progress has
+       the signs behind it). -->
+  {#if $fitness.state !== 'not-enough'}
+    <div class="td-row" use:cardNav={`${base}/progress`}>
+      <span class="td-k">Fitter?</span>
+      <span class="td-v">{$fitness.headline}</span>
+      <span class="td-go" aria-hidden="true">›</span>
+    </div>
+  {/if}
 </div>
 
 <!-- What you've committed to: the next stop below you, the goal past it, the
@@ -469,6 +478,7 @@
   .td{padding:6px 14px}
   .td-row{display:flex;align-items:baseline;gap:12px;padding:9px 0;cursor:pointer;-webkit-tap-highlight-color:transparent}
   .td-row + .td-sub + .td-row{border-top:1px solid var(--border);margin-top:9px}
+  .td-row + .td-row{border-top:1px solid var(--border)}
   .td-k{font-family:var(--font-label);font-size:0.8125rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);min-width:76px}
   .td-v{flex:1;min-width:0;font-size:0.9375rem;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .td-v b{font-family:var(--font-display);font-size:1.25rem;font-weight:700}

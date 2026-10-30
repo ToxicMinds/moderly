@@ -236,6 +236,8 @@ export const fitness: Readable<Fitness> = derived(
     steps: $steps as Map<string, number>,
     trained: trainedDates([], ($activity as any[]) ?? [], ($logs as any[]) ?? []),
     strength: strengthTrend(($logs as any[]) ?? [], { asOf: Date.parse(`${$today}T12:00:00`) }),
+    since: [...($steps as Map<string, number>).keys(), ...(($bio as any[]) ?? []).map((b) => b.date), ...(($activity as any[]) ?? []).map((a) => a.date), ...(($logs as any[]) ?? []).map((l) => l.date)]
+      .filter(Boolean).sort()[0] ?? null,
   }),
 );
 

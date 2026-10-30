@@ -508,6 +508,10 @@ let running = false;
  */
 const FULL_DAYS = 14;
 const RECENT_DAYS = 3;
+/** A phone's first sync reads a month back, as far as Health Connect lets an
+ *  app read before its first permission, so the trend and "Getting fitter?"
+ *  can answer on day one. */
+const HISTORY_DAYS = 30;
 const FULL_READ_KEY = 'hc-last-full-read';
 function fullReadDue(): boolean {
   try {
@@ -556,7 +560,13 @@ export async function syncHealthConnect(
 
     const full = opts.force || fullReadDue();
     const nDays = opts.days ?? (full ? FULL_DAYS : RECENT_DAYS);
-    const startISO = startOfDaysAgo(nDays).toISOString();
+    let first = false;
+    try { first = !localStorage.getItem('hc-last-sync'); } catch { /* no storage: not a first sync */ }
+    const histDays = Math.max(nDays, first ? HISTORY_DAYS : 0);
+    const startISO = startOfDaysAgo(histDays).toISOString();
+    // Heart-rate samples stay at nDays: they are the heavy read, and only fill
+    // in a day that has no resting-rate record.
+    const samplesISO = startOfDaysAgo(nDays).toISOString();
     const endISO = new Date().toISOString();
 
     // CRITICAL: only read record types the user actually granted. Reading an
@@ -564,13 +574,13 @@ export async function syncHealthConnect(
     // HARD-CRASHES the app (see READ_PERMISSION note). This gate degrades the
     // feature gracefully instead — grant steps only, you get steps only.
     const canRead = (t: RecordType) => granted.has(READ_PERMISSION[t]);
-    const read = (t: RecordType) => (canRead(t) ? readAll(HealthConnect, t, startISO, endISO) : Promise.resolve([]));
+    const read = (t: RecordType, from = startISO) => (canRead(t) ? readAll(HealthConnect, t, from, endISO) : Promise.resolve([]));
 
     const [steps, sleeps, hrSeries, restingHr, hrv, exercises, activeCals, totalCals, distances] =
       await Promise.all([
         read('Steps'),
         read('SleepSession'),
-        read('HeartRateSeries'),
+        read('HeartRateSeries', samplesISO),
         read('RestingHeartRate'),
         read('HeartRateVariabilityRmssd'),
         read('ExerciseSession'),
@@ -619,7 +629,7 @@ export async function syncHealthConnect(
     });
     // Workouts, steps and sleep/HR are independent: save them side by side.
     const [workoutDays, saved] = await Promise.all([
-      pushActivitySessions(uid, activity, ymd(startOfDaysAgo(nDays))).catch((e: any) => {
+      pushActivitySessions(uid, activity, ymd(startOfDaysAgo(histDays))).catch((e: any) => {
         notify('Health Connect', `Could not save watch workouts: ${e?.message || e}`, { level: 'warn' });
         return 0;
       }),

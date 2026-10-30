@@ -56,6 +56,7 @@ a nudge only exists while the fact behind it is still true
 a nudge whose time has passed today is not scheduled for the past
 a one-off AI photo estimate never becomes a staple chip
 a page is called what its tab is called
+a phone's first sync reads a month back, so day one has a heart answer
 a photo races the Gemini models, so one stuck model costs a stagger, not the whole wait
 a plan shows at its moment, the most specific moment first
 a profile is only complete when TDEE can actually be computed
@@ -286,6 +287,7 @@ the briefing names the session, a new week, the week’s last day, and Friday’
 the briefing names what its breakfast button logs
 the briefing on the 1st points at the letter
 the briefing: weather in the title, the first job first, then the day, the food and the plan
+the build is stamped with its commit only when ship gives one
 the ceiling and the next stop are named for their direction everywhere the user reads
 the check-in nudge lands on that week’s target, inside the floor
 the chips carry the macros from the LATEST time you logged that food

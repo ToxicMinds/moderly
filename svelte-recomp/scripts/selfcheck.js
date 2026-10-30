@@ -3903,6 +3903,28 @@ check('public pages call the everyday app free to use, never the whole of it fre
   assert.equal(about.match(/Slim Chance Plus, an optional subscription on its way/g)?.length, 2, 'the FAQ and its search snippet say the same');
 });
 
+check('the build is stamped with its commit only when ship gives one', async () => {
+  // 2026-10-30: a version name made up in svelte.config.js differed between
+  // `vite build` and `vite preview`, and the local preview crashed on start.
+  const { readFileSync } = await import('node:fs');
+  const cfg = readFileSync('svelte.config.js', 'utf8');
+  assert.match(cfg, /\.\.\.\(process\.env\.APP_VERSION \? \{ version: \{ name: process\.env\.APP_VERSION \} \} : \{\}\)/);
+  assert.match(readFileSync('scripts/ship.sh', 'utf8'), /--build-env APP_VERSION="\$SHA"/);
+  assert.match(readFileSync('scripts/smoke.mjs', 'utf8'), /page\.on\('pageerror'/, 'the live check runs the first screen, not only its HTML');
+});
+
+check('a phone\'s first sync reads a month back, so day one has a heart answer', async () => {
+  // 2026-10-30: the first read was 14 days, and "Getting fitter?" needs 21
+  // resting-rate days across four weeks, so a new person waited a month.
+  const { readFileSync } = await import('node:fs');
+  const hc = readFileSync('src/lib/health/healthConnect.ts', 'utf8');
+  assert.match(hc, /const HISTORY_DAYS = 30;/);
+  assert.match(hc, /const histDays = Math\.max\(nDays, first \? HISTORY_DAYS : 0\);/);
+  assert.match(hc, /read\('RestingHeartRate'\)/, 'resting rate over the whole history window');
+  assert.match(hc, /read\('HeartRateSeries', samplesISO\)/, 'samples, the heavy read, stay at the normal window');
+  assert.match(hc, /pushActivitySessions\(uid, activity, ymd\(startOfDaysAgo\(histDays\)\)\)/, 'workouts saved over the window they were read for');
+});
+
 check('getting fitter: the heart and the lifts answer it, plainly, and only when the data can', async () => {
   // 2026-10-30, the owner: people want to lose weight and know they're getting
   // fitter, not fancy numbers.
@@ -3912,7 +3934,7 @@ check('getting fitter: the heart and the lifts answer it, plainly, and only when
   let seed = 5; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647 - 0.5);
   // Twelve weeks of a watch's resting heart rate falling 64 → 58, with its wobble.
   const hr = []; for (let k = 84; k >= 0; k--) hr.push({ date: day(k), bpm: 58 + (k / 84) * 6 + rnd() * 2 });
-  const base = { today: '2026-10-30', steps: new Map(), trained: new Set(), strength: none };
+  const base = { today: '2026-10-30', steps: new Map(), trained: new Set(), strength: none, since: day(120) };
   const f = fitness({ ...base, restingHr: hr });
   assert.equal(f.state, 'fitter');
   assert.equal(f.headline, 'Yes, you’re getting fitter.');
@@ -3930,6 +3952,10 @@ check('getting fitter: the heart and the lifts answer it, plainly, and only when
   assert.deepEqual(thin.signs.map((s) => [s.key, s.good]), [['training', true], ['steps', true]]);
   assert.equal(thin.signs[0].text, 'Trained 14 days in the last four weeks, up from 7.');
   assert.equal(thin.signs[1].text, '9,000 steps a day, up from 7,000.');
+  // A new phone's first sync reads one month: no "up from 0" for a gap that is the app's.
+  const fresh = fitness({ ...base, restingHr: [], since: day(29), trained });
+  assert.deepEqual(fresh.signs.find((s) => s.key === 'training'), { key: 'training', good: null, text: 'Trained 14 days in the last four weeks.' });
+  assert.equal(fitness({ ...base, restingHr: [], since: null, trained: new Set() }).signs.length, 0);
   // Lifts up with a steady heart: fitter. Lifts down while the heart falls: mixed.
   const lifts = { ...none, direction: 'up', avgPct: 6.2, comparableLifts: 3, liftsUp: 2, topMover: { name: 'Bench press', pct: 8.1 } };
   const l = fitness({ ...base, restingHr: flat, strength: lifts });
