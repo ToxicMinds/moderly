@@ -3856,6 +3856,15 @@ check('each goes out at the first unlock inside its window (MomentClock.java)', 
   assert.match(r.stdout, /MomentClock: ok/);
 });
 
+check('the boot screen and the tab loader spin the same coin, still for anyone who asked for less motion', async () => {
+  const { readFileSync } = await import('node:fs');
+  const drawing = (src) => src.match(/<svg class="cspin"[^>]*>([\s\S]*?)<\/svg>/)[1];
+  const html = readFileSync('src/app.html', 'utf8');
+  assert.equal(drawing(html), drawing(readFileSync('src/lib/components/CoinSpin.svelte', 'utf8')));
+  assert.match(html, /@media \(prefers-reduced-motion:reduce\)\{\.cspin \.cs-face,\.cspin \.cs-edge,\.cspin \.cs-floor,\.cspin \.cs-tails\{animation:none\}\}/);
+  assert.match(readFileSync('src/routes/+layout.svelte', 'utf8'), /if \(!\$authReady\) return;\s*const boot = document\.getElementById\('boot'\)/, 'the boot screen goes once the app is ready');
+});
+
 check('the briefing and the hold never wake the phone, and are never alarms', async () => {
   const { readFileSync } = await import('node:fs');
   const src = readFileSync('android/app/src/main/java/com/toxicminds/recompos/MomentReceiver.java', 'utf8');

@@ -222,6 +222,18 @@ export const line: Readable<LineState | null> = derived(
   ),
 );
 
+/** Every weigh-in with the trend as it stood that morning: Progress's chart,
+ *  drawn from the same fit as every other screen. Its own store, like `line`,
+ *  so a food entry doesn't refit a year of mornings. */
+export const trendSeries: Readable<Array<{ date: string; kg: number; trendKg: number | null }>> = derived(
+  liveWeights(),
+  ($weights) => {
+    const weights = (($weights as any[]) ?? []).map((w) => ({ date: w.date as string, weight: +w.weight }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+    return weights.map((w) => ({ date: w.date, kg: w.weight, trendKg: weightVerdict(weights, Date.parse(`${w.date}T12:00:00`))?.trendKg ?? null }));
+  },
+);
+
 /** The Today hero and the page's glow, read off the same trend (src/lib/pulse.ts).
  *  While keeping it off, with the days the trend stayed under the ceiling. */
 export const todayPulse: Readable<Pulse> = derived([body, liveProfile(), line, liveWeights()], ([$b, $p, $line, $weights]) => {

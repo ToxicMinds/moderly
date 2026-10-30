@@ -1,6 +1,8 @@
 <script lang="ts">
   import '../app.css';
   import BottomNav from '$lib/components/BottomNav.svelte';
+  import CoinSpin from '$lib/components/CoinSpin.svelte';
+  import { navigating } from '$app/state';
   import AuthGate from '$lib/components/AuthGate.svelte';
   import { syncStatus } from '$lib/stores/sync';
   import { user, authReady, initAuth, signOut, deleteAccount, isTrial } from '$lib/stores/user';
@@ -164,6 +166,15 @@
 
   $effect(() => {
     initAuth();
+  });
+
+  // The boot screen's coin (src/app.html) spins until the app knows who's here.
+  $effect(() => {
+    if (!$authReady) return;
+    const boot = document.getElementById('boot');
+    if (!boot) return;
+    boot.classList.add('out');
+    setTimeout(() => boot.remove(), 300);
   });
 
   $effect(() => {
@@ -494,7 +505,7 @@
 
 <div id="app">
   {#if !$authReady}
-    <div style="padding:40px;text-align:center;color:var(--muted)">Loading...</div>
+    <!-- The boot screen (src/app.html) is still up, its coin spinning. -->
   {:else if !$user}
     <AuthGate />
   {:else if needsOnboarding}
@@ -702,7 +713,15 @@
   {/if}
 </div>
 
+<!-- A tab that takes a moment: the coin spins, after 300 ms, so a quick one never flashes it. -->
+{#if navigating.to}
+  <div class="nav-wait" role="status" aria-label="Loading"><div class="nav-coin"><CoinSpin size={40} /></div></div>
+{/if}
+
 <style>
+  .nav-wait{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;pointer-events:none;opacity:0;animation:nav-in .2s ease .3s forwards}
+  .nav-coin{display:flex;align-items:center;justify-content:center;width:84px;height:84px;border-radius:50%;background:var(--bg2);border:1px solid var(--border);box-shadow:0 10px 30px rgba(0,0,0,.25)}
+  @keyframes nav-in{to{opacity:1}}
   .cw-h{font-family:var(--font-display);font-size:1.75rem;font-weight:700;color:var(--text);margin-bottom:8px}
   .cw-p{font-size:0.875rem;line-height:1.5;color:var(--text);margin:0 0 14px}
   .cw-no{margin-top:8px}

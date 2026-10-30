@@ -131,7 +131,16 @@
   });
   let trendMetric = $state<'kcal' | 'protein'>('kcal');
 
-  let showHistory = $state(false);
+  type FoodView = 'today' | 'history' | 'recipes';
+  const VIEW_KEY = 'recompos.food.view';
+  let view = $state<FoodView>((() => {
+    try { const v = sessionStorage.getItem(VIEW_KEY); return v === 'history' || v === 'recipes' ? v : 'today'; } catch { return 'today'; }
+  })());
+  function setView(v: FoodView) {
+    view = v;
+    try { sessionStorage.setItem(VIEW_KEY, v); } catch { /* storage disabled */ }
+  }
+  let shownDays = $state(14);
   let foodSwipeOffsets = $state<Record<string, number>>({});
   let repeatingId = $state<string | null>(null);
 
@@ -380,6 +389,14 @@
     { v: `${Math.round(todayTotals.fat)}g`, l: 'fat' }
   ]} />
 
+<!-- Three things to do here, one at a time: log today, look back, cook. -->
+<div class="food-views" role="tablist" aria-label="Food">
+  {#each [['today', 'Today'], ['history', 'History'], ['recipes', 'Recipes']] as [v, label]}
+    <button type="button" role="tab" aria-selected={view === v} class:on={view === v} onclick={() => setView(v as FoodView)}>{label}</button>
+  {/each}
+</div>
+
+{#if view === 'today'}
 <!-- Where the number comes from, in the log's own terms: a log that leaves the
      same things out every week is still a good ruler, so the target is set in
      its units and nobody is asked to weigh the oil. -->
@@ -449,7 +466,7 @@
 {:else}
   <div class="note-box warn">🎯 No plan yet — set one in <strong>Progress → Body &amp; Goals</strong>.</div>
 {/if}
-
+{:else if view === 'history'}
 {#if kcalTrend.length >= 2}
   <div class="card">
     <div class="flex jb ac">
@@ -472,39 +489,37 @@
 
 {#if historyByDay.length > 0}
   <div class="card">
-    <div class="flex jb ac" style="cursor:pointer" onclick={() => showHistory = !showHistory} role="button" tabindex="0" onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); showHistory = !showHistory; } }}>
-      <div class="card-lbl" style="margin-bottom:0">Food History ({historyByDay.length} days)</div>
-      <span style="color:var(--muted);font-size:0.8125rem">{showHistory ? '▲' : '▼'}</span>
-    </div>
-    {#if showHistory}
-      <div style="margin-top:10px">
-        {#each historyByDay as day}
-          <div class="hist-day">
-            <div class="flex jb ac">
-              <div style="font-size:0.8125rem;font-weight:700;color:var(--text)">{new Date(day.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</div>
-              <div style="font-size:0.6875rem;color:var(--amber);font-weight:600">{Math.round(day.totals.kcal)} kcal &middot; P{Math.round(day.totals.protein)}</div>
+    <div class="card-lbl">Every day you logged</div>
+    {#each historyByDay.slice(0, shownDays) as day (day.date)}
+      <div class="hist-day">
+        <div class="flex jb ac">
+          <div style="font-size:0.8125rem;font-weight:700;color:var(--text)">{new Date(day.date + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}</div>
+          <div style="font-size:0.6875rem;color:var(--amber);font-weight:600">{Math.round(day.totals.kcal)} kcal &middot; P{Math.round(day.totals.protein)}</div>
+        </div>
+        {#each day.foods as f}
+          <div class="hist-item">
+            <span class="hist-name">{cleanName(f.name)}</span>
+            <div class="flex ac gap2">
+              <span class="hist-macros">{Math.round(f.kcal)}kcal</span>
+              <button type="button" class="fi-repeat fi-repeat-sm" onclick={() => repeatFood(f)} disabled={repeatingId === f.id} title="Re-log today">
+                {repeatingId === f.id ? '…' : '⟳'}
+              </button>
             </div>
-            {#each day.foods as f}
-              <div class="hist-item">
-                <span class="hist-name">{cleanName(f.name)}</span>
-                <div class="flex ac gap2">
-                  <span class="hist-macros">{Math.round(f.kcal)}kcal</span>
-                  <button type="button" class="fi-repeat fi-repeat-sm" onclick={() => repeatFood(f)} disabled={repeatingId === f.id} title="Re-log today">
-                    {repeatingId === f.id ? '…' : '⟳'}
-                  </button>
-                </div>
-              </div>
-            {/each}
           </div>
         {/each}
       </div>
+    {/each}
+    {#if historyByDay.length > shownDays}
+      <button type="button" class="btn bg_ bsm bfl hist-more" onclick={() => (shownDays += 14)}>Show {Math.min(14, historyByDay.length - shownDays)} more days</button>
     {/if}
   </div>
+{:else}
+  <div class="card hist-empty">The days you log land here, newest first, each meal ready to log again with one tap.</div>
 {/if}
 
-<div class="page-hd">Recipes</div>
-<div class="page-sub">Ask for anything &middot; written around today's remaining macros</div>
-
+<!-- Weekly eating patterns. -->
+<NutritionInsights />
+{:else}
 <div class="card gen-card">
   <div class="card-lbl">Cook something new</div>
   <div class="gen-sub">
@@ -560,6 +575,7 @@
     </div>
   </div>
 {/if}
+{/if}
 
 <Modal open={selected !== null} onclose={() => selected = null}>
   {#if selected}
@@ -607,11 +623,15 @@
   {/if}
 </Modal>
 
-
-<!-- Weekly eating patterns: below the daily logging actions -->
-<NutritionInsights />
-
 <style>
+  .food-views{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;padding:4px;margin:0 0 14px;
+    background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-md)}
+  .food-views button{border:none;background:none;padding:9px 0;border-radius:calc(var(--r-md) - 3px);cursor:pointer;
+    font-family:var(--font-label);font-size:0.8125rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);
+    transition:background .18s var(--ease),color .18s var(--ease)}
+  .food-views button.on{background:var(--bg3);color:var(--text)}
+  .hist-more{margin-top:12px}
+  .hist-empty{font-size:0.8125rem;color:var(--muted);text-align:center;padding:22px 16px}
   .live-target{font-size:0.75rem;color:var(--amber2);line-height:1.5;background:var(--glass-2);border:1px solid var(--glass-brd);border-radius:11px;padding:9px 11px;margin-bottom:12px}
   .live-target b{color:var(--text)}
   .fi-src{margin-left:6px;font-size:0.6875rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);border:1px solid var(--border);border-radius:4px;padding:0 4px;vertical-align:1px}

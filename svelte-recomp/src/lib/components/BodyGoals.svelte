@@ -53,47 +53,6 @@
     } finally { savingWeight = false; }
   }
 
-  // — Weight chart —
-  const pad = { t: 20, r: 16, b: 24, l: 40 };
-  const chartW = 340, chartH = 160;
-  const plotW = chartW - pad.l - pad.r, plotH = chartH - pad.t - pad.b;
-
-  function chartPath(data: Array<{date: string; weight: number}>): string {
-    if (data.length < 2) return '';
-    const pts = data.slice(-30);
-    const mn = Math.min(...pts.map(p => p.weight)) - 1;
-    const mx = Math.max(...pts.map(p => p.weight)) + 1;
-    const rng = mx - mn || 1;
-    return pts.map((p, i) => {
-      const x = pad.l + (i / (pts.length - 1)) * plotW;
-      const y = pad.t + (1 - (p.weight - mn) / rng) * plotH;
-      return `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`;
-    }).join(' ');
-  }
-
-  function chartArea(data: Array<{date: string; weight: number}>): string {
-    if (data.length < 2) return '';
-    const pts = data.slice(-30);
-    const mn = Math.min(...pts.map(p => p.weight)) - 1;
-    const mx = Math.max(...pts.map(p => p.weight)) + 1;
-    const rng = mx - mn || 1;
-    const path = pts.map((p, i) => {
-      const x = pad.l + (i / (pts.length - 1)) * plotW;
-      const y = pad.t + (1 - (p.weight - mn) / rng) * plotH;
-      return `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`;
-    }).join(' ');
-    return `${path}L${pad.l + plotW},${pad.t + plotH}L${pad.l},${pad.t + plotH}Z`;
-  }
-
-  function chartLabels(data: Array<{date: string; weight: number}>): Array<{x: number; y: number; label: string}> {
-    if (data.length < 2) return [];
-    const pts = data.slice(-30);
-    return pts.filter((_, i) => i % Math.max(1, Math.floor(pts.length / 5)) === 0).map((p, i, a) => {
-      const x = pad.l + (i / (a.length - 1 || 1)) * plotW;
-      return { x, y: pad.t + plotH + 14, label: p.date };
-    });
-  }
-
   // — Water — live from IndexedDB.
   const today = todayYmd();
   const _todayLog = liveLog(today);
@@ -113,7 +72,6 @@
   }
 
   const recentWeight = $derived(weights.length > 0 ? weights[weights.length - 1].weight : null);
-  const firstWeight = $derived(weights.length > 0 ? weights[0].weight : null);
 
   // ————————————————————————————————————————————————————————————
   // Body composition (formerly the Plan page)
@@ -295,33 +253,6 @@
   <button class="btn bp bfl" onclick={saveWeight} disabled={weightKg == null || savingWeight}>Log Weight</button>
   {#if weightMsg}<div class="bg-weight-msg">{weightMsg}</div>{/if}
 
-  {#if weights.length >= 2}
-    <div class="chart-box">
-      <svg viewBox="0 0 {chartW} {chartH}" width="100%" height={chartH}>
-        <path d={chartArea(weights)} fill="var(--ab)" />
-        <path d={chartPath(weights)} stroke="var(--amber)" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" />
-        {#each chartLabels(weights) as lbl}
-          <text x={lbl.x} y={lbl.y} fill="var(--muted)" font-size="9" text-anchor="middle">{lbl.label}</text>
-        {/each}
-      </svg>
-    </div>
-  {:else if weights.length === 1}
-    <div style="color:var(--muted);font-size:0.8125rem;text-align:center;margin-top:8px">Log one more weight to see the trend</div>
-  {:else}
-    <div style="color:var(--muted);font-size:0.8125rem;text-align:center;margin-top:8px">No weights logged yet</div>
-  {/if}
-</div>
-
-<div class="card">
-  <div class="card-lbl">Goal Progress</div>
-  <div style="font-size:0.8125rem;color:var(--muted);margin-bottom:6px">Target weight: <strong style="color:var(--amber)">{wtShortU(GOAL_KG)}</strong></div>
-  <div class="pbar-wrap">
-    <div class="pbar" style="width: {firstWeight && recentWeight ? Math.min(100, ((firstWeight - recentWeight) / (firstWeight - GOAL_KG)) * 100) : 0}%"></div>
-  </div>
-  <div class="flex jb" style="font-size:0.6875rem;color:var(--muted);margin-top:2px">
-    <span>{firstWeight ? fmtW(+firstWeight) : 'Start'}</span>
-    <span>{wtShortU(GOAL_KG)} goal</span>
-  </div>
 </div>
 
 <div class="card">

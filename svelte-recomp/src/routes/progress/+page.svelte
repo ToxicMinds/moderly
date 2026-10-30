@@ -20,6 +20,7 @@
   import PageHero from '$lib/components/PageHero.svelte';
   import WeekShape from '$lib/components/WeekShape.svelte';
   import WeekJournal from '$lib/components/WeekJournal.svelte';
+  import WeightLine from '$lib/components/WeightLine.svelte';
   import { onMount, tick } from 'svelte';
   import { afterNavigate } from '$app/navigation';
   import { base } from '$app/paths';
@@ -199,6 +200,9 @@
     strengthArrow !== '—' ? { v: strengthArrow, l: 'strength' } : { v: goalKg != null ? wtShort(goalKg) : '—', l: 'goal' }
   ]} />
 
+<!-- Is it coming off? The line first, then how sure it is, then why not when it isn't. -->
+<WeightLine />
+
 {#if wv}
   <div class="card trust-card" class:trust-solid={wv.state === 'answerable'}>
     <div class="card-lbl">
@@ -211,11 +215,11 @@
       <div class="trust-head">
         Your weight is going <strong>{rateWord} {kg(wv.rateKgPerWeek)}</strong> a week.
       </div>
-      <div class="trust-body">
+      <details class="trust-more"><summary>How sure is this?</summary><div class="trust-body">
         Your weigh-ins scatter about <b>&plusmn;{dwt(wv.scatterKg)}</b> around that line,
         so the true rate is between <b>{kg(Math.min(Math.abs(wv.loKgPerWeek), Math.abs(wv.hiKgPerWeek)))}</b> and <b>{kg(Math.max(Math.abs(wv.loKgPerWeek), Math.abs(wv.hiKgPerWeek)))}</b> a week.
         That range doesn't include zero — so this is a real trend, not scale noise.
-      </div>
+      </div>{@render foot()}</details>
     {:else if wv.state === 'not-enough'}
       <div class="trust-head">
         {wv.n} weigh-in{wv.n === 1 ? '' : 's'} isn't enough to tell you anything honest.
@@ -229,18 +233,18 @@
       <div class="trust-head">
         Not losing at your planned pace.
       </div>
-      <div class="trust-body">
+      <details class="trust-more"><summary>How sure is this?</summary><div class="trust-body">
         Across {wv.n} weigh-ins your readings scatter <b>&plusmn;{dwt(wv.scatterKg)}</b>, which
         puts the real rate between <b>{kg(wv.loKgPerWeek)} {wv.loKgPerWeek >= 0 ? 'down' : 'up'}</b> and
         <b>{kg(wv.hiKgPerWeek)} {wv.hiKgPerWeek >= 0 ? 'down' : 'up'}</b> a week. Your plan is
         <b>{$body.target.planKgPerWeek != null ? dwt($body.target.planKgPerWeek, 2) : '—'} down</b> — outside that range. A little loss or none,
         it isn't the plan.
-      </div>
+      </div>{@render foot()}</details>
     {:else}
       <div class="trust-head">
         Can't call it yet — the noise is bigger than the signal.
       </div>
-      <div class="trust-body">
+      <details class="trust-more"><summary>How sure is this?</summary><div class="trust-body">
         Across {wv.n} weigh-ins your readings scatter <b>&plusmn;{dwt(wv.scatterKg)}</b>
         around the trend line. That puts the real rate somewhere between
         <b>{kg(wv.loKgPerWeek)} {wv.loKgPerWeek >= 0 ? 'down' : 'up'}</b> and
@@ -249,16 +253,19 @@
         {#if wv.daysUntilAnswer}
           Weighing most mornings, we'd know in about <b>{wv.daysUntilAnswer} days</b>.
         {/if}
-      </div>
+      </div>{@render foot()}</details>
     {/if}
-
-    <div class="trust-foot">
-      Everything below is built on this. Weigh yourself at the same time each
-      morning, before food or drink — same conditions is what makes the readings
-      comparable.
-    </div>
+    {#if wv.state === 'not-enough'}{@render foot()}{/if}
   </div>
 {/if}
+
+{#snippet foot()}
+  <div class="trust-foot">
+    Everything here is built on this. Weigh yourself at the same time each
+    morning, before food or drink — same conditions is what makes the readings
+    comparable.
+  </div>
+{/snippet}
 
 {#if $stall}
   <!-- WHY THE SCALE ISN'T MOVING. Only once the trend has ruled the plan out.
@@ -290,12 +297,8 @@
   </div>
 {/if}
 
-<!-- Where in the week the food goes, and what the scale does with it. -->
-<WeekShape />
-
-<!-- The Sunday check-ins, kept: a private journal, a week at a time. -->
-<WeekJournal />
-
+<!-- Fat or muscle: the screen's own question, then what to change and the habits under it. -->
+<h2 class="sec-hd">Fat or muscle?</h2>
 <div class="card verdict-card verdict-{tone}">
   <div class="verdict-tone-bar"></div>
   <div class="verdict-head">{verdict.headline}</div>
@@ -307,8 +310,6 @@
     {/if}
   </div>
 </div>
-
-<ProgressPhotos />
 
 {#if verdict.composition && verdict.composition.fatShare != null}
   <div class="card">
@@ -375,6 +376,15 @@
     </div>
   </div>
 </div>
+
+<h2 class="sec-hd">Your weeks</h2>
+<!-- Where in the week the food goes, and what the scale does with it. -->
+<WeekShape />
+
+<!-- The Sunday check-ins, kept: a private journal, a week at a time. -->
+<WeekJournal />
+
+<ProgressPhotos />
 
 <!-- Secondary detail, folded so the page stays trimmed to the essentials. -->
 <div class="card" style="margin-top:14px;cursor:pointer" onclick={() => showMore = !showMore} role="button" tabindex="0" onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); showMore = !showMore; } }}>
@@ -448,6 +458,13 @@
 {/if}
 
 <style>
+  .sec-hd{font-family:var(--font-display);font-size:1.375rem;font-weight:700;line-height:1.1;color:var(--text);margin:26px 2px 10px}
+  .trust-more{margin-top:8px}
+  .trust-more summary{cursor:pointer;font-size:0.8125rem;font-weight:700;color:var(--amber);list-style:none}
+  .trust-more summary::-webkit-details-marker{display:none}
+  .trust-more summary::after{content:' ▾'}
+  .trust-more[open] summary::after{content:' ▴'}
+  .trust-more .trust-body{margin-top:8px}
   /* The honesty card. Deliberately the first thing on the screen: it says how
      much weight to put on everything below it. */
   /* Cards carry their meaning in a faint wash of its colour, not a stripe. */
