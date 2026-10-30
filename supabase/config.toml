@@ -438,6 +438,11 @@ verify_jwt = false
 enabled = true
 verify_jwt = false
 
+# Totals for the daily health digest; it checks its own secret token.
+[functions.health]
+enabled = true
+verify_jwt = false
+
 [functions.coach]
 enabled = true
 verify_jwt = true

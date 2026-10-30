@@ -1,14 +1,17 @@
-// After a deploy: every address serves this commit, the pages people land on
-// load, and the edge functions answer. Exits 1 on any failure, and
-// scripts/ship.sh rolls back. Usage: node scripts/smoke.mjs <commit>
+// The live site works. After a deploy (scripts/ship.sh, which rolls back on a
+// failure): every address serves that commit. On a schedule
+// (.github/workflows/live-check.yml, no commit given): every address serves
+// the same build, and it is a commit on main. Either way the pages people
+// land on load, the first screen runs, and the edge functions answer.
+// Usage: node scripts/smoke.mjs [commit]
 import { readFileSync, readdirSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { homedir } from 'node:os';
 import { chromium } from 'playwright-core';
 
-const sha = process.argv[2];
-if (!sha) throw new Error('usage: node scripts/smoke.mjs <commit>');
-const env = Object.fromEntries(readFileSync(new URL('../.env', import.meta.url), 'utf8').split('\n').filter((l) => l.includes('=')).map((l) => [l.slice(0, l.indexOf('=')), l.slice(l.indexOf('=') + 1).trim()]));
-const fn = `${env.PUBLIC_SUPABASE_URL}/functions/v1`;
+const sha = process.argv[2] ?? null;
+const supabaseUrl = process.env.PUBLIC_SUPABASE_URL ?? readFileSync(new URL('../.env', import.meta.url), 'utf8').match(/^PUBLIC_SUPABASE_URL=(.+)$/m)?.[1].trim();
+const fn = `${supabaseUrl}/functions/v1`;
 const HOSTS = ['https://svelte-recomp.vercel.app', 'https://slimchance.app', 'https://slimchance.vercel.app', 'https://moderly.vercel.app'];
 const fails = [];
 const get = async (url, init = {}) => {
@@ -18,13 +21,22 @@ const get = async (url, init = {}) => {
 const expect = (ok, what) => { if (!ok) fails.push(what); };
 
 // Every address on this commit; the edge may need a moment to move over.
+const seen = [];
 for (const h of HOSTS) {
   let v = '';
-  for (let i = 0; i < 12 && v !== sha; i++) {
+  for (let i = 0; i < 12 && (sha ? v !== sha : !v); i++) {
     if (i) await new Promise((r) => setTimeout(r, 5000));
     try { v = JSON.parse((await get(`${h}/_app/version.json?t=${Date.now()}`)).body).version; } catch { v = ''; }
   }
-  expect(v === sha, `${h} serves ${v || 'nothing'}, not ${sha}`);
+  seen.push(v);
+  if (sha) expect(v === sha, `${h} serves ${v || 'nothing'}, not ${sha}`);
+}
+if (!sha) {
+  expect(seen.every((v) => v && v === seen[0]), `the addresses disagree: ${HOSTS.map((h, i) => `${h} ${seen[i] || 'nothing'}`).join(', ')}`);
+  // Only ship.sh deploys, and it stamps the commit: anything else is a deploy
+  // that went around the baseline.
+  try { execFileSync('git', ['merge-base', '--is-ancestor', seen[0], 'origin/main'], { stdio: 'ignore' }); }
+  catch { fails.push(`live build ${seen[0] || 'nothing'} is not a commit on main`); }
 }
 
 const site = HOSTS[0];
@@ -65,4 +77,4 @@ if (fails.length) {
   console.error(`smoke: ${fails.length} failed\n  ${fails.join('\n  ')}`);
   process.exit(1);
 }
-console.log(`smoke: ${HOSTS.length} addresses on ${sha}; pages load, the first screen runs, functions answer.`);
+console.log(`smoke: ${HOSTS.length} addresses on ${sha ?? seen[0]}; pages load, the first screen runs, functions answer.`);

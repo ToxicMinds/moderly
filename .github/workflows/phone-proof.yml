@@ -26,6 +26,10 @@ on:
       - "svelte-recomp/scripts/iphone-proof.mjs"
       - ".github/workflows/phone-proof.yml"
   workflow_dispatch: {}
+  # Every night against the live site, so a break in either shell's first
+  # minute shows up the next morning, not at the next native change.
+  schedule:
+    - cron: "20 2 * * *"
 
 permissions:
   contents: read

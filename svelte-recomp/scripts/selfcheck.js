@@ -3983,6 +3983,42 @@ check('the GLP-1 companion keeps a record and never advises', async () => {
   assert.match(readFileSync('static/privacy.html', 'utf8'), /<strong>Medication<\/strong>, only if you use the GLP-1 companion/);
 });
 
+check('a daily digest says what broke, in totals, and only new errors raise the alarm', async () => {
+  // 2026-10-30, the owner: monitoring before launch. The health function
+  // answers only its own token, with totals; the digest fails the run (GitHub
+  // emails him) for a kind of error nobody had before, or a failed check.
+  const { digest } = await import('./health-digest.mjs');
+  const quiet = digest({ since: 'x', events: { open: 5, setup_1: 3, setup_done: 2, reminder_failed: 1 }, ai: { ai: 4 }, errors: [{ new: false, message: 'old', people: 2, route: '/' }] });
+  assert.equal(quiet.alarm, false, 'a reminder the browser couldn\'t take is the normal calendar path, not an alarm');
+  assert.ok(quiet.lines.includes('- Opened the app: 5 people; started setup: 3; finished: 2'));
+  const loud = digest({ since: 'x', events: {}, ai: {}, errors: [{ new: true, message: 'TypeError: x is undefined', people: 1, route: '/meds' }] });
+  assert.equal(loud.alarm, true);
+  assert.ok(loud.lines.some((l) => /NEW \(1 person, \/meds\): TypeError/.test(l)));
+  assert.equal(digest({ failed: 'client_errors: 500' }).alarm, true);
+  assert.equal(digest(null).alarm, true, 'no answer at all is an alarm');
+  const { readFileSync } = await import('node:fs');
+  const fn = readFileSync('../supabase/functions/health/index.ts', 'utf8');
+  assert.match(fn, /if \(!TOKEN \|\| req\.headers\.get\('x-health-token'\) !== TOKEN\) return new Response\('Not found', \{ status: 404 \}\);/);
+  assert.match(fn, /people: p\.people\.size \}\)\)/, 'error kinds carry a count of people, never who');
+  assert.match(fn, /\[k, v\.size\]/, 'events too');
+  assert.doesNotMatch(fn, /select=[^`]*(email|display_name)/, 'no query reads who anyone is');
+  assert.match(readFileSync('../.github/workflows/health-digest.yml', 'utf8'), /cron: "40 6 \* \* \*"[\s\S]*secrets\.HEALTH_TOKEN/);
+  assert.match(readFileSync('../.github/workflows/phone-proof.yml', 'utf8'), /schedule:\n\s+- cron: "20 2 \* \* \*"/, 'both phones\' first minute, every night');
+});
+
+check('the live site is checked on a schedule, not only when someone deploys', async () => {
+  // 2026-10-30, the owner: monitoring before launch. The same smoke test, every
+  // three hours on GitHub; a failure emails him.
+  const { readFileSync } = await import('node:fs');
+  const wf = readFileSync('../.github/workflows/live-check.yml', 'utf8');
+  assert.match(wf, /schedule:\n\s+- cron: "17 \*\/3 \* \* \*"/);
+  assert.match(wf, /fetch-depth: 0/, 'the live build is checked against main');
+  assert.match(wf, /run: node scripts\/smoke\.mjs\n/, 'no commit given: every address must agree');
+  const smoke = readFileSync('scripts/smoke.mjs', 'utf8');
+  assert.match(smoke, /execFileSync\('git', \['merge-base', '--is-ancestor', seen\[0\], 'origin\/main'\]/);
+  assert.match(smoke, /process\.env\.PUBLIC_SUPABASE_URL \?\?/, 'runs without the laptop\'s .env');
+});
+
 check('the build is stamped with its commit only when ship gives one', async () => {
   // 2026-10-30: a version name made up in svelte.config.js differed between
   // `vite build` and `vite preview`, and the local preview crashed on start.

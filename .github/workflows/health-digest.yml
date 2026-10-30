@@ -1,0 +1,32 @@
+# Once a day: the live app's last 24 hours in totals, from the health edge
+# function (supabase/functions/health), summarised by
+# svelte-recomp/scripts/health-digest.mjs. The run fails, and GitHub emails
+# the repo owner, when there is a kind of error nobody had before, or the
+# check itself fails. Nothing personal leaves
+# the database: the function answers with totals only.
+name: Health digest
+
+on:
+  schedule:
+    - cron: "40 6 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "26"
+      - name: Yesterday on the live app
+        env:
+          HEALTH_TOKEN: ${{ secrets.HEALTH_TOKEN }}
+        run: |
+          set -uo pipefail
+          curl -sS -H "x-health-token: $HEALTH_TOKEN" https://jerbhsasccvjelkkphgu.supabase.co/functions/v1/health > health.json || true
+          node svelte-recomp/scripts/health-digest.mjs health.json | tee -a "$GITHUB_STEP_SUMMARY"
