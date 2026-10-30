@@ -210,7 +210,9 @@ export async function scheduleNudges(nudges: Nudge[], now: Date = new Date()): P
 
 // ── MORNING BRIEFING AND EVENING HOLD ────────────────────────────────────────
 // Not alarms. Android posts each the first time the phone is unlocked inside
-// its window (MomentReceiver.java), from text this app writes whenever it's
+// its window (MomentReceiver.java); the iPhone, which tells no app it was
+// unlocked, leaves it silently on the lock screen as the window opens
+// (ios/App/App/Moments.swift). Both from text this app writes whenever it's
 // open (stores/moments.ts). Build 7 carries the Moments plugin; build 6 had a
 // morning-only one ("Morning"), still fed here until it's updated. Older
 // builds have neither: every call is a no-op and the card asks for the update.
@@ -220,7 +222,11 @@ export interface MomentPayload {
   /** The briefing's buttons (build 8+; older builds ignore them). */
   actions?: { weigh: boolean; back: boolean; meal: { label: string; kcal: number; items: unknown[] } | null; weighRange?: [number, number] | null };
 }
-export interface MomentsState { on: boolean; morning?: { shown?: string; postedAt?: number }; evening?: { shown?: string; postedAt?: number } }
+export interface MomentsState {
+  on: boolean; morning?: { shown?: string; postedAt?: number }; evening?: { shown?: string; postedAt?: number };
+  /** iPhone only: whether the person let the app notify at all; absent until asked. */
+  allowed?: boolean;
+}
 
 // Wrapped in { P } for the same reason as readyPlugin(): a bare plugin proxy
 // returned from an async function gets probed for .then.
@@ -243,7 +249,7 @@ export async function momentsSupport(): Promise<'all' | 'morning' | null> {
 
 let armedWith = '';
 
-/** Hand Android the coming moments. Re-sent only when they change, so calling
+/** Hand the phone the coming moments. Re-sent only when they change, so calling
  *  it on every tick is free. */
 export async function armMoments(moments: MomentPayload[]): Promise<void> {
   const key = JSON.stringify(moments);

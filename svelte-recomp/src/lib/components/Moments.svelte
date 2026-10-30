@@ -1,19 +1,22 @@
 <script lang="ts">
   // The morning briefing and the evening hold: their switches, the morning's
   // time, and each one exactly as it would arrive. What goes in them:
-  // src/lib/briefing.ts and src/lib/hold.ts. When they go out: MomentClock.java.
+  // src/lib/briefing.ts and src/lib/hold.ts. When they go out: MomentClock.java
+  // on Android, Moments.swift on the iPhone.
   import { onMount } from 'svelte';
   import { briefings, holds, momentSetting, forecast, refreshForecast, saveMoments, type MomentSetting } from '$lib/stores/moments';
   import { momentsStatus, momentsSupport, showMomentNow, type MomentsState } from '$lib/nativeAlarms';
-  import { isAndroidApp, isIOSApp } from '$lib/platform';
+  import { isAndroidApp, isIOSApp, isNativeApp } from '$lib/platform';
   import { holdAfter } from '$lib/hold';
   import { locationRefused } from '$lib/weather';
   import { todayDate } from '$lib/stores/refresh';
   import { updateState } from '$lib/stores/nativeUpdate';
 
-  // The unlock moments live in the Android app; iPhone gets them next.
-  const native = isAndroidApp();
-  const elsewhere = isIOSApp() ? 'It’s coming to the iPhone app next.' : 'It comes with the Android app.';
+  // The moments live in the phone apps: Android posts each at the first unlock,
+  // the iPhone (which tells no app it was unlocked) leaves it on the lock screen.
+  const native = isNativeApp();
+  const iphone = isIOSApp();
+  const elsewhere = 'It comes with the Android app, and soon the iPhone app.';
   let support = $state<'all' | 'morning' | null | undefined>(undefined);
   let status = $state<MomentsState | null>(null);
   let saving = $state(false);
@@ -26,10 +29,11 @@
   });
 
   const s = $derived<MomentSetting>($momentSetting ?? { on: false, after: '06:00', hold: false });
-  /** Build 8 put buttons on the briefing; older builds show it without. */
-  const buttons = $derived(($updateState.installedBuild ?? 0) >= 8);
+  /** Build 8 put buttons on the briefing; older builds show it without. The
+   *  iPhone's carry none yet. */
+  const buttons = $derived(isAndroidApp() && ($updateState.installedBuild ?? 0) >= 8);
   /** Build 9 can post today's at once, to see where its buttons are. */
-  const canShow = $derived(($updateState.installedBuild ?? 0) >= 9);
+  const canShow = $derived(iphone || ($updateState.installedBuild ?? 0) >= 9);
   let sent = $state<string[] | null>(null);
   let sending = $state(false);
   const tomorrow = $derived($briefings[1] ?? null);
@@ -90,14 +94,14 @@
       </div>
     {/if}
   </div>
-  {#if n.actions && !buttons}<div class="mb-meta">The update adds buttons to it: log your weight, rate your back and log your usual breakfast, from the watch too.</div>{/if}
+  {#if n.actions && !buttons && !iphone}<div class="mb-meta">The update adds buttons to it: log your weight, rate your back and log your usual breakfast, from the watch too.</div>{/if}
 {/snippet}
 
 <div class="acard mb">
   <div class="flex jb ac">
     <div>
       <div class="mb-h">Morning briefing</div>
-      <div class="amsg">The first time you unlock after {s.after}</div>
+      <div class="amsg">{iphone ? `Waiting on the lock screen from ${s.after}` : `The first time you unlock after ${s.after}`}</div>
     </div>
     {#if support}
       <div class="tog" class:on={s.on} role="switch" tabindex="0" aria-checked={s.on} aria-label="Morning briefing"
@@ -106,7 +110,8 @@
   </div>
   <p class="mb-lede">
     One notification: the weather where you are, the day's session and food, and your plan for the day.
-    It's not an alarm and makes no sound. If you don't pick the phone up, nothing comes.
+    {iphone ? 'It\'s not an alarm: no sound, and the screen stays dark. It waits on the lock screen for your first look.'
+      : 'It\'s not an alarm and makes no sound. If you don\'t pick the phone up, nothing comes.'}
   </p>
 
   {#if !native}
@@ -117,18 +122,18 @@
     <label class="flbl mb-lbl" for="mb-after">After</label>
     <input id="mb-after" type="time" min="04:00" max="11:00" value={s.after} onchange={setAfter} disabled={saving}>
     {#if tomorrow}{@render preview("Tomorrow's, as it stands", tomorrow)}{/if}
-    {#if buttons}
+    {#if buttons || iphone}
       <div class="mb-meta">
-        On the phone the buttons sit under the notification: drag it down, or tap its arrow.
+        {#if buttons}On the phone the buttons sit under the notification: drag it down, or tap its arrow.{/if}
         {#if canShow}{' '}<button type="button" class="mb-link" onclick={showNow} disabled={sending}>{sending ? 'Sending…' : 'Show today’s now'}</button>{/if}
       </div>
-      {#if sent}<div class="mb-meta">{sent.length ? `Sent, with ${sent.join(' · ')}.` : 'Sent. Today’s has no buttons left: everything on it is logged.'}</div>{/if}
+      {#if sent}<div class="mb-meta">{sent.length ? `Sent, with ${sent.join(' · ')}.` : buttons ? 'Sent. Today’s has no buttons left: everything on it is logged.' : 'Sent.'}</div>{/if}
     {/if}
     <div class="mb-meta">
       {#if $forecast}
         Weather for roughly where the phone is.
       {:else if refused}
-        Location is off for Slim Chance. Allow it in Android Settings → Apps → Slim Chance → Permissions, then
+        Location is off for Slim Chance. Allow it in {iphone ? 'Settings → Slim Chance → Location' : 'Android Settings → Apps → Slim Chance → Permissions'}, then
         <button type="button" class="mb-link" onclick={useLocation}>try again</button>.
       {:else}
         <button type="button" class="mb-link" onclick={useLocation} disabled={locating}>{locating ? 'Finding the weather…' : 'Use my location for the weather'}</button>
@@ -142,7 +147,7 @@
   <div class="flex jb ac">
     <div>
       <div class="mb-h">Evening hold</div>
-      <div class="amsg">The first time you unlock after 19:30, or 17:00 Friday to Sunday</div>
+      <div class="amsg">{iphone ? 'Waiting on the lock screen from 19:30' : 'The first time you unlock after 19:30'}, or 17:00 Friday to Sunday</div>
     </div>
     {#if support === 'all'}
       <div class="tog" class:on={s.hold} role="switch" tabindex="0" aria-checked={s.hold} aria-label="Evening hold"
@@ -162,6 +167,9 @@
   {:else if support && s.hold}
     {#if tonight}{@render preview(`Tonight's, from ${startsAt(todayDow)}, as it stands`, tonight)}{/if}
     {#if shownAt('evening')}<div class="mb-meta">Shown today at {shownAt('evening')}.</div>{/if}
+  {/if}
+  {#if status?.allowed === false && (s.on || s.hold)}
+    <div class="mb-note">Notifications are off for Slim Chance. Turn them on in Settings → Notifications → Slim Chance.</div>
   {/if}
   {#if error}<div class="mb-err">{error}</div>{/if}
 </div>

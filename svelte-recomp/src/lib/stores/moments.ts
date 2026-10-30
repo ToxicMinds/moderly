@@ -1,8 +1,9 @@
 // The app's two daily notifications, built from the same stores every screen
 // reads: the morning briefing (src/lib/briefing.ts) and the evening hold
 // (src/lib/hold.ts), each for today and tomorrow. The app shell hands them to
-// Android (+layout.svelte), which posts each at the first unlock inside its
-// window; the Alarms card shows them, so what arrives is never a surprise.
+// the phone (+layout.svelte): Android posts each at the first unlock inside its
+// window, the iPhone leaves it silently on the lock screen as the window opens.
+// The Alarms card shows them, so what arrives is never a surprise.
 import { derived, get, writable, type Readable } from 'svelte/store';
 import { body } from './body';
 import { liveDailyLogs, liveFoodLogs, liveOwnSessions, liveProfile, liveSchedule, liveWeights } from './live';

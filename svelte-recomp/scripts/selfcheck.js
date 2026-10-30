@@ -1354,6 +1354,16 @@ check('every call the app makes on the Moments plugin exists in the APK', async 
   const called = [...new Set([...js.matchAll(/p\.P\.(\w+)\(/g)].map((m) => m[1]))].filter((m) => m !== 'addListener');
   assert.ok(called.includes('show') && called.includes('arm'), 'the scan finds the calls');
   for (const m of called) assert.match(java, new RegExp(`@PluginMethod\\s+public void ${m}\\(PluginCall`), `MomentsPlugin.${m}`);
+  // The iPhone's plugin answers to the same calls, and the app's screen registers it.
+  const swift = readFileSync('ios/App/App/Moments.swift', 'utf8');
+  for (const m of called) {
+    assert.match(swift, new RegExp(`CAPPluginMethod\\(name: "${m}"`), `Moments.swift lists ${m}`);
+    assert.match(swift, new RegExp(`@objc func ${m}\\(_ call: CAPPluginCall\\)`), `Moments.swift implements ${m}`);
+  }
+  assert.match(swift, /jsName = "Moments"/);
+  assert.match(swift, /class ViewController: CAPBridgeViewController[\s\S]*registerPluginInstance\(MomentsPlugin\(\)\)/);
+  assert.match(readFileSync('ios/App/App/Base.lproj/Main.storyboard', 'utf8'), /customClass="ViewController" customModule="App"/, 'the storyboard opens that screen');
+  assert.match(readFileSync('ios/App/App.xcodeproj/project.pbxproj', 'utf8'), /\/\* Moments\.swift in Sources \*\/,/, 'and the build compiles it');
 });
 
 check('every function that spends AI or search quota checks for a signed-in user under the daily cap first', async () => {
@@ -3852,6 +3862,11 @@ check('the briefing and the hold never wake the phone, and are never alarms', as
   assert.ok(!/AlarmManager\.RTC_WAKEUP|setAlarmClock\(|AllowWhileIdle\(/.test(src), 'every look is a non-waking alarm');
   assert.match(src, /AlarmManager\.RTC,/);
   assert.match(src, /setSound\(null, null\)/, 'no sound: a quiet house at six, a family at seven');
+  // The iPhone: passive, so the screen stays dark; never asked for, never given a sound.
+  const swift = readFileSync('ios/App/App/Moments.swift', 'utf8');
+  assert.match(swift, /interruptionLevel = \.passive/);
+  assert.match(swift, /requestAuthorization\(options: \[\.alert\]\)/);
+  assert.ok(!/\.sound\b/.test(swift), 'no sound anywhere in it');
 });
 
 // ── Evening hold ─────────────────────────────────────────────────────────────
