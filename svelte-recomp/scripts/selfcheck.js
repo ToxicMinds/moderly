@@ -1414,6 +1414,8 @@ check('the privacy page names every outside service the code talks to', async ()
     'generativelanguage.googleapis.com': 'Gemini', 'api.kilo.ai': 'Kilo', 'text.pollinations.ai': 'Pollinations',
     'search.openfoodfacts.org': 'Open Food Facts', 'world.openfoodfacts.org': 'Open Food Facts',
     'api.open-meteo.com': 'Open-Meteo', 'www.youtube-nocookie.com': 'YouTube', 'www.youtube.com': 'YouTube', 'github.com': 'GitHub',
+    // Not outside: the app's own address, written into the calendar reminder.
+    'slimchance.vercel.app': 'Slim Chance',
   };
   const files = [
     ...readdirSync('src', { recursive: true }).map((f) => `src/${f}`),
@@ -4508,15 +4510,39 @@ check('one place says which phone this is, and Android-only parts ask for Androi
   assert.match(readFileSync('src/lib/stores/nativeUpdate.ts', 'utf8'), /const isNative = isAndroidApp\(\);/, 'the APK updater runs on Android only');
 });
 
+check('a morning reminder is set only where it can arrive, at the person’s own time, or offered in their calendar', async () => {
+  const { readFileSync } = await import('node:fs');
+  const ob = readFileSync('src/lib/components/Onboarding.svelte', 'utf8');
+  assert.match(ob, /if \(pushable && \(await subscribeWebPush\(uid\)\)\) \{[\s\S]*?tz: localTz\(\)[\s\S]*?noteEvent\('reminder_push'\);[\s\S]*?\} else \{[\s\S]*?localStorage\.setItem\(CALENDAR_KEY, weighInTime\)[\s\S]*?noteEvent\('reminder_failed'\);/,
+    'no stored alarm a browser can never receive');
+  assert.match(ob, /const native = isNativeApp\(\);/, 'both phone apps get the quiet moments, not a web push');
+  const send = readFileSync('../supabase/functions/send-alarm-push/index.ts', 'utf8');
+  assert.match(send, /const now = currentTimeAndDay\(a\.tz\);/, 'each alarm judged in its own time zone');
+  assert.match(readFileSync('../supabase/migrations/20261030120000_reminders.sql', 'utf8'), /alter table public\.alarms add column if not exists tz text;/);
+  const { dailyReminderIcs } = await import('../../supabase/functions/reminder-ics/ics.ts');
+  const ics = dailyReminderIcs('07:30', '2026-10-31');
+  assert.ok(ics.endsWith('END:VCALENDAR\r\n'));
+  assert.match(ics, /\r\nDTSTART:20261031T073000\r\n/, 'floating local time: 07:30 wherever the phone is');
+  assert.match(ics, /\r\nRRULE:FREQ=DAILY\r\n/);
+  assert.match(ics, /\r\nBEGIN:VALARM\r\nACTION:DISPLAY\r\n/, 'it reminds, not just sits there');
+  assert.ok(ics.split('\r\n').every((l) => Buffer.byteLength(l) <= 75), 'lines folded at 75 octets');
+  assert.equal(dailyReminderIcs('7:30', '2026-10-31'), null);
+  assert.equal(dailyReminderIcs('24:00', '2026-10-31'), null);
+  assert.match(readFileSync('../supabase/config.toml', 'utf8'), /\[functions\.reminder-ics\]\nenabled = true\nverify_jwt = false/, 'public: the same file for everyone, nothing personal');
+});
+
 check('drop-off is counted in our own database, by a fixed list, and only the owner reads it', async () => {
   // 2026-10-29: the owner asked for numbers on where new people give up.
   // No trackers: note_event writes one row per person, event and day, and
   // owner_metrics answers only app_owners. The app's list and the database's
   // list must be the same, or an event is silently dropped.
   const { readFileSync } = await import('node:fs');
+  const { readdirSync } = await import('node:fs');
   const sql = readFileSync('../supabase/migrations/20261029100000_app_events.sql', 'utf8');
   const ts = readFileSync('src/lib/events.ts', 'utf8');
-  const inSql = sql.match(/p_event not in \(([^)]*)\)/)[1].match(/'([a-z_0-9]+)'/g).map((s) => s.slice(1, -1));
+  // The newest migration that defines note_event is the list in force.
+  const latest = readdirSync('../supabase/migrations').sort().map((f) => readFileSync(`../supabase/migrations/${f}`, 'utf8')).filter((t) => /p_event not in \(/.test(t)).at(-1);
+  const inSql = latest.match(/p_event not in \(([^)]*)\)/)[1].match(/'([a-z_0-9]+)'/g).map((s) => s.slice(1, -1));
   const inTs = ts.match(/APP_EVENTS = \[([^\]]*)\]/)[1].match(/'([a-z_0-9]+)'/g).map((s) => s.slice(1, -1));
   assert.deepEqual(inTs, inSql, 'events.ts and note_event list the same events');
   for (const t of ['app_events', 'app_owners']) {
@@ -4526,7 +4552,7 @@ check('drop-off is counted in our own database, by a fixed list, and only the ow
   assert.match(sql, /if not exists \(select 1 from public\.app_owners where user_id = auth\.uid\(\)\) then\s+raise exception 'not allowed'/, 'owner_metrics answers only the owner');
   assert.match(sql, /revoke all on function public\.owner_metrics\(integer\) from public, anon;/);
   assert.doesNotMatch(readFileSync('src/lib/stores/sync.ts', 'utf8'), /'app_events'|'app_owners'/, 'never synced to the phone');
-  assert.match(readFileSync('static/privacy.html', 'utf8'), /Which setup screen you reached, and the days you opened the app/, 'the privacy page says so');
+  assert.match(readFileSync('static/privacy.html', 'utf8'), /Which setup screen you reached, whether your morning reminder could be set, and the days you opened the app/, 'the privacy page says so');
 });
 
 check('the welcome screen scrolls, so Start now is reachable on a small phone', async () => {

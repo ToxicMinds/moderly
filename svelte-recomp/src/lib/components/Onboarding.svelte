@@ -25,7 +25,8 @@
   import { saveWhy, savePlans, saveLine } from '$lib/commitments';
   import { LINE_MARGIN_KG } from '$lib/line';
   import { saveMoments } from '$lib/stores/moments';
-  import { isAndroidApp } from '$lib/platform';
+  import { isIOSApp, isNativeApp } from '$lib/platform';
+  import { CALENDAR_KEY, canPush, localTz } from '$lib/reminder';
   import { noteEvent } from '$lib/events';
   import WeightInput from './WeightInput.svelte';
   import { dwt, roundIn, setUnits, type Units, wtShortU } from '$lib/units';
@@ -94,7 +95,10 @@
   }
   const cueInfo = $derived(planCue ? CUES.find((x) => x.cue === planCue)! : null);
   // The unlock moments are Android's; everywhere else, a plain morning reminder.
-  const native = isAndroidApp();
+  // Both phone apps carry the two quiet moments; a browser gets the weigh-in reminder.
+  const native = isNativeApp();
+  const iphoneApp = isIOSApp();
+  const pushable = canPush();
   let wantMoments = $state(true);
   let wantWeighIn = $state(true);
   let weighInTime = $state('07:00');
@@ -200,18 +204,27 @@
         if (keeping && weightKg && !$_existing?.line) await saveLine(weightKg + LINE_MARGIN_KG, todayYmd());
         if (native) await saveMoments({ on: wantMoments, after: '06:00', hold: wantMoments });
         else if (wantWeighIn) {
-          // The tap on Start is the gesture browsers want before asking.
+          // The tap on Start is the gesture browsers want before asking. A
+          // reminder is stored only when this browser can actually receive it:
+          // setup used to store one either way, and no stranger ever got one.
           const { subscribeWebPush } = await import('$lib/push');
-          await subscribeWebPush(uid);
-          // One weigh-in reminder per user, ever (a fixed auto_key), so finishing
-          // setup twice can't stack two.
-          const { error: alarmErr } = await supabase.from('alarms').upsert({
-            id: crypto.randomUUID(), user_id: uid, auto_key: 'auto-weigh-in',
-            title: '⚖️ Morning weigh-in',
-            message: 'Before food or drink. Same conditions every day make the numbers comparable.',
-            time: weighInTime, days: [0, 1, 2, 3, 4, 5, 6], enabled: true,
-          }, { onConflict: 'user_id,auto_key' });
-          if (alarmErr) throw alarmErr;
+          if (pushable && (await subscribeWebPush(uid))) {
+            // One weigh-in reminder per user, ever (a fixed auto_key), so finishing
+            // setup twice can't stack two. At the person's own time, in their zone.
+            const { error: alarmErr } = await supabase.from('alarms').upsert({
+              id: crypto.randomUUID(), user_id: uid, auto_key: 'auto-weigh-in',
+              title: '⚖️ Morning weigh-in',
+              message: 'Before food or drink. Same conditions every day make the numbers comparable.',
+              time: weighInTime, tz: localTz(), days: [0, 1, 2, 3, 4, 5, 6], enabled: true,
+            }, { onConflict: 'user_id,auto_key' });
+            if (alarmErr) throw alarmErr;
+            noteEvent('reminder_push');
+          } else {
+            // Safari on an iPhone, or notifications refused: Today offers the
+            // same reminder in their own calendar instead.
+            try { localStorage.setItem(CALENDAR_KEY, weighInTime); } catch { /* storage disabled */ }
+            noteEvent('reminder_failed');
+          }
         }
       } catch (e: any) {
         notify('Setup', `Your profile is saved, but your plan or reminder couldn't be: ${e?.message || e}`, { level: 'warn' });
@@ -349,8 +362,13 @@
         <span class="f1">
           <span class="ob-alarm-n">Two quiet notifications a day</span>
           <span class="ob-alarm-s">
-            The first time you unlock after 6:00: the day ahead, and a box to log your weight. The first time
-            after 19:30 (17:00 Friday to Sunday): your plan for the evening. No sound, never an alarm.
+            {#if iphoneApp}
+              From 6:00, waiting on your lock screen: the day ahead. From 19:30 (17:00 Friday to Sunday): your
+              plan for the evening. No sound, and the screen stays dark: never an alarm.
+            {:else}
+              The first time you unlock after 6:00: the day ahead, and a box to log your weight. The first time
+              after 19:30 (17:00 Friday to Sunday): your plan for the evening. No sound, never an alarm.
+            {/if}
           </span>
         </span>
         <span class="ob-alarm-x">{wantMoments ? '✓' : ''}</span>
@@ -359,7 +377,7 @@
       <button class="ob-alarm" class:on={wantWeighIn} onclick={() => (wantWeighIn = !wantWeighIn)}>
         <span class="f1">
           <span class="ob-alarm-n">A morning weigh-in reminder</span>
-          <span class="ob-alarm-s">The trend needs a run of mornings; one reading says nothing.</span>
+          <span class="ob-alarm-s">The trend needs a run of mornings; one reading says nothing.{#if !pushable} This browser can't send notifications, so it comes as a daily event in your own calendar.{/if}</span>
         </span>
         <span class="ob-alarm-x">{wantWeighIn ? '✓' : ''}</span>
       </button>

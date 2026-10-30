@@ -433,6 +433,11 @@ verify_jwt = true
 enabled = true
 verify_jwt = false
 
+# Public: it takes a time and returns the same calendar file for everyone.
+[functions.reminder-ics]
+enabled = true
+verify_jwt = false
+
 [functions.coach]
 enabled = true
 verify_jwt = true

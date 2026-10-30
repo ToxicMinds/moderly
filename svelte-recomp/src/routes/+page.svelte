@@ -2,6 +2,8 @@
   import { liveWeights, liveGoal, liveGoalReason, liveSchedule, liveWorkoutSessions, liveSessionCompletions, liveDailySteps, liveBiometrics, liveWorkoutLogs, liveActivitySessions, liveDailyLogs } from '$lib/stores/live';
   import { upsertRecord } from '$lib/stores/sync';
   import { userId, user, isTrial } from '$lib/stores/user';
+  import { noteEvent } from '$lib/events';
+  import { CALENDAR_KEY, calendarUrl } from '$lib/reminder';
   import { saveAccountOpen } from '$lib/stores/notices';
   import { liveProfile } from '$lib/stores/live';
   import { DEFAULT_SESSIONS } from '$lib/data/workoutPlanDefaults';
@@ -96,13 +98,25 @@
   }
 
   // iPhone, in Safari rather than from the Home Screen: there's no store
-  // listing and no install prompt, so say how, once.
+  // listing and no install prompt, so say how, once. Only to a saved account:
+  // the Home Screen app keeps its own storage, so a trial opened there starts
+  // empty, and it signs in with the email.
   const IOS_KEY = 'recompos.iosHint';
   let iosHint = $state(false);
   try {
     const standalone = (navigator as any).standalone === true || matchMedia('(display-mode: standalone)').matches;
     iosHint = /iPhone|iPad/.test(navigator.userAgent) && !standalone && !localStorage.getItem(IOS_KEY);
   } catch { /* storage disabled */ }
+
+  // The morning reminder this browser couldn't take at setup, offered once
+  // as a daily event in the person's own calendar.
+  let calendarTime = $state<string | null>(null);
+  try { calendarTime = localStorage.getItem(CALENDAR_KEY); } catch { /* storage disabled */ }
+  function doneCalendar(added: boolean) {
+    if (added) noteEvent('reminder_calendar');
+    calendarTime = null;
+    try { localStorage.removeItem(CALENDAR_KEY); } catch { /* storage disabled */ }
+  }
   function hideIosHint() {
     iosHint = false;
     try { localStorage.setItem(IOS_KEY, '1'); } catch { /* storage disabled */ }
@@ -335,9 +349,19 @@
   </div>
 {/if}
 
-{#if iosHint}
+{#if calendarTime}
   <div class="card sv">
-    <p class="sv-t"><b>On iPhone:</b> tap Share, then Add to Home Screen. Slim Chance opens like an app, full screen, one tap from your home screen.</p>
+    <p class="sv-t"><b>Your morning reminder.</b> This browser can't send notifications, so put it in your calendar: every day at {calendarTime}, step on the scale, before food or drink.</p>
+    <div class="sv-row">
+      <a class="btn bp bsm" href={calendarUrl(calendarTime)} target="_blank" rel="noopener" onclick={() => doneCalendar(true)}>Add to my calendar</a>
+      <button class="sv-later" onclick={() => doneCalendar(false)}>No thanks</button>
+    </div>
+  </div>
+{/if}
+
+{#if iosHint && !$isTrial}
+  <div class="card sv">
+    <p class="sv-t"><b>On iPhone:</b> tap Share, then Add to Home Screen, and sign in there once. Slim Chance opens like an app, full screen, one tap from your home screen.</p>
     <div class="sv-row"><button class="sv-later" onclick={hideIosHint}>Got it</button></div>
   </div>
 {/if}

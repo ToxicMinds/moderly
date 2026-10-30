@@ -9,9 +9,8 @@
 //   VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT
 // SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are auto-injected by the platform.
 //
-// Simplification: alarm times are compared in a single fixed timezone (APP_TIMEZONE,
-// default Europe/Bratislava) rather than per-user timezone, since this app currently
-// has no per-user timezone setting. Override APP_TIMEZONE via a function secret if needed.
+// Each alarm is compared in its own time zone (alarms.tz, the browser's when it
+// was set); rows without one use APP_TIMEZONE (default Europe/Bratislava).
 
 import webpush from 'npm:web-push@3.6.7';
 
@@ -26,9 +25,12 @@ webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
 
 const DAY_INDEX: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
 
-function currentTimeAndDay(): { time: string; day: number } {
+/** The time and weekday now in a zone; a missing or unknown zone counts as APP_TIMEZONE. */
+function currentTimeAndDay(zone: string | null = null): { time: string; day: number } {
+  let timeZone = zone || TIMEZONE;
+  try { new Intl.DateTimeFormat('en-US', { timeZone }); } catch { timeZone = TIMEZONE; }
   const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: TIMEZONE,
+    timeZone,
     hour12: false,
     weekday: 'short',
     hour: '2-digit',
@@ -55,13 +57,18 @@ async function restQuery(path: string) {
 
 Deno.serve(async () => {
   try {
-    const { time, day } = currentTimeAndDay();
-
+    // Each alarm at its own person's time: a reminder set in Lisbon or Tokyo used
+    // to fire at that time in Bratislava. Older rows have no tz and keep it.
+    // ponytail: one read of every enabled alarm a minute; past ~50k of them,
+    // store each one's next UTC minute and query that instead.
     const alarms = (await restQuery(
-      `alarms?enabled=eq.true&time=eq.${time}&select=id,user_id,title,message,days`
-    )) as Array<{ id: string; user_id: string; title: string; message: string | null; days: number[] }>;
+      `alarms?enabled=eq.true&select=id,user_id,title,message,days,time,tz`
+    )) as Array<{ id: string; user_id: string; title: string; message: string | null; days: number[]; time: string; tz: string | null }>;
 
-    const due = alarms.filter((a) => Array.isArray(a.days) && a.days.includes(day));
+    const due = alarms.filter((a) => {
+      const now = currentTimeAndDay(a.tz);
+      return a.time === now.time && Array.isArray(a.days) && a.days.includes(now.day);
+    });
 
     let sent = 0;
     let failed = 0;
