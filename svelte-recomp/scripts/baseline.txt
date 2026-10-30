@@ -1,0 +1,367 @@
+"I was starving" means opposite things at different rates of loss
+"brutal" on short sleep is called a recovery problem, not weakness
+"easy" earns more work, and knows if you barely trained
+6+ on five of seven mornings stops offering to wait: see a physio
+ACWR admits when there is not enough history
+ACWR flags a genuine training spike
+ACWR stays in the sweet spot for steady training
+BMR falls with age and rises with mass
+Back Rebuild looks after the neck as well as the lower back
+CI fails loudly rather than shipping an unsignable APK
+Epley e1RM levels different rep ranges
+Friday is the stronger signal: the weekend named, the plan, the reason, and the same line every week
+HRV below personal baseline lowers readiness
+Katch-McArdle: a body-fat % switches BMR to lean mass
+Kotlin modules follow their own Java target, not a hardcoded one
+Mifflin-St Jeor matches the published formula
+OFF products keep kJ-only energy and names in any language
+RPE prefers real heart rate over the activity-type guess
+Samsung is recognised — the gap that broke the old regex
+Today stays calm: one card for the day, no cards that said a little each
+Today’s Focus is one voice, and silent on a good day
+a Capacitor plugin proxy is never returned from an async function
+a Capacitor weekday is one ahead of a JS getDay()
+a bad weight is dropped, not published
+a barbell only lands on the 2.5kg plate-pair grid
+a bundle counts what it contains and never drops an empty table
+a camera misread fails the GS1 check digit
+a ceiling set below the trend is caught as a target, not shown as 8 kg over
+a clean deficit week reports fat loss and a positive win
+a clean steady loss is called answerable, with the right sign
+a column that only appears in a later row still gets a header
+a comma or a quote in a food name cannot corrupt the CSV
+a day is stored on the device once: server-numbered rows are kept only as the server returned them
+a day’s share of the week is worked out in one place
+a declared brand that is absent falls back instead of returning nothing
+a deload snaps to a real, rackable weight (rounds, not up)
+a fixed dumbbell jumps 17.5 -> 20, never 18.x
+a flat, noisy month rules out the plan: stalled, not “too noisy to say”
+a food eaten twice yesterday and once today still has one serving left
+a goal ABOVE current weight is a gain plan, not a no-op
+a goal ABOVE current weight prescribes a surplus, never a deficit
+a gym week recorded only on the watch counts as training in the weekly review
+a hand-logged badminton session depletes the same muscles as a watch one
+a held weight is stated as held, not as a zero
+a high morning is explained from the person’s own data, and only from it
+a lift trained in only one window is not comparable
+a log that leaves food out still steers: the target is in its own units
+a longer match costs more recovery than a short one
+a maintenance goal rewards holding, not drifting
+a morning reminder is set only where it can arrive, at the person’s own time, or offered in their calendar
+a name is used only when there is one
+a next stop is reached when the trend stays there three days, not on one lucky morning
+a next stop knows what it means at this height
+a night the watch split in two is one night, and a nap stays a nap
+a nudge only exists while the fact behind it is still true
+a nudge whose time has passed today is not scheduled for the past
+a one-off AI photo estimate never becomes a staple chip
+a page is called what its tab is called
+a photo races the Gemini models, so one stuck model costs a stagger, not the whole wait
+a plan shows at its moment, the most specific moment first
+a profile is only complete when TDEE can actually be computed
+a profile with zero logs still produces real targets and a real date
+a program session can never be saved over the user’s own plan
+a program starts on the coming Monday and counts weeks from it
+a reading dated today is fresh; older is stale; none is missing
+a reading far off the trend asks once before it bends five weeks of numbers
+a repeated AI estimate is a staple; a one-off still is not
+a smart scale’s weigh-ins come in one a day, never our own, never asked of an old app
+a sport night is anyone’s sport: the plan for after it is named for no one sport
+a stalled trend leads the coach, and the log it contradicts is not praised
+a steady gain reads as progress when the goal is to gain
+a surplus is fine when the goal is to GAIN
+a table pull pages past the server’s 1000-row cap
+a thin week omits sections instead of padding them with blanks
+a training day you have not trained on gets one reminder, before the evening goes
+a trial gets a smaller AI allowance, keeps no photos, and is deleted after 30 idle days
+a watch always beats the phone
+a watch session that duplicates hand-logged sets is dropped
+a watch sync saves only the days that changed
+a week that already got away from you is never made harder
+a week with no gym is a walk a day, and says so
+a weight history comes in from any app, one morning a day, in kg
+a weight reads in the person’s own unit, and what they type comes back as kg
+a weight typed on the notification gets its answer on the first line, and the app’s typo range
+a zero-length session gets a real duration instead of being rejected
+activity level tracks training frequency
+activity multiplier is applied
+adding a write type earns a fresh permission prompt
+age is derived from birth year, so it never goes stale
+alarms are armed from the shell, not only from the Alarms page
+an empty feed folds to nothing rather than throwing
+an empty log by the afternoon is no nudge: a fast and a gap look the same to a clock
+an empty week is honest and never throws
+an exported file can actually be handed to another app
+an iPhone home-screen app fills the screen: the status bar’s strip is measured and given back, never assumed
+an incomplete profile returns null rather than inventing a height
+an over-fast cut is flagged as a lever
+an unknown template id falls back rather than producing a broken week
+an unlogged workout still counts, and sport always counts
+an unmapped coach id is still shown, never silently dropped
+an upstream error never carries a Gemini key back to the app, old format or new
+badminton loads the muscles it actually works
+being short on protein at midday earns a nudge with the real number in it
+bestE1RM ignores incomplete sets
+body weight is never printed as raw kg: it goes through units.ts
+bodyweight has no next kilo
+bodyweight is never in a shared summary unless asked for
+brand ids are unique
+calorie target is parsed back out of the goal narrative
+calories are pro-rated by overlap, not double-counted
+canWrite is exact — a read grant is never mistaken for a write grant
+celebrate is a distinct multi-beat crescendo
+choosing the next stop keeps the one reached, for the journal
+comfortable, adhered, and the scale did not move -> trim
+composition refuses a window too short to beat measurement noise
+consent is asked at sign-up and records the privacy page it was given to
+correlated mornings widen the interval instead of faking certainty
+cutting and holding still behave exactly as before
+day one asks for what keeps people, and never for a full day of food
+days are independent — a source missing one day does not lose the day
+daysBetweenYmd + latestDate pick the freshest matching reading
+deficit is capped at 750 kcal however big the TDEE
+deleting an account takes everything, and only the caller’s
+delivery tells the truth about where the file actually went
+different activities at the same time are not merged
+drop-off is counted in our own database, by a fixed list, and only the owner reads it
+during Back Rebuild nothing judges the light loads
+each goes out at the first unlock inside its window (MomentClock.java)
+each topic leads with its most severe item and counts the rest
+entries logged together become one re-loggable meal
+equipment is inferred from the exercise name
+every brand has usable setup steps and a Health Connect mention
+every call the app makes on the Moments plugin exists in the APK
+every font-size is a rem, and none is below the 11px floor
+every function that spends AI or search quota checks for a signed-in user under the daily cap first
+every haptic pattern is a valid vibrate argument
+every notification wears the Slim Chance mark: the coin, in brass
+every program exercise but the walks comes with a video
+every quick-log activity is a real Health Connect exercise type
+every synced table names its conflict key in one map
+every tab opens on the same scoreboard hero
+every template produces a full, valid week
+every verdict carries evidence the user can check
+every video id is a well-formed YouTube id
+every week keeps at least one real rest day
+falling lifts read as muscle at risk
+falls back to the fullest source when there is no preference
+filenames sort by date and say what they are
+flat weight with rising strength is recomp
+focus folds into at most three topics, weight becomes the headline
+food has exactly one way in
+food is saved in one place, so the notification logs it the way the app does
+free models’ replies parse even with reasoning and fences around the JSON
+freshWithinDays widens the fresh window; labels read naturally
+gaining weight is reported as a negative rate, not ignored
+gaining without strength gains is called fat gain
+getting fitter: the heart and the lifts answer it, plainly, and only when the data can
+goal projection is arithmetically consistent
+goal suggestion uses BMI 24.9 for the given height
+goalDirection reads both ways and tolerates missing data
+going past today’s share costs the week, it never calls the day lost
+granular non-overlapping calorie buckets still sum
+guessWatchOrigin finds the OEM watch app, not the phone
+gym days get A, B, C in week order; sport days are left alone
+gym-only templates produce no sport days
+high-eccentric lifts need longer recovery than isolation work
+history folds legacy and clean names into one food, with per-100 g from grams
+hitting the target silences it entirely
+hunger on low protein is answered with protein, not calories
+implausible birth years are rejected, not fed to the calorie formula
+implausible results are downgraded rather than shown
+in pounds the hero, the coach and the weigh-in all speak pounds; in kg nothing changed
+it asks once a week, only once the week is over, never on an empty account
+it falls back to the start weight until the first weigh-in lands
+it survives a brand-new account with nothing measured
+keeping it off: the hero counts days inside the range, never a streak, and points at the plan when over
+lean and fat mass split out of weight and body fat
+learned burn is only “high” when the weight slope is tight, not just long
+legacy provenance suffixes come off the name
+lift stalls: separates a climbing lift from a stuck one
+lifting days match what the template promises
+lifting is kept off the days either side of a sport night
+lifting sessions are NOT muscle-mapped (would double-count logged sets)
+live stores never leak a subscription per call
+live target prefers learned burn and floors a cut
+losing mostly lean mass raises the alarm
+losing weight is NOT praised when the goal is to gain
+losing weight with strength falling flags muscle risk
+losing weight with strength holding reads as fat loss
+loss target never recommends an unsafe intake
+low protein and a rising scale surface concrete adjustments
+measured composition separates fat loss from lean loss
+measured data outranks the strength proxy
+measured lean GAIN while fat falls is called recomp
+minutesOfDay reads the wall clock
+missing fields are named specifically
+mondayOf treats Sunday as the end of the week, not the start
+mornings count up through the week and never reset mid-week
+multiple records from the winning source still sum
+muscle volume calls high volume over the ceiling
+muscle volume counts sport (badminton) as weekly set-equivalents
+muscle volume flags a neglected muscle under the weekly floor
+never claims muscle retention without evidence
+never more than two nudges in a day, whatever is wrong
+no adjustment ever exceeds 250 kcal in one week
+no calc() in the stylesheets is missing whitespace around +
+no goal set falls back gracefully
+no hard-coded white text: it vanishes in the light theme
+no hardcoded personal constants remain in config
+no published file names the AI assistant that helped build the app
+no quick-log sport is silently missing a muscle mapping
+no screen tells a gaining user to cut
+no separator opens an {#if}: Svelte drops the space before it
+no signing key or key password is in this repo
+no streak alarm: the user’s own plan fires before its moment instead
+no weight item means the worst topic supplies the headline
+nobody can raise their own AI allowance, so no one account can switch AI off for everyone
+noise larger than the signal is refused, not guessed at
+nonsense heights do not count as complete
+nothing in the weekly ritual assumes someone to send it to
+nothing is written for a permission that was not granted
+nutrition patterns: low protein and a weekend blowout surface; the hour eaten is never judged
+one definition of "trained today", and the watch counts
+one place says which phone this is, and Android-only parts ask for Android
+one step at a time: a cut never asks for more than 300 under the usual day
+one weigh-in path, one place the commitments are saved
+only user-entered types are ever written back
+overlapping active-calorie records are not double-counted (302≠604)
+p05 ignores the single lowest outlier the old code used
+pace is judged against the plan, only where the interval allows
+percentile handles empty and single-value input
+period-aware weight learns the person’s own swing, and says only that it’s learning before three cycles
+phone-only users get no false watch
+photos go to Gemini alone, and body photos only once Gemini is on its paid tier
+picks ONE source per day instead of summing (the double-count bug)
+poor protein adherence becomes a named lever
+preferred source wins even on a low-wear day
+product ranking puts matching local products first
+protein fillers: your own repeat foods, most protein per calorie first
+protein hit and on budget says stop here
+protein scales to GOAL weight, not current weight
+protein short with room to eat recommends protein
+protein-by-training-day ignores abandoned logging days
+protein-by-training-day stays silent without both sides
+public pages call the everyday app free to use, never the whole of it free
+quantities read the way people type them
+quick-log activity labels are the ones a human would expect
+readiness returns null with nothing logged
+readiness weights HRV and sleep, and works with partial data
+recovers true maintenance from intake + weight trend
+recovery cost needs buckets that actually differ in load
+recovery cost requires the watch to have been worn overnight
+recovery percentage tracks elapsed time against the window
+red before day one offers “Start a week later”, from the saved start
+refresh writes in batches: no save per day, no unpaged pull
+refuses a verdict off a single lift
+refuses to guess without enough logged days
+repeat-yesterday is safe to tap twice
+rising lifts read as muscle retained
+rows that belong together are written in one request (all or nothing)
+rows with no created_at are grouped, never dropped
+says so plainly when the trend is too short
+search ignores diacritics but does not stem nonsense
+seeded sessions name no weekday, sport or venue
+session dates use the LOCAL day
+session load scales with sets and effort
+setup help degrades gracefully for an unknown or missing brand
+sharing adds no table, no policy and no cross-account read
+shiftYmd crosses month boundaries correctly
+sleep↔performance: more volume after good sleep reads as a real link
+someone already at goal is told to hold, not to lose 0 kg
+source labels distinguish watch from phone
+sport never collides with a gym session
+stale weigh-ins outside the window do not prop up a verdict
+stepping back on the scale after a gap is welcomed, not scored
+t-critical is the real t value, not the normal approximation
+the 4-day split alternates lower and upper
+the Food hero praises protein when it’s hit and never colours a day still in progress
+the Stoic lines rotate by date, never at random, and each is sourced
+the Sunday check-ins become a journal, newest first, in the user’s words
+the Sunday review asks about the user’s own plan, in their words
+the app never says "Badminton 18:15" in a fortnight the plan says no games
+the boot screen and the tab loader spin the same coin, still for anyone who asked for less motion
+the briefing and the hold never wake the phone, and are never alarms
+the briefing names the session, a new week, the week’s last day, and Friday’s plan over badminton’s
+the briefing names what its breakfast button logs
+the briefing on the 1st points at the letter
+the briefing: weather in the title, the first job first, then the day, the food and the plan
+the ceiling and the next stop are named for their direction everywhere the user reads
+the check-in nudge lands on that week’s target, inside the floor
+the chips carry the macros from the LATEST time you logged that food
+the coach brain has no reach: no tools, no one else's data, off until consent, capped, and it can only replace a message
+the coach brain is safe: nothing harmful gets through, whatever the AI was told or tricked into
+the coach brain sees only the app's own numbers, and nothing it writes goes out unchecked
+the coach never assumes the user is cutting
+the coach never judges protein by the clock: the log can’t say when food was eaten
+the confirmation names real numbers, not "done"
+the day-one plan is wired into the hero, only before a trend and until its steps are done
+the declared brand wins over the heuristic
+the evening hold on a weekday: a Stoic line first, then the evening plan and what’s left
+the export covers EVERY table the app syncs
+the first-week checklist tracks what the user has actually done
+the forecast reads Open-Meteo by day, and only daytime rain counts
+the goal date reads as a date a human would say
+the hero reads the trend, the distance to the next stop, and a pace that is never red
+the iPhone app reads Apple Health weigh-ins by the same one-a-day rules
+the letter from last month tells the month back, in the user’s words
+the line follows a held low down, a kilo above it, and never back up
+the line is judged on the trend, and a low that doesn’t hold a week can’t move it
+the major brands all resolve
+the manifest declares exactly the write permissions the code uses
+the manifest declares notifications and exact alarms
+the morning rating decides progress, hold, or back off
+the native build number matches the gradle versionCode
+the odds are the verdict’s own interval, read against a loss that counts
+the offline estimate understands a Slovak breakfast
+the old heavy session is not shown in the days before the start
+the privacy page names every outside service the code talks to
+the same match written twice collapses to one
+the same watch workouts are not rewritten, whatever the timestamp spelling
+the score is gone from the app, and the glow reads the hero’s tone
+the stall diagnosis points at the week, never at logging more
+the summary describes what was actually built
+the summary reads like a message, and carries the real numbers
+the surplus stays lean rather than sprinting
+the text-size setting is wired end to end
+the training reminder comes at the session's own time, and not once you have trained
+the update dot never says "up to date" while the phone app is behind
+the user's own sport name and time are used, never a hardcoded club
+the user’s own plan comes back, untouched, after week 6
+the usual breakfast is never logged twice
+the usual breakfast is the one eaten most mornings, at its latest portion
+the weather in words: the daytime odds outrank the day’s code
+the week is the budget: today’s share is what’s left, spread evenly
+the week under review is the one that just ended, on every asking day
+the week’s maintenance is learned in the log’s units once the scale rules the formula out
+the week’s maintenance moves gently from Sunday to Sunday, and goes stale
+the week’s shape: weekday medians, the weekend gap, and the scale’s rhythm
+the week’s target holds still all week and is read from last Sunday
+the welcome screen scrolls, so Start now is reachable on a small phone
+three questions, three options each — a longer one gets skipped
+ties break deterministically (same answer every sync)
+todayYmd matches the device calendar
+tone maps to the matching haptic
+too few weigh-ins is a distinct state from too noisy
+too little logging to judge protein is not counted against you
+training heatmap: grid geometry and counts are right
+training load scales with both duration and intensity
+truly at goal is a hold, with no timeline
+two back-to-back matches both survive (the old rule deleted one)
+unit conversions round-trip without drift
+unknown activity types degrade to no claim rather than a wrong one
+unlogged days are excluded, not averaged in as near-fasts
+watch agreement counts corroboration without demanding a type match
+watch agreement is silent when there is no watch at all
+water target scales with bodyweight inside sane bounds
+weekend evenings: a slip is one meal, not the weekend
+weight GAIN implies maintenance below intake
+weight insight never throws on degenerate input
+weight rate, learned burn and targets are computed in one place
+while a program runs, Train names the day after the program’s session
+with the briefing on, the morning weigh-in and the weekend-plan pings fold into it
+with the hold on, the evening’s pings fold into it
+worst topic sorts first regardless of reading order
+ymd pads month and day
+ymd uses LOCAL date, not UTC
+“today” comes from one store, constants from one module

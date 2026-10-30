@@ -27,7 +27,11 @@ let failures = 0;
 // Sync checks still report in place; async ones settle at the end, which is why
 // their results appear after the last section rather than in source order.
 const pending = [];
+const seen = new Set();
 function check(name, fn) {
+  // The baseline knows a check by its name, so no two may share one.
+  if (seen.has(name)) { failures++; console.error(`FAIL  two checks are named "${name}"`); return; }
+  seen.add(name);
   try {
     const r = fn();
     if (r && typeof r.then === 'function') {
@@ -4674,6 +4678,24 @@ check('a night the watch split in two is one night, and a nap stays a nap', asyn
 
 // Nothing may be reported until the async checks have actually settled.
 await Promise.all(pending);
+
+// The baseline (scripts/baseline.txt): every check that has ever guarded
+// something, one name a line. A name that no longer runs is a guarantee that
+// quietly stopped being tested, and fails here; a new check joins the file on
+// its first run. Only a deliberate edit of the file takes one out. See
+// ENGINEERING.md.
+{
+  const { readFileSync, writeFileSync, existsSync } = await import('node:fs');
+  const file = new URL('./baseline.txt', import.meta.url);
+  const base = existsSync(file) ? readFileSync(file, 'utf8').split('\n').filter(Boolean) : [];
+  const known = new Set(base);
+  for (const n of base) {
+    if (!seen.has(n)) { failures++; console.error(`FAIL  baseline: "${n}" no longer runs. Bring it back, or take its line out of scripts/baseline.txt on purpose.`); }
+  }
+  const grown = [...seen].filter((n) => !known.has(n));
+  if (grown.length) writeFileSync(file, [...base, ...grown].sort().join('\n') + '\n');
+  console.log(`\nBaseline: ${known.size + grown.length} guarantees${grown.length ? `, ${grown.length} new (commit scripts/baseline.txt)` : ''}.`);
+}
 
 console.log(
   failures === 0 ? '\nAll checks passed.\n' : `\n${failures} check(s) FAILED.\n`

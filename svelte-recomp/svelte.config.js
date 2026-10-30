@@ -18,7 +18,10 @@ const config = {
         paths: { relative: true }
       }
     : {
-        adapter: adapterAuto()
+        adapter: adapterAuto(),
+        // The commit, when shipped through scripts/ship.sh, so the live check can
+        // tell the site serves exactly what was verified (ENGINEERING.md).
+        version: { name: process.env.APP_VERSION || Date.now().toString() }
       }
 };
 
