@@ -3,7 +3,7 @@
 // In the days around a period many people hold water, and the scale reads
 // higher for reasons that have nothing to do with fat. How much varies a lot
 // between people (studies find around half a kilo on average, small and
-// mixed), so a general rule would be wrong for most. Moderly learns the
+// mixed), so a general rule would be wrong for most. Slim Chance learns the
 // person's own swing instead: from the first days of their periods (one tap on
 // Today) and their mornings against the trend, over three or more cycles. Until
 // then it says only that it's learning. Nothing is inferred and nothing else
@@ -75,5 +75,5 @@ export function cycleNote(i: CycleInfo, starts: string[], today: string): string
     return `Around your period your mornings usually read ${dwt(i.swingKg)} above your trend; this looks like that.`;
   }
   if (i.swingKg != null) return null; // learned, and it barely moves them: say nothing
-  return 'Around a period many people hold some water. After three cycles Moderly will know how much you do.';
+  return 'Around a period many people hold some water. After three cycles Slim Chance will know how much you do.';
 }

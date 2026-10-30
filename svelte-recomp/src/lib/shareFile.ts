@@ -45,7 +45,7 @@ export async function deliverFile(
         encoding: Encoding.UTF8,
       });
       const { uri } = await Filesystem.getUri({ path: filename, directory: Directory.Cache });
-      await Share.share({ title: filename, url: uri, dialogTitle: 'Export your Moderly data' });
+      await Share.share({ title: filename, url: uri, dialogTitle: 'Export your Slim Chance data' });
       return { method: 'share-sheet' };
     } catch (e: any) {
       // A share the user dismissed is not a failure — Capacitor rejects with

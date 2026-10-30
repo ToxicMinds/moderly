@@ -337,7 +337,7 @@
 
 {#if iosHint}
   <div class="card sv">
-    <p class="sv-t"><b>On iPhone:</b> tap Share, then Add to Home Screen. Moderly opens like an app, and can remind you in the morning.</p>
+    <p class="sv-t"><b>On iPhone:</b> tap Share, then Add to Home Screen. Slim Chance opens like an app, and can remind you in the morning.</p>
     <div class="sv-row"><button class="sv-later" onclick={hideIosHint}>Got it</button></div>
   </div>
 {/if}

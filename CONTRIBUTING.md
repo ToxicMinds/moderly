@@ -1,4 +1,4 @@
-# Contributing to Moderly
+# Contributing to Slim Chance
 
 Thank you for wanting to help. A few things keep this app honest and calm.
 

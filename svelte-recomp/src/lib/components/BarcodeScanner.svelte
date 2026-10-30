@@ -78,7 +78,7 @@
     } catch (e: any) {
       typing = true;
       status = e?.name === 'NotAllowedError'
-        ? 'Camera blocked — allow it in Settings → Apps → Moderly → Permissions, or type the number.'
+        ? 'Camera blocked — allow it in Settings → Apps → Slim Chance → Permissions, or type the number.'
         : 'No camera available here — type the number under the barcode.';
     }
   });

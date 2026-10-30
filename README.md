@@ -1,46 +1,48 @@
-# Moderly
+# Slim Chance
 
-**Lose weight moderately. Keep it off.**
+**Better odds than the name suggests.**
 
-Moderly is a calm weight-loss app for people doing it on their own. It measures you
+Slim Chance is a calm weight-loss app for people doing it on their own. It measures you
 against yourself: a trend instead of the daily scale, a week of food instead of a
 perfect day, and a plan for the moments that undo most diets (the evening, the
 Friday, the weekend), handed to you when you pick up your phone rather than on a
 clock. No streaks, no guilt, no red.
 
-The name comes from an old Greek idea, *metron ariston*: moderation is best.
+The name is the joke; the odds are real. A coin landing on its edge is the textbook slim
+chance (it's the mark), and every morning the app tells you yours: the odds in ten that
+your weight is really coming off. It was called Moderly until 30 October 2026.
 
-**Use it:** [moderly.vercel.app](https://moderly.vercel.app) in any browser (add it to
+**Use it:** [slimchance.vercel.app](https://slimchance.vercel.app) in any browser (add it to
 your home screen), or the Android app from
 [Releases](https://github.com/ToxicMinds/moderly/releases/tag/recompos-app-latest),
 installed by hand for now. No account needed to start. **How it works:**
-[moderly.vercel.app/about](https://moderly.vercel.app/about/).
+[slimchance.vercel.app/about](https://slimchance.vercel.app/about/).
 
 <p>
-<img src="https://moderly.vercel.app/about/today.webp" alt="Today: the weight trend with a balance tilting toward the next stop" width="250">
-<img src="https://moderly.vercel.app/about/scale-up.webp" alt="When the scale jumps, Moderly explains why from your own data" width="300">
-<img src="https://moderly.vercel.app/about/keep-hero.webp" alt="Keep-it-off mode: days inside your range" width="300">
+<img src="https://slimchance.vercel.app/about/today.webp" alt="Today: the weight trend, and ten coins for the odds it's coming off" width="250">
+<img src="https://slimchance.vercel.app/about/scale-up.webp" alt="When the scale jumps, Slim Chance explains why from your own data" width="300">
+<img src="https://slimchance.vercel.app/about/keep-hero.webp" alt="Keep-it-off mode: days inside your range" width="300">
 </p>
 
-Made-up data. More at [moderly.vercel.app/about](https://moderly.vercel.app/about/).
+Made-up data. More at [slimchance.vercel.app/about](https://slimchance.vercel.app/about/).
 
 ## What it does
 
 - **Your trend, not today's number.** One line through your morning weigh-ins, with how
-  sure it is. Set a next stop and the app says what it means, for example leaving a
+  sure it is, as odds in ten. Set a next stop and the app says what it means, for example leaving a
   BMI band, and only calls it reached when the trend stays there.
 - **A week of food, learned from your own log.** Log the way you do; rough is fine. The
   week's budget comes from your log and your scale together, so whatever the log
   leaves out (oil, a handful of nuts) cancels out. Search, barcodes, or a photo with
   an AI estimate.
-- **Keep it off.** At the goal, Moderly asks to keep it there or aim lower. Keeping
+- **Keep it off.** At the goal, Slim Chance asks to keep it there or aim lower. Keeping
   it, the budget is your maintenance, a ceiling sits a kilo above, and Today counts
   the days the trend stayed inside that range (a rate, never a streak). Over the
   ceiling, your own plan comes back with one gentle step down.
 - **When the scale jumps, it says why**, from your own log: a bigger day, the
   weekend, a first workout after a break, or nothing it can see.
 - **Period-aware weight, if you want it:** mark the first day of each period; after
-  three cycles Moderly learns your own water swing and explains those mornings.
+  three cycles Slim Chance learns your own water swing and explains those mornings.
 - **Plans for the hard moments.** Write what you'll do on a Friday night or a late
   evening; the evening notification hands it back at that moment, with a line from
   Epictetus or Marcus Aurelius.
@@ -78,7 +80,7 @@ Made-up data. More at [moderly.vercel.app/about](https://moderly.vercel.app/abou
 
 ## Run your own
 
-Moderly is a SvelteKit (Svelte 5) app with a Supabase backend, shipped to Android as a
+Slim Chance is a SvelteKit (Svelte 5) app with a Supabase backend, shipped to Android as a
 thin Capacitor shell that loads the web app.
 
 You need Node 24 or newer, a [Supabase](https://supabase.com) project and the Supabase
@@ -105,7 +107,7 @@ open an issue.
 
 ## License
 
-[AGPL-3.0](LICENSE). You can use, study, change and share Moderly; if you run a changed
+[AGPL-3.0](LICENSE). You can use, study, change and share Slim Chance; if you run a changed
 version for other people, share your changes too. The fonts are under the SIL Open
 Font License (`svelte-recomp/static/fonts/OFL.txt`); the exercise photos come from
 free-exercise-db (public domain).

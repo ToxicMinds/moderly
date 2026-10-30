@@ -6,16 +6,17 @@
   // steps) as children, and its streak as `aside`.
   import type { Snippet } from 'svelte';
   import Readout from './Readout.svelte';
+  import type { Odds } from '$lib/pulse';
 
   type Tone = 'good' | 'ok' | 'warn' | 'bad' | 'na';
   let {
     title, sub = '', tone = 'na', pct = null, value = '', unit = '', caption = '',
-    story = '', stats = [], beam = null, aside, children
+    story = '', stats = [], odds = null, aside, children
   } = $props<{
     title: string; sub?: string; tone?: Tone; pct?: number | null;
     value?: string | number; unit?: string; caption?: string; story?: string;
     stats?: Array<{ v: string | number; l: string }>; aside?: Snippet; children?: Snippet;
-    beam?: { tilt: number; left: string; right: string } | null;
+    odds?: Odds | null;
   }>();
 </script>
 
@@ -28,7 +29,7 @@
     {@render aside?.()}
   </header>
 
-  {#if value !== '' || beam}<Readout {value} {unit} {caption} {pct} {tone} {beam} />{/if}
+  {#if value !== '' || odds}<Readout {value} {unit} {caption} {pct} {tone} {odds} />{/if}
 
   {#if story}<p class="phero-story">{story}</p>{/if}
 

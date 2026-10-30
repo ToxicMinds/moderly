@@ -166,7 +166,7 @@ async function readAll(
     // never appear" looked for weeks.
     notify('Health Connect', `Could not read ${type}: ${e?.message || e}`, {
       level: 'warn',
-      hint: `Open Health Connect and confirm Moderly is allowed to read ${type}.`
+      hint: `Open Health Connect and confirm Slim Chance is allowed to read ${type}.`
     });
     return [];
   }
@@ -660,7 +660,7 @@ export async function syncHealthConnect(
 }
 
 const WEIGHT_PERM = READ_PERMISSION.Weight;
-/** Moderly's own package: it writes typed weigh-ins back to Health Connect,
+/** The app's own package: it writes typed weigh-ins back to Health Connect,
  *  and must never read them in again. */
 const OWN_PACKAGE = 'com.toxicminds.recompos';
 /** The first native build that declares READ_WEIGHT. Older apps load this same
@@ -670,7 +670,7 @@ const SCALE_BUILD = 13;
 /**
  * Weigh-ins from a smart scale's app, through Health Connect: a year of them
  * the first time, then the last two weeks on each sync. Days already logged in
- * Moderly are kept as they are; a weigh-in typed later replaces a scale's.
+ * this app are kept as they are; a weigh-in typed later replaces a scale's.
  */
 async function syncScaleWeights(HealthConnect: any, uid: string): Promise<number> {
   const { App } = await import('@capacitor/app');

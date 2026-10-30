@@ -499,7 +499,7 @@
     <AuthGate />
   {:else if needsOnboarding}
     <div id="topbar">
-      <div id="topbar-title">Moderly</div>
+      <div id="topbar-title" class="wordmark"><b>Slim</b> Chance</div>
       <div class="flex ac gap2">
         <Diagnostics />
         <button class="icn-btn" onclick={signOut} title="Sign out">⎋</button>
@@ -520,7 +520,7 @@
   {:else}
   <div id="topbar">
     <div class="flex ac gap2">
-      <div id="topbar-title">Moderly</div>
+      <div id="topbar-title" class="wordmark"><b>Slim</b> Chance</div>
       <div id="sync-dot"
         class:synced={$syncStatus === 'synced'}
         class:syncing={$syncStatus === 'syncing'}
@@ -599,7 +599,7 @@
         Lets an AI write tonight's message, or stay quiet, and notice one pattern a day. Once a day it sends Google's Gemini a two-week summary: weights, calories and protein per day, training, your plans and usual foods. No photos and no name. Off unless you turn it on.
       {/if}
     </div>
-    {#if cycleOn}<div class="menu-note">Mark the first day of each period on Today. After three cycles Moderly learns how much your weight moves around a period and explains those mornings. Off by default; turning it off keeps the dates you marked.</div>{/if}
+    {#if cycleOn}<div class="menu-note">Mark the first day of each period on Today. After three cycles Slim Chance learns how much your weight moves around a period and explains those mornings. Off by default; turning it off keeps the dates you marked.</div>{/if}
     <button class="menu-item" onclick={toggleTheme}>
       <span>Theme</span><span class="menu-val">☀️ / 🌙</span>
     </button>
@@ -641,7 +641,7 @@
   <Modal open={deleteOpen} onclose={() => { if (!deleteBusy) deleteOpen = false; }}>
     <div class="cw-h">Delete your account?</div>
     <p class="cw-p">This deletes your account and everything in it: weigh-ins, food, training, plans,
-      notes and photos, from Moderly's servers and from this phone. It can't be undone.</p>
+      notes and photos, from Slim Chance's servers and from this phone. It can't be undone.</p>
     <p class="cw-p">Want a copy first? Close this and use Export my data.</p>
     <label class="flbl" for="del-confirm">Type delete to confirm</label>
     <input id="del-confirm" bind:value={deleteText} autocomplete="off" autocapitalize="off" spellcheck="false" style="margin-bottom:12px">
@@ -707,7 +707,7 @@
   .cw-p{font-size:0.875rem;line-height:1.5;color:var(--text);margin:0 0 14px}
   .cw-no{margin-top:8px}
 #topbar{background:var(--bg);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:calc(var(--st) + 10px) 18px 12px;min-height:calc(var(--st) + var(--top-h));z-index:50;flex-shrink:0}
-#topbar-title{font-family:var(--font-display);font-size:26px;font-weight:700;letter-spacing:0;line-height:1;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#topbar-title{font-family:var(--font-display);font-size:26px;font-weight:800;letter-spacing:-.01em;line-height:1;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   /* The topbar is chrome, so it is pinned in px and does NOT follow --ui-scale.
      At the largest text size a scaled brand mark plus the buttons is wider than
      a 360px phone, and what gets pushed off the edge is Sign out and the

@@ -141,7 +141,7 @@
       <div class="iw-card">
         <div><b>{readings.length.toLocaleString()} mornings</b>{#if readings.length}, {day(readings[0].date)} to {day(readings[readings.length - 1].date)}{/if} <span class="iw-src">· {parsed.format} · {fileName}</span></div>
         {#if readings.length}<div class="iw-sub">First {wt(readings[0].kg)}, latest {wt(readings[readings.length - 1].kg)}.</div>{/if}
-        {#if readings.length > fresh.length}<div class="iw-sub">{(readings.length - fresh.length).toLocaleString()} of those days are already in Moderly; yours are kept.</div>{/if}
+        {#if readings.length > fresh.length}<div class="iw-sub">{(readings.length - fresh.length).toLocaleString()} of those days are already in Slim Chance; yours are kept.</div>{/if}
       </div>
 
       {#if !parsed.unit && sample}

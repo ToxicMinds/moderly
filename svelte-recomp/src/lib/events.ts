@@ -1,4 +1,4 @@
-// Where new people give up, counted in Moderly's own database, no trackers:
+// Where new people give up, counted in our own database, no trackers:
 // one row per person, event and day, through note_event (migration
 // 20261029100000_app_events), which ignores any name not on its list.
 // owner_metrics turns them into the Numbers page. Never throws, never waits:

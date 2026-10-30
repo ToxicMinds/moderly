@@ -1,7 +1,8 @@
 <script lang="ts">
   // ── PULSE ─────────────────────────────────────────────────────────────────
-  // The face of RecompOS: the weight trend and how far it is to the next stop,
-  // coloured by the pace (src/lib/pulse.ts, shared with the page's glow). A
+  // The face of the app: the weight trend, how far it is to the next stop and
+  // the odds it's coming off, coloured by the pace (src/lib/pulse.ts, shared
+  // with the page's glow). A
   // brand-new account, before the scale has drawn a trend, gets its plan and
   // first steps instead, and only until those are done.
   import { body, todayPulse } from '$lib/stores/body';
@@ -56,7 +57,7 @@
   </PageHero>
 {:else}
   <PageHero title={greeting} {sub} tone={p.tone} pct={p.pct}
-    value={p.kg != null ? wtNum(p.kg) : '—'} caption={p.caption} story={p.story} stats={p.stats} beam={p.beam}>
+    value={p.kg != null ? wtNum(p.kg) : '—'} caption={p.caption} story={p.story} stats={p.stats} odds={p.odds}>
     {#snippet aside()}{@render streak()}{/snippet}
   </PageHero>
 {/if}

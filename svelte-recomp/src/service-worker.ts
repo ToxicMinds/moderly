@@ -130,11 +130,11 @@ self.addEventListener('push', (event) => {
   if (!event.data) return;
   let payload: { title?: string; body?: string; tag?: string };
   try { payload = event.data.json(); }
-  catch { payload = { title: 'Moderly', body: event.data.text() }; }
+  catch { payload = { title: 'Slim Chance', body: event.data.text() }; }
 
   event.waitUntil(
     Promise.all([
-      self.registration.showNotification(payload.title || 'Moderly', {
+      self.registration.showNotification(payload.title || 'Slim Chance', {
         body: payload.body || '',
         icon: base + '/icon-192.png',
         badge: base + '/badge-96.png',

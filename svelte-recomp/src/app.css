@@ -3,21 +3,24 @@
 /* TYPE — self-hosted (static/fonts, precached by the service worker, so it
    works offline and inside the APK). Latin + Latin-Ext: Slovak and Czech
    diacritics render in the same face as everything else.
-     Cormorant Garamond — the name, headings and numbers: a classical serif,
-       like the engraving on a brass balance. Lining figures (set on <html>).
+     Archivo — the name, headings and numbers. Variable in width, and the face
+       below is declared 62%–85% wide, so anything that doesn't ask is drawn at
+       85% (browsers clamp to the declared range). The hero's figures ask for
+       72%, and the "Slim" in the name for the narrowest, 62%: the name says
+       what it means.
      Atkinson Hyperlegible Next — everything read, labels included; designed
        for legibility first ("the font is WAY too small" was the old complaint). */
-@font-face{font-family:'Cormorant Garamond';src:url('/fonts/cormorant-latin.woff2') format('woff2');font-weight:300 700;font-display:swap;unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
-@font-face{font-family:'Cormorant Garamond';src:url('/fonts/cormorant-latin-ext.woff2') format('woff2');font-weight:300 700;font-display:swap;unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C4,U+2113,U+2C60-2C7F,U+A720-A7FF}
+@font-face{font-family:'Archivo';src:url('/fonts/archivo-latin.woff2') format('woff2');font-weight:100 900;font-stretch:62% 85%;font-display:swap;unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:'Archivo';src:url('/fonts/archivo-latin-ext.woff2') format('woff2');font-weight:100 900;font-stretch:62% 85%;font-display:swap;unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C4,U+2113,U+2C60-2C7F,U+A720-A7FF}
 @font-face{font-family:'Atkinson Hyperlegible Next';src:url('/fonts/atkinson-latin.woff2') format('woff2');font-weight:200 800;font-display:swap;unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
 @font-face{font-family:'Atkinson Hyperlegible Next';src:url('/fonts/atkinson-latin-ext.woff2') format('woff2');font-weight:200 800;font-display:swap;unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C4,U+2113,U+2C60-2C7F,U+A720-A7FF}
 
-/* THE SYSTEM — Moderly: an evening instrument.
-   Ink-blue night, brass and verdigris: the colours of an old balance scale.
-   Brass is the brand (the name, the active tab, the number while there is no
-   verdict yet). The verdict tones only ever mean data: verdigris on pace,
-   steel blue fine, copper "look here", and never red for a bad week. Solid
-   surfaces, nothing blurred, nothing floats on glass. */
+/* THE SYSTEM — Slim Chance: honest odds, told calmly.
+   Ink-blue night and a brass coin. Brass is the brand (the name, the coin,
+   the active tab, the number while there is no verdict yet). The verdict
+   tones only ever mean data: verdigris on pace, steel blue fine, copper
+   "look here", and never red for a bad week. Solid surfaces, nothing
+   blurred, nothing floats on glass. */
 :root{
   --bg:#101826;--bg2:#182337;--bg3:#1E2B42;
   --border:#2A3854;--border2:#3A4B6E;
@@ -40,7 +43,7 @@
   --blur:none;
   --shadow-sm:none;--shadow-md:none;--shadow-glow:none;
   --r-sm:6px;--r-md:10px;--r-lg:14px;
-  --font-display:'Cormorant Garamond',Georgia,'Times New Roman',serif;
+  --font-display:'Archivo','Arial Narrow',system-ui,sans-serif;
   --font-label:var(--font-body);
   --font-body:'Atkinson Hyperlegible Next',system-ui,-apple-system,'Segoe UI',sans-serif;
   --nav-h:60px;--top-h:52px;
@@ -111,6 +114,8 @@ body::before{
 .bfl{width:100%;margin-bottom:8px;display:block;text-align:center}
 .btn:disabled{opacity:.4;cursor:default;transform:none}
 
+.wordmark{font-family:var(--font-display);font-weight:800;letter-spacing:-.01em;white-space:nowrap}
+.wordmark b{font-weight:inherit;font-stretch:62%}
 .page-hd{font-family:var(--font-display);font-size:2.25rem;font-weight:700;margin-bottom:2px;letter-spacing:0;line-height:1.05;color:var(--text)}
 .page-sub{font-size:0.8125rem;color:var(--muted);margin-bottom:18px}
 

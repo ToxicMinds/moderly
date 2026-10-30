@@ -73,7 +73,7 @@ export function buildRecords(
           startTime: s.start,
           endTime: end,
           title: s.title,
-          notes: s.notes || 'Logged in Moderly',
+          notes: s.notes || 'Logged in Slim Chance',
           exerciseType: s.exerciseType,
         });
       }

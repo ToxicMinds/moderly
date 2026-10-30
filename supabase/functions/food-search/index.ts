@@ -25,7 +25,7 @@ const FIELDS = [
 
 async function sal(q: string, size: number): Promise<Record<string, unknown>[]> {
   const url = `${SAL}?${new URLSearchParams({ q, langs: 'sk,cs,en', page_size: String(size), fields: FIELDS })}`;
-  const res = await fetch(url, { signal: AbortSignal.timeout(6000), headers: { 'User-Agent': 'Moderly/1.0 (moderly.vercel.app)' } });
+  const res = await fetch(url, { signal: AbortSignal.timeout(6000), headers: { 'User-Agent': 'SlimChance/1.0 (slimchance.vercel.app)' } });
   if (!res.ok) throw new Error(`OFF search HTTP ${res.status}`);
   return (await res.json())?.hits ?? [];
 }

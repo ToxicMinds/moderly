@@ -534,7 +534,7 @@ check('the hero reads the trend, the distance to the next stop, and a pace that 
   assert.equal(down.tone, 'good');
   assert.equal(Math.round(down.pct), 50, 'half way from 92 to 85');
   assert.equal(down.story, 'Down 0.5 kg a week. At that pace, 85 in about 7 weeks.');
-  const early = pulse({ weight: { ...wv(92.4, 0), state: 'too-noisy', weighInsNeeded: 4 }, pace: 'too-early', firstKg: 92, goalKg: 76, next: null });
+  const early = pulse({ weight: { ...wv(92.4, 0, 0.9), state: 'too-noisy', weighInsNeeded: 4 }, pace: 'too-early', firstKg: 92, goalKg: 76, next: null });
   assert.equal(early.tone, 'na');
   assert.match(early.story, /4 more mornings/);
   assert.equal(early.stats[1].v, '—', 'no rate before the line is sure of one');
@@ -556,13 +556,34 @@ check('the hero reads the trend, the distance to the next stop, and a pace that 
   assert.match(pulse({ ...restart, weight: wv(92.4, -0.4), pace: 'gaining' }).story,
     /^Up 0\.4 kg a week right now\. New training can hold extra water for a week or two: judge the trend from 2 Nov\.$/);
   assert.doesNotMatch(pulse({ ...restart, weight: wv(88.5, 0.5), pace: 'on-pace' }).story, /water/, 'going down anyway: nothing to explain');
-  // The balance: toward the stop while losing toward it, toward today while
-  // gaining, level when the rate is unsure or nil.
-  assert.equal(down.beam.tilt, 0.5);
-  assert.equal(down.beam.right, '85');
-  assert.equal(up.beam.tilt, -0.4);
-  assert.equal(early.beam?.tilt ?? 0, 0, 'too early to tell: level');
-  assert.equal(pulse({ weight: wv(70, -0.3), pace: 'too-early', firstKg: 65, goalKg: 76, next: null }).beam.tilt, 0.3, 'a gain goal leans toward it while gaining');
+  // The odds, as coins of ten: the same interval as the verdict, read as the
+  // chance of a loss that counts (over 0.15 kg a week). Sure either way is
+  // "almost certainly" or "under 1 in 10", the middle is "too close to call",
+  // and the name's joke comes only with good odds, never at a stall.
+  assert.deepEqual(down.odds, { lit: 10, text: 'Almost certainly coming off. Not so slim.' });
+  assert.deepEqual(up.odds, { lit: 0, text: 'Under 1 in 10 it’s coming off right now.' });
+  assert.deepEqual(early.odds, { lit: 4, text: '4 in 10 it’s coming off: too close to call.' }, 'a first week can’t know yet, and says so');
+  assert.deepEqual(gentle.odds, { lit: 3, text: '3 in 10 it’s coming off right now.' }, 'a flat month: honest odds, no joke');
+  assert.equal(pulse({ weight: { ...wv(90, 0.3, 0.4), state: 'too-noisy' }, pace: 'too-early', firstKg: 92, goalKg: 76, next: null }).odds.text,
+    '8 in 10 it’s coming off. Not so slim.');
+  // A slow drift the interval is sure of (0.08 kg a week) is not "coming off":
+  // it's the flat the stall check names, and the odds must not cheer it.
+  const drift = pulse({ weight: wv(93.1, 0.08, 0.05), pace: 'stalled', firstKg: 113.5, goalKg: 76, next });
+  assert.equal(drift.story, 'The trend is flat right now.');
+  assert.equal(drift.odds.lit, 0);
+  assert.equal(pulse({ weight: wv(70, -0.3), pace: 'too-early', firstKg: 65, goalKg: 76, next: null }).odds.text, 'Almost certainly going up.', 'a gain goal counts the gain');
+  assert.equal(pulse({ weight: { ...wv(70, 0), state: 'not-enough' }, pace: 'too-early', firstKg: 70, goalKg: 66, next: null }).odds, null, 'no line, no odds');
+});
+
+check('the odds are the verdict’s own interval, read against a loss that counts', async () => {
+  const { chanceOf } = await import('../src/lib/insights.ts');
+  const near = (a, b) => Math.abs(a - b) < 1e-4;
+  assert.ok(near(chanceOf({ ...wv(90, 0.45, 0.3), state: 'too-noisy' }, 'lose'), 0.975), 'the interval just clears 0.15 kg a week');
+  assert.ok(near(chanceOf(wv(90, 0.15, 0.3), 'lose'), 0.5), 'right on the line: a coin toss');
+  assert.ok(near(chanceOf(wv(90, -0.15, 0.3), 'hold'), 0.5), 'holding is not climbing past the same line');
+  assert.ok(near(chanceOf(wv(90, -0.45, 0.3), 'gain'), 0.975));
+  assert.equal(chanceOf(null, 'lose'), null);
+  assert.equal(chanceOf({ ...wv(90, 0.5), state: 'not-enough' }, 'lose'), null);
 });
 
 check('the score is gone from the app, and the glow reads the hero’s tone', async () => {
@@ -742,8 +763,8 @@ check('a column that only appears in a later row still gets a header', () => {
 
 check('filenames sort by date and say what they are', () => {
   const d = new Date('2026-08-11T10:00:00Z');
-  assert.equal(exportFilename('json', d), 'moderly-export-2026-08-11.json');
-  assert.equal(exportFilename('csv', d, 'weights'), 'moderly-weights-2026-08-11.csv');
+  assert.equal(exportFilename('json', d), 'slim-chance-export-2026-08-11.json');
+  assert.equal(exportFilename('csv', d, 'weights'), 'slim-chance-weights-2026-08-11.csv');
 });
 
 check('the confirmation names real numbers, not "done"', () => {
@@ -807,7 +828,7 @@ check('the summary reads like a message, and carries the real numbers', () => {
   assert.match(t, /168 g protein\/day/);
   assert.match(t, /9,400 steps/);
   assert.match(t, /7\.4 h sleep/);
-  assert.match(t, /via Moderly/);
+  assert.match(t, /via Slim Chance/);
 });
 
 check('bodyweight is never in a shared summary unless asked for', () => {
@@ -1358,7 +1379,7 @@ check('the update dot never says "up to date" while the phone app is behind', as
   assert.match(badge, /else if \(appBehind\)[\s\S]*?else \{\s*showToast\(`Up to date/, '"Up to date" only after both checks');
 });
 
-check('every notification wears the Moderly mark: the balance, in brass', async () => {
+check('every notification wears the Slim Chance mark: the coin, in brass', async () => {
   // The briefing and hold (MomentReceiver), every alarm and reminder (Capacitor
   // LocalNotifications, both copies of its config) and web push.
   const { readFileSync, existsSync } = await import('node:fs');
@@ -4246,20 +4267,20 @@ check('a high morning is explained from the person’s own data, and only from i
 check('keeping it off: the hero counts days inside the range, never a streak, and points at the plan when over', async () => {
   const { pulse } = await import('../src/lib/pulse.ts');
   const { buildDailyFocus } = await import('../src/lib/coach.ts');
-  const w = { trendKg: 74.4, latestKg: 74.6, state: 'answerable', rateKgPerWeek: 0.02, loKgPerWeek: -0.1, hiKgPerWeek: 0.14, n: 40, weighInsNeeded: null };
+  const w = { trendKg: 74.4, latestKg: 74.6, state: 'answerable', rateKgPerWeek: 0.02, halfWidthKgPerWeek: 0.12, loKgPerWeek: -0.1, hiKgPerWeek: 0.14, n: 40, weighInsNeeded: null };
   const keep = { goalKg: 74, ceilingKg: 75, inside: 41, days: 45, since: '2026-08-20' };
   let p = pulse({ weight: w, pace: 'too-early', firstKg: 96, goalKg: 74, next: null, keep });
   assert.equal(p.caption, 'kg trend · 0.6 under your ceiling');
   assert.equal(p.story, 'Inside your range on 41 of the last 45 days.');
   assert.equal(p.tone, 'good');
   assert.deepEqual(p.stats.map((s) => s.v), ['74', '75', '41/45']);
-  assert.deepEqual(p.beam, { tilt: 0, left: 'ceiling 75', right: 'goal 74' }, 'level while it holds');
+  assert.deepEqual(p.odds, { lit: 10, text: 'Almost certainly holding.' }, 'holding means not creeping up');
   p = pulse({ weight: { ...w, trendKg: 75.3 }, pace: 'gaining', firstKg: 96, goalKg: 74, next: null, keep });
   assert.equal(p.tone, 'warn', 'amber over the ceiling, never red');
   assert.match(p.story, /^Over your ceiling\. Your plan for this is below/);
   p = pulse({ weight: { ...w, rateKgPerWeek: -0.3, loKgPerWeek: -0.45, hiKgPerWeek: -0.15 }, pace: 'gaining', firstKg: 96, goalKg: 74, next: null, keep: { ...keep, inside: 45 } });
   assert.match(p.story, /^Inside your range on every one of the last 45 days\. The trend is creeping up 0\.3 kg a week/);
-  assert.ok(p.beam.tilt < 0, 'leaning toward the ceiling as it climbs');
+  assert.equal(p.odds.text, 'Under 1 in 10 it’s holding right now.', 'creeping up: the odds say so plainly');
   // The coach asks "still inside?", never "losing fast enough?".
   const base = { goalKg: 74, currentWeight: 74.4, rateKgPerWeek: 0, pace: 'too-early', planKgPerWeek: null, weeksToGoal: null,
     weighInsNeeded: null, stall: null, totalLostKg: 21.6, calorieTarget: 2050, todayKcal: 0, weekKcalSoFar: 9000, daysElapsedThisWeek: 4,
@@ -4312,7 +4333,7 @@ check('period-aware weight learns the person’s own swing, and says only that i
   assert.equal(cycleNote(flat, starts, day(137)), null);
 });
 
-check('a smart scale’s weigh-ins come in one a day, never Moderly’s own, never asked of an old app', async () => {
+check('a smart scale’s weigh-ins come in one a day, never our own, never asked of an old app', async () => {
   const { scaleDays } = await import('../src/lib/health/scaleWeights.ts');
   const rec = (time, value, unit, origin) => ({ type: 'Weight', time, weight: { value, unit }, metadata: { dataOrigin: origin } });
   const days = scaleDays([
@@ -4366,11 +4387,13 @@ check('a weight history comes in from any app, one morning a day, in kg', async 
   assert.equal(p.dateOrderUnclear, false);
   assert.deepEqual(r.map((x) => x.date), ['2024-01-05', '2024-01-13'], '05/01 read day-first too');
 
-  // Fitbit JSON (Google Takeout), in the account's unit; Moderly's own export.
+  // Fitbit JSON (Google Takeout), in the account's unit; the app's own export, under its old name too.
   ({ r } = read('[{"logId":1,"weight":183.6,"bmi":26,"date":"01/05/24","time":"07:12:00","source":"Aria"}]', 'lb'));
   assert.deepEqual(r, [{ date: '2024-01-05', kg: 83.28 }]);
   ({ p, r } = read(JSON.stringify({ app: 'Moderly', tables: { weights: [{ date: '2026-10-01', weight: 90.2, created_at: '2026-10-01T07:00:00Z' }] } })));
-  assert.equal(p.format, 'Moderly export'); assert.deepEqual(r, [{ date: '2026-10-01', kg: 90.2 }]);
+  assert.equal(p.format, 'Slim Chance export'); assert.deepEqual(r, [{ date: '2026-10-01', kg: 90.2 }]);
+  ({ p } = read(JSON.stringify({ app: 'Slim Chance', tables: { weights: [{ date: '2026-10-01', weight: 90.2 }] } })));
+  assert.equal(p.format, 'Slim Chance export');
 
   // Apple Health: the morning reading wins a day with two; other records ignored.
   const xml = '<?xml version="1.0"?><HealthData>'

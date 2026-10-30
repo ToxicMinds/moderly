@@ -1,6 +1,6 @@
 # Security
 
-Moderly holds people's weight, food and health data, so security reports are welcome
+Slim Chance holds people's weight, food and health data, so security reports are welcome
 and taken seriously.
 
 **Please report privately**, not in a public issue: use GitHub's

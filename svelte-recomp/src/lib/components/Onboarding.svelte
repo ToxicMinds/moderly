@@ -132,7 +132,7 @@
   // A goal at today's weight means keeping it off (after a diet, a medicine,
   // or a loss years ago): the app holds instead of cutting.
   const keeping = $derived(weightKg != null && goalKg != null && Math.abs(weightKg - goalKg) < 0.5);
-  // Moderly is for adults: weight loss under 18 belongs with a doctor, and the
+  // Slim Chance is for adults: weight loss under 18 belongs with a doctor, and the
   // AI services it uses are for adults only.
   const tooYoung = $derived(!!born && born > currentYear - 18 && born <= currentYear);
   const suggestedGoal = $derived.by(() => {
@@ -284,7 +284,7 @@
   {:else if step === 1}
     <h2 class="ob-h">Your starting budget</h2>
     <p class="ob-p">
-      A formula needs these four to guess your calories for the first two weeks. After that, Moderly sets
+      A formula needs these four to guess your calories for the first two weeks. After that, Slim Chance sets
       your budget from your own scale and your own log, and the guess stops mattering.
     </p>
 
@@ -298,7 +298,7 @@
     <label class="flbl" for="ob-year">Year of birth</label>
     <input id="ob-year" type="number" inputmode="numeric" bind:value={birthYear} placeholder={String(currentYear - 35)} min="1900" max={currentYear - 18}>
     {#if tooYoung}
-      <div class="ob-err">Moderly is for adults. If you're under 18 and worried about your weight, talk to a doctor or a parent first; they can help in ways an app can't.</div>
+      <div class="ob-err">Slim Chance is for adults. If you're under 18 and worried about your weight, talk to a doctor or a parent first; they can help in ways an app can't.</div>
     {:else if birthYear && age == null}
       <div class="ob-err">That doesn't look like a year of birth.</div>
     {/if}
@@ -326,7 +326,7 @@
     <h2 class="ob-h">One plan for the hard moment</h2>
     <p class="ob-p">
       Optional. Diets rarely break on a Tuesday lunchtime. Decide now what you'll do at the moment that tends to
-      go wrong, and Moderly hands it back to you then.
+      go wrong, and Slim Chance hands it back to you then.
     </p>
 
     <div class="ob-stops" role="group" aria-label="The moment">

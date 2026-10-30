@@ -44,12 +44,12 @@ export async function signIn(email: string, password: string) {
 }
 
 /** The version of the privacy page a consent was given to (static/privacy.html). */
-export const PRIVACY_VERSION = '2026-10-29';
+export const PRIVACY_VERSION = '2026-10-30';
 
 /** Creating an account needs explicit consent to keeping health data (GDPR
  *  Art. 9); it's recorded on the account itself, so it can be shown later. */
 export async function signUp(email: string, password: string, consent: boolean) {
-  if (!consent) throw new Error('Tick the box to agree, or Moderly can’t keep your data.');
+  if (!consent) throw new Error('Tick the box to agree, or Slim Chance can’t keep your data.');
   const { error } = await supabase.auth.signUp({
     email, password,
     options: { data: { consent: { health: true, privacy: PRIVACY_VERSION, at: new Date().toISOString() } } },
@@ -57,10 +57,10 @@ export async function signUp(email: string, password: string, consent: boolean) 
   if (error) throw error;
 }
 
-/** "Start now": try Moderly without an email. Consent is still explicit, and
+/** "Start now": try Slim Chance without an email. Consent is still explicit, and
  *  recorded the same way as at sign-up. */
 export async function startTrial(consent: boolean) {
-  if (!consent) throw new Error('Tick the box to agree, or Moderly can’t keep your data.');
+  if (!consent) throw new Error('Tick the box to agree, or Slim Chance can’t keep your data.');
   const { error } = await supabase.auth.signInAnonymously({
     options: { data: { consent: { health: true, privacy: PRIVACY_VERSION, at: new Date().toISOString() } } },
   });

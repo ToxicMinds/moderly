@@ -42,7 +42,7 @@
     <h2 class="gm-h">You're there.</h2>
     <p class="gm-p">
       Your trend has held at or under {wtShortU(goal)} for three days. This is where most diets stop helping, and where
-      most weight comes back, so Moderly's job changes now: keeping it.
+      most weight comes back, so Slim Chance's job changes now: keeping it.
     </p>
     <ul class="gm-l">
       <li>Your budget becomes what you maintain on{#if maintenance}, about <b>{maintenance.toLocaleString()} kcal a day</b> as you log it{/if}.</li>

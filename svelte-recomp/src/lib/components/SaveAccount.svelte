@@ -29,7 +29,7 @@
   {:else}
     <div class="sa-h">Save your account</div>
     <p class="sa-p">
-      Right now your Moderly lives on this device only: clear the browser or lose the phone and it's gone, and a trial
+      Right now your account lives on this device only: clear the browser or lose the phone and it's gone, and a trial
       nobody uses for 30 days is deleted. With an email and a password it's yours anywhere.
     </p>
     {#if err}<div class="sa-err" role="alert">{err}</div>{/if}
@@ -38,7 +38,7 @@
     <label class="flbl" for="sa-pass">Password</label>
     <input id="sa-pass" type="password" autocomplete="new-password" bind:value={password} placeholder="At least 8 characters"
       onkeydown={(e) => e.key === 'Enter' && save()}>
-    <p class="sa-note">Moderly can't email you a reset link yet, so keep the password somewhere safe, like your phone's password manager.</p>
+    <p class="sa-note">Slim Chance can't email you a reset link yet, so keep the password somewhere safe, like your phone's password manager.</p>
     <button class="btn bp bfl" onclick={save} disabled={busy || !email || !password}>{busy ? 'Saving…' : 'Save my account'}</button>
   {/if}
 </Modal>

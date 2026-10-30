@@ -49,7 +49,7 @@ export const WATCH_BRANDS: WatchBrand[] = [
       'Open OHealth and make sure your watch has synced recently — it uploads on its own schedule, not instantly.',
       'In OHealth: Profile → Settings → Health Connect (sometimes under "Data sharing"), and turn it on.',
       'Allow every data type offered — steps, sleep, heart rate, workouts and calories.',
-      'Back in Moderly, pull down to refresh.'
+      'Back in Slim Chance, pull down to refresh.'
     ],
     caveat: 'OHealth batches its uploads, so a workout can take a while to appear. Open OHealth first if something is missing.'
   },
@@ -63,7 +63,7 @@ export const WATCH_BRANDS: WatchBrand[] = [
       'Open Samsung Health on your phone (not the watch).',
       'Settings → Health Connect, and turn the connection on.',
       'Tap "App permissions" / "Manage data" and allow steps, sleep, heart rate, exercise and calories. Samsung asks per data type and defaults several to OFF.',
-      'Back in Moderly, pull down to refresh.'
+      'Back in Slim Chance, pull down to refresh.'
     ],
     caveat: 'Samsung Health only shares data recorded AFTER you enable Health Connect — history before that stays inside Samsung Health.'
   },
@@ -77,7 +77,7 @@ export const WATCH_BRANDS: WatchBrand[] = [
       'Open Garmin Connect and let it sync with your watch.',
       'More → Settings → Health Connect (or "Connected apps"), and enable it.',
       'Allow steps, sleep, heart rate, exercise and calories.',
-      'Back in Moderly, pull down to refresh.'
+      'Back in Slim Chance, pull down to refresh.'
     ],
     caveat: 'Garmin exports Body Battery and stress as its own metrics that Health Connect has no slot for, so those stay in Garmin Connect.'
   },
@@ -91,7 +91,7 @@ export const WATCH_BRANDS: WatchBrand[] = [
       'Open the Fitbit app and let it sync.',
       'You (profile icon) → Fitbit Settings → Health Connect, and turn it on.',
       'Allow steps, sleep, heart rate, exercise and calories.',
-      'Back in Moderly, pull down to refresh.'
+      'Back in Slim Chance, pull down to refresh.'
     ],
     caveat: 'Fitbit keeps detailed sleep stages and HRV behind Premium; without it, Health Connect may only receive total sleep.'
   },
@@ -105,7 +105,7 @@ export const WATCH_BRANDS: WatchBrand[] = [
       'Open Mi Fitness (or Zepp) and let the watch sync.',
       'Profile → Settings → Health Connect, and enable it.',
       'Allow steps, sleep, heart rate, exercise and calories.',
-      'Back in Moderly, pull down to refresh.'
+      'Back in Slim Chance, pull down to refresh.'
     ]
   },
   {
@@ -118,7 +118,7 @@ export const WATCH_BRANDS: WatchBrand[] = [
       'Open Huawei Health and let the watch sync.',
       'Me → Privacy / Data sharing → Health Connect, and enable it.',
       'Allow steps, sleep, heart rate, exercise and calories.',
-      'Back in Moderly, pull down to refresh.'
+      'Back in Slim Chance, pull down to refresh.'
     ],
     caveat: 'On phones without Google services, Huawei Health may not offer Health Connect at all — you can still log manually.'
   },
@@ -132,7 +132,7 @@ export const WATCH_BRANDS: WatchBrand[] = [
       'Open WHOOP and let the strap sync.',
       'Menu → App Settings → Integrations → Health Connect, and enable it.',
       'Allow sleep, heart rate and workouts.',
-      'Back in Moderly, pull down to refresh.'
+      'Back in Slim Chance, pull down to refresh.'
     ],
     caveat: 'WHOOP has no step counter, so steps will come from your phone instead — that is expected, not a fault.'
   },
@@ -146,7 +146,7 @@ export const WATCH_BRANDS: WatchBrand[] = [
       'Open Polar Flow and sync your device.',
       'Settings → Connect / Health Connect, and enable it.',
       'Allow steps, sleep, heart rate and exercise.',
-      'Back in Moderly, pull down to refresh.'
+      'Back in Slim Chance, pull down to refresh.'
     ]
   },
   {
@@ -159,7 +159,7 @@ export const WATCH_BRANDS: WatchBrand[] = [
       'Open Health Mate and let your device sync.',
       'Profile → Settings → Health Connect, and enable it.',
       'Allow steps, sleep, heart rate and weight.',
-      'Back in Moderly, pull down to refresh.'
+      'Back in Slim Chance, pull down to refresh.'
     ]
   },
   {
@@ -170,7 +170,7 @@ export const WATCH_BRANDS: WatchBrand[] = [
     emoji: '📱',
     setup: [
       'Your phone already counts steps on its own — nothing to set up.',
-      'Pull down to refresh in Moderly and steps should appear.',
+      'Pull down to refresh in Slim Chance and steps should appear.',
       'Sleep and heart rate need a wearable, so log those by hand on the Today screen.'
     ],
     caveat: 'A phone in your pocket undercounts steps versus a wrist device, and cannot measure sleep or heart rate at all.'
@@ -185,7 +185,7 @@ export const WATCH_BRANDS: WatchBrand[] = [
       'Open your watch\'s companion app on your phone.',
       'Look for "Health Connect" in its settings — most brands support it — and turn it on.',
       'Allow steps, sleep, heart rate, exercise and calories.',
-      'Back in Moderly, pull down to refresh. Whatever it writes, this app will read.'
+      'Back in Slim Chance, pull down to refresh. Whatever it writes, this app will read.'
     ],
     caveat: 'Any brand that writes to Health Connect works. If yours does not offer it, everything can still be logged by hand.'
   }

@@ -79,7 +79,7 @@
 {#snippet preview(label: string, n: { title: string; body: string; actions?: { weigh: boolean; back: boolean; meal: unknown } })}
   <div class="mb-tag">{label}</div>
   <div class="mb-note-card">
-    <div class="mb-app">Moderly</div>
+    <div class="mb-app">Slim Chance</div>
     <div class="mb-title">{n.title}</div>
     {#each n.body.split('\n') as line}<div class="mb-line">{line}</div>{/each}
     {#if n.actions && buttons}
@@ -128,7 +128,7 @@
       {#if $forecast}
         Weather for roughly where the phone is.
       {:else if refused}
-        Location is off for Moderly. Allow it in Android Settings → Apps → Moderly → Permissions, then
+        Location is off for Slim Chance. Allow it in Android Settings → Apps → Slim Chance → Permissions, then
         <button type="button" class="mb-link" onclick={useLocation}>try again</button>.
       {:else}
         <button type="button" class="mb-link" onclick={useLocation} disabled={locating}>{locating ? 'Finding the weather…' : 'Use my location for the weather'}</button>

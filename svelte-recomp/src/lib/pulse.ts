@@ -10,7 +10,7 @@
 // Pure, unit-tested in selfcheck.js. stores/body.ts derives it once
 // (`pulse`), for the hero and the page's glow alike, so they can't disagree.
 import { goalDirection } from './coach.ts';
-import type { Pace, WeightVerdict } from './insights.ts';
+import { chanceOf, type Pace, type WeightVerdict } from './insights.ts';
 import type { MilestoneState } from './milestone.ts';
 import { changeWord, dwt, dwtNum, unitWord, weightUnit, wt, wtShort } from './units.ts';
 
@@ -57,10 +57,30 @@ export interface Pulse {
   tone: PulseTone;
   story: string;
   stats: Array<{ v: string; l: string }>;
-  /** The balance on Today: level while the trend holds or can't tell yet,
-   *  leaning toward the target when it moves that way (and toward "today"
-   *  when it moves away), in proportion to the rate, full lean at 1 kg/week. */
-  beam: { tilt: number; left: string; right: string } | null;
+  /** The odds on Today, as ten coins: how likely it is that the trend is
+   *  really going the goal's way. null before there is a line. */
+  odds: Odds | null;
+}
+
+export interface Odds {
+  /** Coins lit, of ten. */
+  lit: number;
+  text: string;
+}
+
+/** A chance as coins of ten and one sentence. The middle is "too close to
+ *  call", not a verdict: a first week can't know yet, and says so. The name's
+ *  joke is told only when the odds are good: a stall never hears "slim" from
+ *  its own app. */
+function oddsOf(p: number | null, what: string, joke = false): Odds | null {
+  if (p == null) return null;
+  const lit = p >= 0.95 ? 10 : p < 0.05 ? 0 : Math.min(9, Math.max(1, Math.round(p * 10)));
+  const text = (lit === 10 ? `Almost certainly ${what}.`
+    : lit === 0 ? `Under 1 in 10 it’s ${what} right now.`
+    : lit >= 7 ? `${lit} in 10 it’s ${what}.`
+    : lit >= 4 ? `${lit} in 10 it’s ${what}: too close to call.`
+    : `${lit} in 10 it’s ${what} right now.`) + (joke && lit >= 8 ? ' Not so slim.' : '');
+  return { lit, text };
 }
 
 export function pulse(i: PulseInput): Pulse {
@@ -141,20 +161,16 @@ export function pulse(i: PulseInput): Pulse {
       ? { v: dwtNum(kg - i.goalKg), l: `${changeWord()} to ${wtShort(i.goalKg)}` }
       : { v: i.goalKg != null ? wtShort(i.goalKg) : '—', l: st ? 'goal' : `goal ${unitWord()}` },
   ];
-  const toward = rate == null || target == null || kg == null ? 0
-    : Math.sign(kg - target) * rate; // positive: moving toward the target
-  const beam = target != null && trend != null
-    ? { tilt: Math.abs(toward) < 0.05 ? 0 : Math.max(-1, Math.min(1, toward)), left: 'today', right: goal }
-    : null;
-  return { kg, caption, pct, tone, story, stats, beam };
+  const odds = dir === 'gain' ? oddsOf(chanceOf(w, 'gain'), 'going up')
+    : dir === 'maintain' ? oddsOf(chanceOf(w, 'hold'), 'holding')
+    : oddsOf(chanceOf(w, 'lose'), 'coming off', true);
+  return { kg, caption, pct, tone, story, stats, odds };
 }
 
 /**
  * Keeping it off: the trend against the ceiling, how the days have gone, and
- * a balance between the ceiling and the goal that stays level while the trend
- * holds, leaning toward the goal as it falls and toward the ceiling as it
- * climbs. Over the ceiling is amber and points at the plan (CommitmentAlerts
- * shows it), never red.
+ * the odds that it's holding (not creeping up). Over the ceiling is amber and
+ * points at the plan (CommitmentAlerts shows it), never red.
  */
 function keeping(k: KeepInput, w: WeightVerdict, trend: number): Pulse {
   const st = weightUnit() === 'st';
@@ -177,6 +193,5 @@ function keeping(k: KeepInput, w: WeightVerdict, trend: number): Pulse {
     { v: wtShort(k.ceilingKg), l: 'ceiling' },
     { v: k.days ? `${k.inside}/${k.days}` : '—', l: 'days inside' },
   ];
-  const tilt = rate == null || Math.abs(rate) < 0.1 ? 0 : Math.max(-1, Math.min(1, rate / 0.5));
-  return { kg: trend, caption, pct: null, tone, story, stats, beam: { tilt, left: `ceiling ${wtShort(k.ceilingKg)}`, right: `goal ${wtShort(k.goalKg)}` } };
+  return { kg: trend, caption, pct: null, tone, story, stats, odds: oddsOf(chanceOf(w, 'hold'), 'holding') };
 }

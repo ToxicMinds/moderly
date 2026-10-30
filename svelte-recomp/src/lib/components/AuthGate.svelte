@@ -2,7 +2,7 @@
   // The front door: what someone sees before they have an account.
   //
   // It used to be a login box, so a stranger met a demand for an email before
-  // seeing anything the app does. Now it says what Moderly is in three lines
+  // seeing anything the app does. Now it says what Slim Chance is in three lines
   // and starts a trial in one tap (an anonymous account: everything works,
   // nothing to type), with consent still explicit. "I have an account" opens
   // the login.
@@ -45,7 +45,7 @@
   <div class="ag-consent-row">
     <label class="ag-consent">
       <input type="checkbox" bind:checked={consent}>
-      <span>I agree that Moderly keeps my weight, food and health data to run the app for me.</span>
+      <span>I agree that Slim Chance keeps my weight, food and health data to run the app for me.</span>
     </label>
     <a class="ag-how" href="/privacy.html">How it's kept</a>
   </div>
@@ -54,23 +54,22 @@
 <div id="auth-gate">
   <div class="ag">
     <header class="ag-head">
+      <!-- The mark: a coin standing on its edge, the textbook slim chance. -->
       <svg class="ag-mark" viewBox="0 0 108 108" aria-hidden="true">
-        <g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M54 33V77" stroke-width="5"/><path d="M30 40H78" stroke-width="5"/><path d="M42 77H66" stroke-width="5"/>
-          <path d="M30 40L22 57M30 40L38 57M78 40L70 57M78 40L86 57" stroke-width="2.4"/>
-        </g>
-        <g fill="currentColor"><circle cx="54" cy="40" r="4.2"/><path d="M19 57H41A11 6.5 0 0 1 19 57Z"/><path d="M67 57H89A11 6.5 0 0 1 67 57Z"/></g>
+        <path d="M51.25 25h5.5a11.5 28 0 0 1 0 56h-5.5z" fill="currentColor" opacity=".55"/>
+        <ellipse cx="51.25" cy="53" rx="11.5" ry="28" fill="currentColor"/>
+        <path d="M39.75 82.6H68.25" stroke="currentColor" stroke-opacity=".45" stroke-width="3.2" stroke-linecap="round"/>
       </svg>
-      <h1 class="ag-name">Moderly</h1>
-      <p class="ag-tag">Lose weight moderately. Keep it off.</p>
+      <h1 class="ag-name wordmark"><b>Slim</b> Chance</h1>
+      <p class="ag-tag">Better odds than the name suggests.</p>
       <p class="ag-sub">A calm weight-loss app for people doing it on their own. Free, private, no ads.</p>
     </header>
 
     {#if mode === 'start'}
       <ul class="ag-points">
-        <li><b>A trend, not today's number.</b> The scale swings every day. Moderly draws the line through your mornings and says how sure it is.</li>
+        <li><b>The odds, every morning.</b> The scale swings every day. Slim Chance draws the line through your mornings and tells you how likely it is that you're really losing.</li>
         <li><b>A rough food log is enough.</b> Your budget is learned from your own scale and your own log, so what you don't log cancels out.</li>
-        <li><b>A plan for the hard moments.</b> Write what you'll do on a Friday night. Moderly hands it back on Friday night.</li>
+        <li><b>A plan for the hard moments.</b> Write what you'll do on a Friday night. Slim Chance hands it back on Friday night.</li>
       </ul>
 
       {#if err}<div class="ag-err" role="alert">{err}</div>{/if}
@@ -113,9 +112,9 @@
   #auth-gate{flex:1;min-height:0;overflow-y:auto;overscroll-behavior-y:contain;display:flex;justify-content:center;align-items:flex-start;padding:calc(var(--st) + 32px) 20px calc(var(--sb) + 28px)}
   .ag{width:100%;max-width:400px;min-height:100%;display:flex;flex-direction:column}
   .ag-head{text-align:center;margin-bottom:22px}
-  .ag-mark{width:64px;height:64px;color:var(--amber);display:block;margin:0 auto 6px}
-  .ag-name{font-family:var(--font-display);font-size:3.25rem;font-weight:700;line-height:.95;margin:0;color:var(--text)}
-  .ag-tag{font-family:var(--font-display);font-size:1.5rem;font-weight:600;line-height:1.2;margin:10px 0 6px;color:var(--amber);text-wrap:balance}
+  .ag-mark{width:76px;height:76px;color:var(--amber);display:block;margin:0 auto 4px}
+  .ag-name{font-size:3.25rem;line-height:.95;margin:0;color:var(--text)}
+  .ag-tag{font-family:var(--font-display);font-size:1.375rem;font-weight:650;line-height:1.2;margin:10px 0 6px;color:var(--amber);text-wrap:balance}
   .ag-sub{font-size:0.9375rem;color:var(--muted);line-height:1.5;margin:0;text-wrap:balance}
   .ag-points{list-style:none;margin:0 0 20px;padding:0;display:grid;gap:12px}
   .ag-points li{font-size:0.875rem;line-height:1.5;color:var(--muted);padding-left:14px;border-left:2px solid var(--amber)}

@@ -1,4 +1,4 @@
-// coach — the AI behind Moderly's evening message, its one "noticed" line and
+// coach — the AI behind Slim Chance's evening message, its one "noticed" line and
 // its notes on what it has learned about the person. The app sends the day's
 // facts, built from its own stores (src/lib/brain.ts buildFacts); this writes
 // the reply, and the app checks every reply before a word of it is shown
@@ -31,11 +31,11 @@ const SCHEMA = {
 };
 
 function prompt(facts: unknown): string {
-  return `You are the coach inside Moderly, a free app for one person losing weight on their own. Each afternoon you decide what the app says to them tonight, and you get to know them over time.
+  return `You are the coach inside Slim Chance, a free app for one person losing weight on their own. Each afternoon you decide what the app says to them tonight, and you get to know them over time.
 
 Rules, always:
 - Use only the facts below. Every number you write must appear in the facts; you may count days in the table.
-- Calm, plain, specific and warm. A coach, not a cheerleader. Never shame, never mention streaks, never use guilt. A slip is one meal, not a ruined week.
+- Calm, plain, specific and warm; dry rather than bubbly, and never a joke at their expense. A coach, not a cheerleader. Talk in trends and likelihoods, never promises. Never shame, never mention streaks, never use guilt. A slip is one meal, not a ruined week.
 - Their rhythm is theirs: never judge meal times, fasting or eating late.
 - Budget left is room, not a target. Never tell them to eat what's left.
 - If today.trained is true, training is done: never remind them about it.
@@ -76,7 +76,7 @@ Deno.serve(async (req: Request) => {
   const refused = await gate(req, 'ai');
   if (refused) return refused;
   if (!GEMINI_PAID && !OWNERS.includes(subOf(req) ?? '')) {
-    return json({ error: "The AI coach starts once Moderly's AI runs on its paid tier." }, 503);
+    return json({ error: "The AI coach starts once Slim Chance's AI runs on its paid tier." }, 503);
   }
 
   let body: any;

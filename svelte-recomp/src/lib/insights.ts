@@ -214,6 +214,33 @@ export function weightVerdict(points: WeighIn[], asOfMs?: number): WeightVerdict
 }
 
 /**
+ * How likely it is that the trend is really going the goal's way, 0–1, read
+ * from the verdict's own 95% interval. Losing means faster than
+ * RATE_FLOOR_KG_WK, the pace the verdicts already treat as maintaining, so a
+ * drift the stall check calls flat never reads as good odds; gaining is the
+ * same the other way; holding means not climbing past it. The interval's edge
+ * sits at 1.96, so the odds pass 97.5% exactly where the interval clears the
+ * line. null until there is a line.
+ */
+// ponytail: a normal curve at the interval's own scale stands in for Student's
+// t; from the first verdict (seven weigh-ins) they agree to within one coin in ten.
+export function chanceOf(v: WeightVerdict | null, way: 'lose' | 'gain' | 'hold'): number | null {
+  if (!v || v.state === 'not-enough') return null;
+  const above = (x: number) => v.halfWidthKgPerWeek > 0
+    ? normalCdf((1.96 * (v.rateKgPerWeek - x)) / v.halfWidthKgPerWeek)
+    : v.rateKgPerWeek > x ? 1 : v.rateKgPerWeek < x ? 0 : 0.5;
+  return way === 'lose' ? above(RATE_FLOOR_KG_WK) : way === 'gain' ? 1 - above(-RATE_FLOOR_KG_WK) : above(-RATE_FLOOR_KG_WK);
+}
+
+/** Φ(z), Abramowitz & Stegun 7.1.26 (error under 1e-7). */
+function normalCdf(z: number): number {
+  const x = Math.abs(z) / Math.SQRT2;
+  const t = 1 / (1 + 0.3275911 * x);
+  const erf = 1 - ((((1.061405429 * t - 1.453152027) * t + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-x * x);
+  return z >= 0 ? (1 + erf) / 2 : (1 - erf) / 2;
+}
+
+/**
  * Pace against the PLAN, not against zero — the question a cut actually asks.
  *
  * "Too noisy to tell if you're losing" and "you are not losing at the pace you

@@ -1,10 +1,10 @@
 // Bringing your weigh-ins from another app, so day one has a trend instead of
-// a single dot. Most people who try Moderly have tried something else first,
+// a single dot. Most people who try Slim Chance have tried something else first,
 // and their history is the most valuable thing they bring: the trend, the
 // "how sure", the weekly rhythm all work from the first morning.
 //
 // The file is read on the device; only one reading a day is saved. Formats:
-// Apple Health's export.xml, JSON (Fitbit, Moderly's own export) and any CSV
+// Apple Health's export.xml, JSON (Fitbit, this app's own export) and any CSV
 // with a date and a weight column (Libra, Happy Scale, MyFitnessPal, Withings,
 // Renpho, Garmin, Google Fit, Samsung Health, a spreadsheet). When the file
 // doesn't say its unit, or its dates could be read day-first or month-first,
@@ -168,7 +168,8 @@ export function parseWeightFile(text: string): ParsedFile {
     format = 'JSON';
     let j: any; try { j = JSON.parse(t); } catch { j = null; }
     const list: any[] = Array.isArray(j) ? j : Array.isArray(j?.tables?.weights) ? j.tables.weights : Array.isArray(j?.weights) ? j.weights : [];
-    if (j?.app === 'Moderly') { format = 'Moderly export'; unit = 'kg'; }
+    // 'Moderly': the app's name until 30 Oct 2026; its exports still come in.
+    if (j?.app === 'Slim Chance' || j?.app === 'Moderly') { format = 'Slim Chance export'; unit = 'kg'; }
     for (const o of list) {
       if (!o || typeof o !== 'object') { skipped++; continue; }
       const dk = Object.keys(o).find((k) => DATE.test(k) && !/created|updated/i.test(k)) ?? Object.keys(o).find((k) => DATE.test(k));
