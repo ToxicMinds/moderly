@@ -3868,6 +3868,17 @@ check('an iPhone home-screen app fills the screen: the status bar’s strip is m
   assert.ok(!/id="sync-dot"/.test(layout), 'one status dot in the top bar, not two');
 });
 
+check('public pages call the everyday app free to use, never the whole of it free', async () => {
+  // 2026-10-30, the owner: Plus extras will be paid, so "free, no premium tier"
+  // is wrong. Say what is free, and name Plus where the price is asked.
+  const { readdirSync, readFileSync } = await import('node:fs');
+  const pages = ['static/about/index.html', 'src/app.html', 'src/lib/components/AuthGate.svelte',
+    ...readdirSync('static/guides', { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => `static/guides/${d.name}/index.html`)];
+  for (const p of pages) assert.doesNotMatch(readFileSync(p, 'utf8'), /no premium|really free|\ba free\b|free and open source|Free ·|<td class="us">Free<\/td>/i, p);
+  const about = readFileSync('static/about/index.html', 'utf8');
+  assert.equal(about.match(/Slim Chance Plus, an optional subscription on its way/g)?.length, 2, 'the FAQ and its search snippet say the same');
+});
+
 check('getting fitter: the heart and the lifts answer it, plainly, and only when the data can', async () => {
   // 2026-10-30, the owner: people want to lose weight and know they're getting
   // fitter, not fancy numbers.

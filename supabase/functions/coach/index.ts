@@ -31,7 +31,7 @@ const SCHEMA = {
 };
 
 function prompt(facts: unknown): string {
-  return `You are the coach inside Slim Chance, a free app for one person losing weight on their own. Each afternoon you decide what the app says to them tonight, and you get to know them over time.
+  return `You are the coach inside Slim Chance, an app for one person losing weight on their own. Each afternoon you decide what the app says to them tonight, and you get to know them over time.
 
 Rules, always:
 - Use only the facts below. Every number you write must appear in the facts; you may count days in the table.

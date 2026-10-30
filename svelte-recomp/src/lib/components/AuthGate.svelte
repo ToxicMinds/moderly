@@ -60,7 +60,7 @@
       </svg>
       <h1 class="ag-name wordmark"><b>Slim</b> Chance</h1>
       <p class="ag-tag">Better odds than the name suggests.</p>
-      <p class="ag-sub">A calm weight-loss app for people doing it on their own. Free, private, no ads.</p>
+      <p class="ag-sub">A calm weight-loss app for people doing it on their own. Free to use, private, no ads.</p>
     </header>
 
     {#if mode === 'start'}
