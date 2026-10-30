@@ -11,7 +11,10 @@
   import { supabase } from '$lib/db/client';
   import db from '$lib/db/dexie';
   import { localTz } from '$lib/reminder';
-  import { FEELINGS, SEVERITY, PRESCRIBER_LINE, nextDose, sitesByRest, needsPrescriber, medAlarm, dayWord, type Med, type MedEvent } from '$lib/meds';
+  import { FEELINGS, SEVERITY, PRESCRIBER_LINE, LAB_TESTS, nextDose, sitesByRest, needsPrescriber, medAlarm, dayWord, labResults, labLine, proteinAverage, reportText, type Med, type MedEvent } from '$lib/meds';
+  import { body, fitness, trendSeries } from '$lib/stores/body';
+  import { deliverText } from '$lib/shareFile';
+  import { weightUnit } from '$lib/units';
 
   const _meds = liveMedications();
   const _events = liveMedEvents();
@@ -20,7 +23,13 @@
   const events = $derived((($_events as MedEvent[]) ?? []));
   const next = $derived(med ? nextDose(med, events, today) : null);
   const sites = $derived(sitesByRest(events));
-  const record = $derived([...events].filter((e) => e.kind !== 'lab').reverse().slice(0, 30));
+  const record = $derived([...events].reverse().slice(0, 30));
+  const labs = $derived(labResults(events));
+  const proteinAvg = $derived(proteinAverage(Array.from($body.intake, ([date, d]) => ({ date, protein: d.protein })), today));
+  const report = $derived(med ? reportText({
+    med, events, today, trend: $trendSeries, proteinAvgG: proteinAvg, proteinTargetG: $body.proteinTargetG,
+    training: $fitness.signs.find((x) => x.key === 'training')?.text ?? null, unit: weightUnit(),
+  }) : '');
   const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
   let busy = $state(false);
@@ -107,6 +116,40 @@
       symptom = null; severity = null;
     } catch (e: any) { err = `Couldn't save: ${e?.message ?? e}`; }
     busy = false;
+  }
+
+  // ── A blood test, as typed from the lab report ──
+  let labOpen = $state(false);
+  let labTest = $state('');
+  let labValue = $state<number | null>(null);
+  let labUnit = $state('');
+  let labLow = $state<number | null>(null);
+  let labHigh = $state<number | null>(null);
+  let labDate = $state('');
+
+  function openLab() {
+    labTest = ''; labValue = null; labUnit = ''; labLow = null; labHigh = null; labDate = today; labOpen = true;
+  }
+
+  async function saveLab() {
+    if (!$userId || !labTest.trim() || labValue == null || !labDate) return;
+    busy = true; err = '';
+    try {
+      await upsertRecord('med_events', {
+        id: crypto.randomUUID(), user_id: $userId, med_id: null, kind: 'lab', date: labDate,
+        test: labTest.trim(), value: labValue, unit: labUnit.trim() || null, ref_low: labLow, ref_high: labHigh, note: '',
+      });
+      labOpen = false;
+    } catch (e: any) { err = `Couldn't save the result: ${e?.message ?? e}`; }
+    busy = false;
+  }
+
+  // ── The report ──
+  let reportOpen = $state(false);
+  let shared = $state('');
+  async function share() {
+    const r = await deliverText('Medication record', report);
+    shared = r.method === 'clipboard' ? 'Copied. Paste it into an email or a message.' : r.method === 'failed' ? `Couldn't share it: ${r.error}` : '';
   }
 
   async function remove(e: MedEvent) {
@@ -203,6 +246,62 @@
 
 {#if err}<p class="md-err">{err}</p>{/if}
 
+<h3>Blood tests</h3>
+<div class="card">
+  {#each labs as t (t.test)}
+    <div class="md-lab">
+      <div class="md-lab-t">{t.test} <span class="md-d">{dayWord(t.results[0].date, today)}</span></div>
+      <div class="md-lab-v">{labLine(t.results[0])}</div>
+      {#if t.results.length > 1}<div class="md-lab-h">Before: {t.results.slice(1, 4).map((r) => `${r.value} on ${dayWord(r.date, today)}`).join(' · ')}</div>{/if}
+    </div>
+  {:else}
+    <p class="md-none">None yet. Type results in from the lab report, with the range the lab printed beside them.</p>
+  {/each}
+  {#if labOpen}
+    <div class="md-chips md-sev">
+      {#each LAB_TESTS as t}<button class="chip" class:on={labTest === t.test} onclick={() => { labTest = t.test; labUnit = t.unit; }}>{t.test}</button>{/each}
+    </div>
+    <label class="md-f"><span>Test</span><input bind:value={labTest} placeholder="As on the lab report" autocomplete="off" /></label>
+    <div class="md-two">
+      <label class="md-f"><span>Result</span><input type="number" inputmode="decimal" step="any" bind:value={labValue} /></label>
+      <label class="md-f"><span>Unit</span><input bind:value={labUnit} autocomplete="off" /></label>
+    </div>
+    <div class="md-two">
+      <label class="md-f"><span>Lab range from</span><input type="number" inputmode="decimal" step="any" bind:value={labLow} /></label>
+      <label class="md-f"><span>to</span><input type="number" inputmode="decimal" step="any" bind:value={labHigh} /></label>
+    </div>
+    <label class="md-f"><span>Day of the test</span><input type="date" bind:value={labDate} max={today} /></label>
+    <button class="btn bp bfl" disabled={busy || !labTest.trim() || labValue == null || !labDate} onclick={saveLab}>Save the result</button>
+    <button class="btn bg_ bfl" onclick={() => (labOpen = false)}>Cancel</button>
+  {:else}
+    <button class="btn bg_ bfl md-add" onclick={openLab}>Add a result</button>
+  {/if}
+</div>
+
+{#if med}
+  <h3>Keeping muscle</h3>
+  <div class="card">
+    <p class="md-none">Losing weight fast, the body loses some muscle along with the fat. Protein and strength training are what keep it.</p>
+    <ul class="md-facts">
+      <li>{proteinAvg != null ? `Protein: ${proteinAvg} g a day over the last two weeks, against your ${$body.proteinTargetG} g.` : 'Protein: nothing logged in the last two weeks.'}</li>
+      {#each $fitness.signs.filter((x) => x.key === 'training' || x.key === 'strength') as sign}<li>{sign.text}</li>{/each}
+    </ul>
+  </div>
+
+  <h3>For your doctor</h3>
+  <div class="card">
+    {#if reportOpen}
+      <pre class="md-rep">{report}</pre>
+      <button class="btn bp bfl" onclick={share}>Share it</button>
+      <button class="btn bg_ bfl" onclick={() => (reportOpen = false)}>Close</button>
+      {#if shared}<p class="md-none">{shared}</p>{/if}
+    {:else}
+      <p class="md-none">Your doses, how you felt, your tests and your weight trend since you started, as plain text to show or send.</p>
+      <button class="btn bg_ bfl md-add" onclick={() => (reportOpen = true)}>Show the report</button>
+    {/if}
+  </div>
+{/if}
+
 {#if record.length}
   <h3>Your record</h3>
   <div class="card">
@@ -211,6 +310,7 @@
         <span class="md-d">{dayWord(e.date, today)}</span>
         <span class="md-t">
           {#if e.kind === 'dose'}{e.dose ?? ''} {med?.unit ?? ''}{e.site ? ` · ${e.site}` : ''}
+          {:else if e.kind === 'lab'}{e.test} {e.value}{e.unit ? ` ${e.unit}` : ''}
           {:else}{e.symptom} · {SEVERITY[(e.severity ?? 1) - 1].toLowerCase()}{/if}
         </span>
         <button class="md-x" aria-label="Delete this entry" onclick={() => remove(e)}>✕</button>
@@ -241,4 +341,13 @@
   .md-d{font-size:0.75rem;color:var(--muted);min-width:76px}
   .md-t{flex:1;font-size:0.875rem;color:var(--text)}
   .md-x{background:none;border:none;color:var(--muted);font-size:0.875rem;cursor:pointer;padding:4px}
+  .md-none{font-size:0.875rem;line-height:1.5;color:var(--muted);margin:0 0 12px}
+  .md-add{margin-bottom:0}
+  .md-lab{padding:0 0 10px;margin-bottom:10px;border-bottom:1px solid var(--border)}
+  .md-lab-t{font-size:0.8125rem;font-weight:700;color:var(--muted)}
+  .md-lab-v{font-size:1rem;color:var(--text);margin-top:2px}
+  .md-lab-h{font-size:0.75rem;color:var(--muted);margin-top:3px}
+  .md-facts{margin:0;padding-left:1.1rem;font-size:0.875rem;line-height:1.55;color:var(--text)}
+  .md-facts li{margin:3px 0}
+  .md-rep{white-space:pre-wrap;font-family:inherit;font-size:0.8125rem;line-height:1.55;color:var(--text);background:var(--bg3);border-radius:var(--r-md);padding:12px;margin:0 0 12px}
 </style>

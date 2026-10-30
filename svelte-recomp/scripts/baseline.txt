@@ -300,6 +300,7 @@ the coach never judges protein by the clock: the log can’t say when food was e
 the confirmation names real numbers, not "done"
 the day-one plan is wired into the hero, only before a trend and until its steps are done
 the declared brand wins over the heuristic
+the doctor report says what was recorded, and nothing the app concluded
 the evening hold on a weekday: a Stoic line first, then the evening plan and what’s left
 the export covers EVERY table the app syncs
 the first-week checklist tracks what the user has actually done

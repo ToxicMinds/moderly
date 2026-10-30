@@ -3903,6 +3903,44 @@ check('public pages call the everyday app free to use, never the whole of it fre
   assert.equal(about.match(/Slim Chance Plus, an optional subscription on its way/g)?.length, 2, 'the FAQ and its search snippet say the same');
 });
 
+check('the doctor report says what was recorded, and nothing the app concluded', async () => {
+  // 2026-10-30: blood tests as typed beside the lab's own range, never judged;
+  // a report the person shows or sends themselves.
+  const { reportText, labResults, labLine, doseSteps, feelingSummary, proteinAverage } = await import('../src/lib/meds.ts');
+  const med = { id: 'm', name: 'semaglutide', dose: 0.5, unit: 'mg', every_days: 7, weekday: 3, time: '09:00', started: '2026-09-02', stopped: null };
+  const ev = [['2026-09-02', 0.25, 'Belly, left'], ['2026-09-09', 0.25, 'Belly, right'], ['2026-09-30', 0.5, 'Thigh, left'], ['2026-10-28', 0.5, 'Belly, left']]
+    .map(([date, dose, site]) => ({ id: date, med_id: 'm', kind: 'dose', date, dose, site }));
+  ev.push({ id: 'e1', med_id: 'm', kind: 'effect', date: '2026-09-03', symptom: 'Nausea', severity: 2 },
+    { id: 'e2', med_id: 'm', kind: 'effect', date: '2026-10-01', symptom: 'Nausea', severity: 1 },
+    { id: 'e3', med_id: 'm', kind: 'effect', date: '2026-10-02', symptom: 'Constipation', severity: 1 },
+    { id: 'e4', med_id: 'm', kind: 'effect', date: '2026-07-01', symptom: 'Headache', severity: 3 },
+    { id: 'l1', med_id: null, kind: 'lab', date: '2026-10-12', test: 'HbA1c', value: 5.9, unit: '%', ref_low: 4, ref_high: 5.6 },
+    { id: 'l2', med_id: null, kind: 'lab', date: '2026-07-01', test: 'hba1c ', value: 6.2, unit: '%', ref_low: 4, ref_high: 5.6 },
+    { id: 'l3', med_id: null, kind: 'lab', date: '2026-08-01', test: 'ALT', value: 31, unit: 'U/L', ref_low: null, ref_high: 45 });
+  assert.deepEqual(doseSteps(ev, 'm'), [{ from: '2026-09-02', dose: 0.25 }, { from: '2026-09-30', dose: 0.5 }]);
+  assert.deepEqual(feelingSummary(ev, '2026-08-07'), [{ symptom: 'Nausea', times: 2, worst: 2 }, { symptom: 'Constipation', times: 1, worst: 1 }], 'twelve weeks back, the oldest left out');
+  const labs = labResults(ev);
+  assert.deepEqual(labs.map((x) => [x.test, x.results.length]), [['HbA1c', 2], ['ALT', 1]], 'one test whatever the spelling, newest first');
+  assert.equal(labLine(labs[0].results[0]), '5.9 % (lab range 4–5.6)');
+  assert.equal(labLine(labs[1].results[0]), '31 U/L (lab range up to 45)');
+  assert.equal(proteinAverage([{ date: '2026-10-29', protein: 120 }, { date: '2026-10-20', protein: 100 }, { date: '2026-10-01', protein: 50 }, { date: '2026-10-28', protein: 0 }], '2026-10-30'), 110);
+  const r = reportText({ med, events: ev, today: '2026-10-30', unit: 'kg', proteinAvgG: 112, proteinTargetG: 144,
+    trend: [{ date: '2026-08-30', trendKg: 112.4 }, { date: '2026-09-15', trendKg: null }, { date: '2026-10-29', trendKg: 108.1 }],
+    training: 'Trained 2 days in the last four weeks, down from 11.' }).split('\n');
+  assert.equal(r[0], 'Slim Chance: medication record');
+  assert.match(r[1], /^Prepared 30 Oct 2026 by the person it belongs to, from what they recorded\. Not a medical document\.$/);
+  assert.ok(r.includes('Doses logged in the last 12 weeks: 4 (last 28 Oct, Belly, left).'));
+  assert.ok(r.includes('Weight trend since starting: 112.4 kg on 30 Aug, 108.1 kg on 29 Oct (down 4.3 kg in 9 weeks).'));
+  assert.ok(r.includes('- Nausea: 2 times, at worst moderate'));
+  assert.ok(!r.some((l) => /Headache/.test(l)), 'a feeling older than twelve weeks stays out');
+  assert.ok(r.includes('- HbA1c: 5.9 % (lab range 4–5.6) on 12 Oct; 6.2 % (lab range 4–5.6) on 1 Jul'));
+  assert.ok(r.includes('Keeping muscle: protein averaged 112 g a day over the last two weeks (their target 144 g); trained 2 days in the last four weeks, down from 11.'));
+  assert.ok(!r.some((l) => /high|low|normal|abnormal|elevated|should|recommend/i.test(l.replace('lab range', ''))), 'no verdict on any number');
+  const pounds = reportText({ med, events: [], today: '2026-10-30', unit: 'lb', proteinAvgG: null, proteinTargetG: null, training: null,
+    trend: [{ date: '2026-08-30', trendKg: 112.4 }, { date: '2026-10-29', trendKg: 108.1 }] });
+  assert.match(pounds, /Weight trend since starting: 247\.8 lb on 30 Aug, 238\.3 lb on 29 Oct \(down 9\.5 lb in 9 weeks\)\./, 'in the person\'s own unit');
+});
+
 check('the GLP-1 companion keeps a record and never advises', async () => {
   // 2026-10-30, the owner: a GLP-1 companion as a Plus extra, "a tracker only".
   const { nextDose, sitesByRest, needsPrescriber, medAlarm, dayWord, SITES } = await import('../src/lib/meds.ts');
