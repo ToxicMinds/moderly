@@ -14,7 +14,7 @@ your weight is really coming off. It was called Moderly until 30 October 2026.
 
 **Use it:** [slimchance.app](https://slimchance.app) in any browser (add it to
 your home screen), or the Android app from
-[Releases](https://github.com/ToxicMinds/moderly/releases/tag/recompos-app-latest),
+[Releases](https://github.com/slimchanceapp/slimchance/releases/tag/recompos-app-latest),
 installed by hand for now. No account needed to start. **How it works:**
 [slimchance.app/about](https://slimchance.app/about/).
 
@@ -86,7 +86,7 @@ thin Capacitor shell that loads the web app.
 You need Node 24 or newer, a [Supabase](https://supabase.com) project and the Supabase
 CLI.
 
-1. `git clone https://github.com/ToxicMinds/moderly && cd moderly/svelte-recomp && npm install`
+1. `git clone https://github.com/slimchanceapp/slimchance && cd slimchance/svelte-recomp && npm install`
 2. Copy `.env.example` to `.env` and fill in your project's URL and publishable key.
 3. Apply the SQL files in `supabase/migrations/` to your project, in order.
 4. Deploy the edge functions in `supabase/functions/`. Optional secrets:

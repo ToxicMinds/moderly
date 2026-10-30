@@ -140,7 +140,7 @@ jobs:
 
       - name: The APK people have now, and Maestro
         run: |
-          curl -fsSL -o moderly.apk https://github.com/ToxicMinds/moderly/releases/download/recompos-app-latest/recompos.apk
+          curl -fsSL -o moderly.apk https://github.com/slimchanceapp/slimchance/releases/download/recompos-app-latest/recompos.apk
           curl -fsSL "https://get.maestro.mobile.dev" | bash
           echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
           mkdir -p svelte-recomp/proof

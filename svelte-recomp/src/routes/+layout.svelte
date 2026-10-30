@@ -647,7 +647,7 @@
     <a class="menu-item" href="/privacy.html">
       <span>Privacy</span><span class="menu-val">What's kept, and where</span>
     </a>
-    <a class="menu-item" href="https://github.com/ToxicMinds/moderly" target="_blank" rel="noopener noreferrer">
+    <a class="menu-item" href="https://github.com/slimchanceapp/slimchance" target="_blank" rel="noopener noreferrer">
       <span>Source code</span><span class="menu-val">AGPL-3.0 ↗</span>
     </a>
     {#if !$isTrial}

@@ -28,7 +28,7 @@ export const LATEST_NATIVE_BUILD = 16;
 
 // The stable, rolling download link the CI release always publishes to.
 export const APK_URL =
-  'https://github.com/ToxicMinds/moderly/releases/download/recompos-app-latest/recompos.apk';
+  'https://github.com/slimchanceapp/slimchance/releases/download/recompos-app-latest/recompos.apk';
 
 export type UpdateMode = 'none' | 'migrate' | 'inplace';
 

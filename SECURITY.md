@@ -4,7 +4,7 @@ Slim Chance holds people's weight, food and health data, so security reports are
 and taken seriously.
 
 **Please report privately**, not in a public issue: use GitHub's
-[private vulnerability reporting](https://github.com/ToxicMinds/moderly/security/advisories/new).
+[private vulnerability reporting](https://github.com/slimchanceapp/slimchance/security/advisories/new).
 The maintainer reads every report.
 
 Useful to include: what you found, how to reproduce it, and what an attacker could
