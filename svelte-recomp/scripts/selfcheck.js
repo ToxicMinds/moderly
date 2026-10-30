@@ -3983,6 +3983,31 @@ check('the GLP-1 companion keeps a record and never advises', async () => {
   assert.match(readFileSync('static/privacy.html', 'utf8'), /<strong>Medication<\/strong>, only if you use the GLP-1 companion/);
 });
 
+check('personas read the same as last time, or the change was meant', async () => {
+  // 2026-10-30, the owner: a running baseline. Made-up people, each from
+  // something that broke for a real one, through the pure layers; what they
+  // would read lives in scripts/personas.snap.json. A change that was meant:
+  // node scripts/personas.mjs --update, and the snapshot's diff goes in the commit.
+  const { runPersonas } = await import('./personas.mjs');
+  const { readFileSync } = await import('node:fs');
+  const now = JSON.parse(JSON.stringify(runPersonas()));
+  const was = JSON.parse(readFileSync('scripts/personas.snap.json', 'utf8'));
+  for (const p of new Set([...Object.keys(was), ...Object.keys(now)])) {
+    for (const layer of new Set([...Object.keys(was[p] ?? {}), ...Object.keys(now[p] ?? {})])) {
+      assert.deepEqual(now[p]?.[layer], was[p]?.[layer], `${p}: ${layer} changed. If that was meant, run node scripts/personas.mjs --update and commit the diff`);
+    }
+  }
+  // What each persona exists to protect, said outright.
+  const gym = now['a watch-only gym-goer'];
+  assert.equal(gym.week.sessions, 2, 'two watch gym sessions this week count');
+  assert.ok(!gym.nudges.includes('train-day'), 'no "still on?" for a watch wearer');
+  assert.ok(!gym.week.adjustments.some((x) => /\blog\b.*more|more.*\blog/i.test(x)), 'never asked to log more');
+  const stranger = now['a stranger on morning two'];
+  assert.match(stranger.plan.headline, /^12\.7 kg to lose\./, 'the mornings\' average, not the up morning');
+  assert.match(stranger.scaleUp.reasons[0], /^Normal in the first days/);
+  assert.deepEqual(stranger.mornings, { weighed: 2, days: 2 });
+});
+
 check('a daily digest says what broke, in totals, and only new errors raise the alarm', async () => {
   // 2026-10-30, the owner: monitoring before launch. The health function
   // answers only its own token, with totals; the digest fails the run (GitHub

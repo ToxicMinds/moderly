@@ -1,0 +1,113 @@
+{
+  "a watch-only gym-goer": {
+    "trend": {
+      "state": "answerable",
+      "trendKg": 112.7,
+      "kgPerWeek": 0.14
+    },
+    "hero": {
+      "caption": "kg trend · 12.7 to 100",
+      "tone": "warn",
+      "story": "The trend is flat right now."
+    },
+    "fitness": {
+      "state": "holding",
+      "headline": "Holding steady.",
+      "signs": [
+        {
+          "key": "heart",
+          "good": null,
+          "text": "Resting heart rate steady, around 50 bpm."
+        },
+        {
+          "key": "training",
+          "good": null,
+          "text": "Trained 4 days in the last four weeks, as in the four before."
+        },
+        {
+          "key": "steps",
+          "good": null,
+          "text": "8,300 steps a day, as before."
+        }
+      ]
+    },
+    "week": {
+      "sessions": 2,
+      "headline": "A steady week — the adjustments below are the fastest way to get it moving again.",
+      "adjustments": [
+        "Weight was flat — if you are still above goal, change one lever for 10-14 days: −200 kcal/day or +2,000 steps."
+      ]
+    },
+    "nudges": []
+  },
+  "a stranger on morning two": {
+    "trend": {
+      "state": "not-enough",
+      "meanKg": 92.7,
+      "weighInsNeeded": 5
+    },
+    "hero": {
+      "caption": "kg · not a trend yet",
+      "tone": "na",
+      "story": "5 more mornings on the scale and you get your first odds."
+    },
+    "plan": {
+      "headline": "12.7 kg to lose. At 0.5 kg a week that's about 27 weeks.",
+      "targetKcal": 2083,
+      "goalDate": "2027-05-12",
+      "steps": [
+        "[ ] Weigh in on three mornings: Same time, before food or drink. One morning is noise; a week of them makes the trend.",
+        "[ ] Write one plan for your hardest moment: The weekend, a Friday night, late evenings: decide now what you’ll do then.",
+        "[ ] Log one meal — rough is fine: Guess the portion or snap a photo. The app learns from how you log, not from perfect logs.",
+        "[ ] Choose how you move: A walk a day counts. Lifting twice a week keeps the muscle while the fat goes."
+      ]
+    },
+    "scaleUp": {
+      "title": "Up 0.6 kg from yesterday",
+      "reasons": [
+        "Normal in the first days: most mornings move up to a kilo either way, from water, salt and what’s still being digested. That’s why Slim Chance waits for a week of mornings before it calls a trend."
+      ],
+      "trend": ""
+    },
+    "mornings": {
+      "weighed": 2,
+      "days": 2
+    }
+  },
+  "a GLP-1 user": {
+    "next": {
+      "date": "2026-11-11",
+      "inDays": 7,
+      "doneToday": true
+    },
+    "sites": [
+      {
+        "site": "Thigh, right",
+        "last": "2026-09-30"
+      },
+      {
+        "site": "Arm, left",
+        "last": "2026-10-07"
+      }
+    ],
+    "report": [
+      "Slim Chance: medication record",
+      "Prepared 4 Nov 2026 by the person it belongs to, from what they recorded. Not a medical document.",
+      "",
+      "Medication: semaglutide, 0.5 mg, once a week (Wednesdays), since 9 Sept 2026.",
+      "Dose steps: 0.25 mg from 9 Sept; 0.5 mg from 7 Oct.",
+      "Doses logged in the last 12 weeks: 9 (last 4 Nov, Thigh, left).",
+      "",
+      "Weight trend since starting: 103.2 kg on 9 Sept, 96.4 kg on 4 Nov (down 6.8 kg in 8 weeks).",
+      "",
+      "How they felt, last 12 weeks:",
+      "- Nausea: 2 times, at worst moderate",
+      "- Constipation: 1 time, at worst mild",
+      "",
+      "Blood tests, as typed from the lab report:",
+      "- HbA1c: 6.1 % (lab range 4–5.6) on 15 Oct",
+      "",
+      "Keeping muscle: protein averaged 95 g a day over the last two weeks (their target 130 g); trained 3 days in the last four weeks, as in the four before."
+    ]
+  }
+}

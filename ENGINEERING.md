@@ -45,13 +45,29 @@ Every deploy is checked against all of it.
 5. **A change people will see is looked at on a phone-sized screen** before it
    ships. The suite can't see layout.
 
-Not covered yet, in the order they'll come:
-- **Personas:** made-up people run through every pure layer, with their
-  expected outputs kept in the repo, so a change in what someone reads shows
-  as a diff.
-- **A nightly phone proof against production,** once test accounts are kept
-  out of the launch numbers.
-- **Edge-function tests** against a local Supabase.
+**Personas** (`scripts/personas.mjs`): made-up people run through the app's
+pure logic, each one from something that broke for a real person. What they
+would read is kept in `scripts/personas.snap.json`; any change fails the
+suite until it's accepted with `node scripts/personas.mjs --update`, and the
+snapshot's diff goes into the commit, so a change in what people read is
+always seen.
+
+Not covered yet: **edge-function tests** against a local Supabase.
+
+## Watching the live app
+
+Three watches run on GitHub, away from the laptop that deploys. A failed run
+emails the owner (GitHub's own notice).
+- **Live check, every three hours** (`.github/workflows/live-check.yml`): the
+  same smoke test as after a deploy. Every address serves the same build,
+  which must be a commit on main; the pages load; the first screen runs; the
+  edge functions answer.
+- **Health digest, daily** (`health-digest.yml`): the `health` edge function
+  answers its own token with the last 24 hours in totals, nothing about any
+  one person. The run fails for a kind of error nobody had before, or when
+  the check itself fails.
+- **Phone proof, nightly** (`phone-proof.yml`): both phones' first minute
+  against the live site.
 
 ## Practices
 

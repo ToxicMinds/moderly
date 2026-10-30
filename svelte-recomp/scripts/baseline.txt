@@ -233,6 +233,7 @@ p05 ignores the single lowest outlier the old code used
 pace is judged against the plan, only where the interval allows
 percentile handles empty and single-value input
 period-aware weight learns the person’s own swing, and says only that it’s learning before three cycles
+personas read the same as last time, or the change was meant
 phone-only users get no false watch
 photos go to Gemini alone, and body photos only once Gemini is on its paid tier
 picks ONE source per day instead of summing (the double-count bug)

@@ -133,9 +133,9 @@ export function weeklyReview(input: WeeklyReviewInput): WeeklyReview {
   if (avgSleep != null && avgSleep >= 7.5) wins.push(`Averaged ${avgSleep} h sleep — recovery well supported.`);
 
   // Adjustments, prioritised worst-first.
-  if (input.intake.filter((i) => inWeek(i.date) && i.kcal > 0).length < 4) {
-    adjustments.push('Log food on more days — under 4 logged days makes every calorie and protein number unreliable.');
-  }
+  // Never "log more": the budget works in the log's own units, and the card
+  // already says how many days its average covers (the owner's rule; the
+  // personas found this one, 2026-10-30).
   if (avgProtein != null && avgProtein < input.proteinTargetG * 0.9) {
     adjustments.push(`Raise protein: averaged ${avgProtein} g vs a ${input.proteinTargetG} g target. Add a protein source to the meal you most often skip it at.`);
   }
