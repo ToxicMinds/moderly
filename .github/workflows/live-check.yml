@@ -15,7 +15,8 @@ permissions:
 
 jobs:
   live:
-    runs-on: ubuntu-latest
+    # ubuntu-latest is 26.04, which playwright-core 1.55 can't install Chromium on.
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     defaults:
       run:
