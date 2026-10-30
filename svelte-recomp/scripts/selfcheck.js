@@ -3903,6 +3903,46 @@ check('public pages call the everyday app free to use, never the whole of it fre
   assert.equal(about.match(/Slim Chance Plus, an optional subscription on its way/g)?.length, 2, 'the FAQ and its search snippet say the same');
 });
 
+check('the GLP-1 companion keeps a record and never advises', async () => {
+  // 2026-10-30, the owner: a GLP-1 companion as a Plus extra, "a tracker only".
+  const { nextDose, sitesByRest, needsPrescriber, medAlarm, dayWord, SITES } = await import('../src/lib/meds.ts');
+  const med = { id: 'm', name: 'semaglutide', dose: 0.5, unit: 'mg', every_days: 7, weekday: 3, time: '09:00', started: '2026-10-26', stopped: null };
+  const dose = (date, site = null) => ({ id: date, med_id: 'm', kind: 'dose', date, dose: 0.5, site });
+  assert.deepEqual(nextDose(med, [], '2026-10-26'), { date: '2026-10-28', inDays: 2, doneToday: false }, 'the first Wednesday from the start');
+  assert.deepEqual(nextDose(med, [dose('2026-10-28')], '2026-10-28'), { date: '2026-11-04', inDays: 7, doneToday: true });
+  assert.equal(nextDose(med, [dose('2026-10-29')], '2026-10-30').date, '2026-11-04', 'a day late keeps the set weekday');
+  assert.equal(nextDose(med, [], '2026-10-30').inDays, -2, 'by the schedule it was due on Wednesday');
+  assert.equal(nextDose({ ...med, every_days: 1, weekday: null }, [dose('2026-10-29')], '2026-10-30').date, '2026-10-30');
+  assert.equal(nextDose({ ...med, stopped: '2026-10-30' }, [], '2026-10-30'), null);
+  const r = sitesByRest([dose('2026-10-14', 'Belly, left'), dose('2026-10-21', 'Belly, right'), dose('2026-10-28', 'Belly, left')]);
+  assert.equal(r.length, SITES.length);
+  assert.deepEqual(r.slice(0, 4).map((x) => x.site), ['Thigh, left', 'Thigh, right', 'Arm, left', 'Arm, right'], 'unused sites first, in body order');
+  assert.deepEqual(r.slice(-2), [{ site: 'Belly, right', last: '2026-10-21' }, { site: 'Belly, left', last: '2026-10-28' }]);
+  assert.ok(needsPrescriber({ symptom: 'Nausea', severity: 3 }));
+  assert.ok(needsPrescriber({ symptom: 'Stomach pain', severity: 2 }));
+  assert.ok(!needsPrescriber({ symptom: 'Nausea', severity: 2 }));
+  const a = medAlarm(med, 'u', 'Europe/Bratislava');
+  assert.deepEqual([a.id, a.auto_key, a.days, a.time, a.enabled], ['m', 'med:m', [3], '09:00', true]);
+  assert.equal(a.message, '0.5 mg, as your prescriber set it.');
+  assert.equal(medAlarm({ ...med, every_days: 14 }, 'u', 'UTC').enabled, false, 'the alarms table repeats by weekday');
+  assert.equal(medAlarm({ ...med, stopped: '2026-10-30' }, 'u', 'UTC').enabled, false);
+  assert.equal(dayWord('2026-10-29', '2026-10-30'), 'yesterday');
+  // A tracker only, in words too: nothing tells anyone what to take or what they have.
+  const { readFileSync } = await import('node:fs');
+  for (const f of ['src/lib/meds.ts', 'src/routes/meds/+page.svelte']) {
+    assert.doesNotMatch(readFileSync(f, 'utf8'), /take it now|you should|skip (a|your|the) dose|increase (the|your) dose|double (the|your)|probably|might be (a|an) /i, f);
+  }
+  // Isolation before sync: RLS and the four own-row policies, then the lists.
+  const sql = readFileSync('../supabase/migrations/20261030160000_medications.sql', 'utf8');
+  const sync = readFileSync('src/lib/stores/sync.ts', 'utf8');
+  for (const t of ['medications', 'med_events']) {
+    assert.match(sql, new RegExp(`alter table public\\.${t} enable row level security`));
+    for (const p of ['select', 'insert', 'update', 'delete']) assert.match(sql, new RegExp(`create policy "own_rows_${p}" on public\\.${t}`));
+    assert.match(sync, new RegExp(`'${t}'`));
+  }
+  assert.match(readFileSync('static/privacy.html', 'utf8'), /<strong>Medication<\/strong>, only if you use the GLP-1 companion/);
+});
+
 check('the build is stamped with its commit only when ship gives one', async () => {
   // 2026-10-30: a version name made up in svelte.config.js differed between
   // `vite build` and `vite preview`, and the local preview crashed on start.

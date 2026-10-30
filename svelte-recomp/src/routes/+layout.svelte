@@ -625,6 +625,9 @@
         Lets an AI write tonight's message, or stay quiet, and notice one pattern a day. Once a day it sends Google's Gemini a two-week summary: weights, calories and protein per day, training, your plans and usual foods. No photos and no name. Off unless you turn it on.
       {/if}
     </div>
+    <a class="menu-item" href="{base}/meds" onclick={() => (menuOpen = false)}>
+      <span>GLP-1 companion</span><span class="menu-val">Plus preview</span>
+    </a>
     {#if cycleOn}<div class="menu-note">Mark the first day of each period on Today. After three cycles Slim Chance learns how much your weight moves around a period and explains those mornings. Off by default; turning it off keeps the dates you marked.</div>{/if}
     <button class="menu-item" onclick={toggleTheme}>
       <span>Theme</span><span class="menu-val">☀️ / 🌙</span>

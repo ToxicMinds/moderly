@@ -5,7 +5,8 @@
   import { noteEvent } from '$lib/events';
   import { CALENDAR_KEY, calendarUrl } from '$lib/reminder';
   import { saveAccountOpen } from '$lib/stores/notices';
-  import { liveProfile } from '$lib/stores/live';
+  import { liveProfile, liveMedications, liveMedEvents } from '$lib/stores/live';
+  import { nextDose, dayWord } from '$lib/meds';
   import { DEFAULT_SESSIONS } from '$lib/data/workoutPlanDefaults';
   import { base } from '$app/paths';
   import { cardNav } from '$lib/actions/cardNav';
@@ -35,6 +36,11 @@
 
   const dayIdx = $derived(new Date($nowTick).getDay());
   const today = $derived($todayDate);
+  // The GLP-1 companion's next dose, while a medication is being taken.
+  const _meds = liveMedications();
+  const _medEvents = liveMedEvents();
+  const med = $derived((($_meds as any[]) ?? []).find((m) => !m.stopped) ?? null);
+  const medNext = $derived(med ? nextDose(med, ($_medEvents as any[]) ?? [], today as string) : null);
   const dayName = $derived(new Date($nowTick).toLocaleDateString('en-US', { weekday: 'long' }));
   const dateStr = $derived(new Date($nowTick).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }));
   const greeting = $derived.by(() => {
@@ -417,6 +423,13 @@
     <div class="td-row" use:cardNav={`${base}/progress`}>
       <span class="td-k">Fitter?</span>
       <span class="td-v">{$fitness.headline}</span>
+      <span class="td-go" aria-hidden="true">›</span>
+    </div>
+  {/if}
+  {#if med && medNext}
+    <div class="td-row" use:cardNav={`${base}/meds`}>
+      <span class="td-k">Meds</span>
+      <span class="td-v">{med.name}{#if medNext.doneToday}{' '}<span class="td-done">✓ done</span>{:else}{medNext.inDays < 0 ? ': due ' : ' '}{dayWord(medNext.date, today as string)}{/if}</span>
       <span class="td-go" aria-hidden="true">›</span>
     </div>
   {/if}

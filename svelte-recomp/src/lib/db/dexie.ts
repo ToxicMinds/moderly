@@ -161,6 +161,13 @@ db.version(9).stores({
   recipes_custom: '&id, user_id, created_at, [user_id+created_at]',
 });
 
+// v10: the GLP-1 companion (migration 20261030160000_medications): medications
+// as the person's prescriber set them, and their doses and how they felt.
+db.version(10).stores({
+  medications: '&id, user_id',
+  med_events: '&id, user_id, date, [user_id+date]',
+});
+
 export default db;
 
 export async function initDB() {
