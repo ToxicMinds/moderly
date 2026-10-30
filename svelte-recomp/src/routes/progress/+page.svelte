@@ -15,7 +15,6 @@
   import MiniChart from '$lib/components/MiniChart.svelte';
   import { changeWord, dwt, dwtNum, toUnit, unitWord, weightUnit, wtNum, wtShort } from '$lib/units';
   import WeeklyReview from '$lib/components/WeeklyReview.svelte';
-  import PlusDoor from '$lib/components/PlusDoor.svelte';
   import BodyGoals from '$lib/components/BodyGoals.svelte';
   import ProgressPhotos from '$lib/components/ProgressPhotos.svelte';
   import PageHero from '$lib/components/PageHero.svelte';
@@ -472,8 +471,6 @@
 {#if showBodyGoals}
   <BodyGoals />
 {/if}
-
-<PlusDoor />
 
 <style>
   .fit-signs{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:7px}
