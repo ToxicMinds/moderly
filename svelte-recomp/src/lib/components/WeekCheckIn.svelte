@@ -8,7 +8,8 @@
   // answers on daily_logs (see the 20260811120000 migration).
   import { userId } from '$lib/stores/user';
   import { upsertRecord } from '$lib/stores/sync';
-  import { liveFoodLogs, liveDailyLogs, liveBiometrics, liveWorkoutLogs, liveProfile } from '$lib/stores/live';
+  import { liveFoodLogs, liveDailyLogs, liveBiometrics, liveProfile } from '$lib/stores/live';
+  import { reviewInputs } from '$lib/stores/review';
   import { editing } from '$lib/commitments';
   import { cleanPlans, planToReview } from '$lib/plans';
   import { body } from '$lib/stores/body';
@@ -25,7 +26,6 @@
   const _foodLogs = liveFoodLogs();
   const _dailyLogs = liveDailyLogs();
   const _bio = liveBiometrics();
-  const _workoutLogs = liveWorkoutLogs();
   const _profile = liveProfile();
 
   const today = $derived($todayDate);
@@ -76,7 +76,7 @@
     const sleeps = inWeek(($_bio as any[]).map((b) => ({ date: b.date, h: b.sleep_hours }))).map((b) => b.h).filter((h: any) => typeof h === 'number');
     const avgSleepH = sleeps.length ? sleeps.reduce((s: number, n: number) => s + n, 0) / sleeps.length : null;
 
-    const sessions = new Set(inWeek(($_workoutLogs as any[]).map((w) => ({ date: w.date }))).map((w) => w.date)).size;
+    const sessions = [...$reviewInputs.trained].filter((d) => d >= weekStart && d <= weekEnd).length;
 
     // The engine's number without any earlier nudge, so a nudge never stacks.
     const targetKcal = $body.target.target != null ? $body.target.target - $body.target.adjustKcal : null;

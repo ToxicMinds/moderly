@@ -67,7 +67,7 @@
     </div>
     <div class="wr-stat">
       <span class="wr-val">{review.sessions}</span>
-      <span class="wr-lbl">lift days</span>
+      <span class="wr-lbl">training days</span>
     </div>
     <div class="wr-stat">
       <span class="wr-val" class:good={review.tonnageDeltaPct != null && review.tonnageDeltaPct >= 3} class:bad={review.tonnageDeltaPct != null && review.tonnageDeltaPct <= -10}>

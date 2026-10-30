@@ -31,7 +31,6 @@ export interface FitnessInput {
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const thousands = (n: number) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-const halves = (n: number) => String(Math.round(n * 2) / 2);
 
 /** The resting heart rate over the last 90 days: a fall the line is sure of
  *  is the clearest sign of a fitter heart. */
@@ -60,19 +59,21 @@ function strength(s: FitnessInput['strength']): FitnessSign | null {
   return { key: 'strength', good: null, text: 'Lifts holding: losing weight, that is the muscle staying.' };
 }
 
-/** Days trained a week, the last four weeks against the four before. */
+/** Days trained, the last four weeks against the four before, as counts: a
+ *  week of two gym visits after a quiet month reads as the two visits. */
 function training(trained: Set<string>, today: string): FitnessSign | null {
   const base = new Date(`${today}T12:00:00`);
-  const perWeek = (from: number, to: number) => {
+  const days = (from: number, to: number) => {
     let n = 0;
     for (let k = from; k < to; k++) if (trained.has(shiftYmd(-k, base))) n++;
-    return n / 4;
+    return n;
   };
-  const recent = perWeek(0, 28), before = perWeek(28, 56);
+  const recent = days(0, 28), before = days(28, 56);
   if (recent === 0 && before === 0) return null;
-  if (recent >= before + 0.5) return { key: 'training', good: true, text: `Training ${halves(recent)} days a week, up from ${halves(before)}.` };
-  if (recent <= before - 1) return { key: 'training', good: false, text: `Training ${halves(recent)} days a week, down from ${halves(before)}.` };
-  return { key: 'training', good: null, text: `Training ${halves(recent)} days a week, as before.` };
+  const said = `Trained ${recent} day${recent === 1 ? '' : 's'} in the last four weeks`;
+  if (recent >= before + 2) return { key: 'training', good: true, text: `${said}, up from ${before}.` };
+  if (recent <= before - 4) return { key: 'training', good: false, text: `${said}, down from ${before}.` };
+  return { key: 'training', good: null, text: `${said}, as in the four before.` };
 }
 
 /** Steps a day, the last four weeks against the four before; today, half

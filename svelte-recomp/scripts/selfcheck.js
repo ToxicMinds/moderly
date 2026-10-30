@@ -1207,11 +1207,13 @@ check('one definition of "trained today", and the watch counts', async () => {
   assert.ok(trainedDates([], [], [{ date: 'e', sets: [{ reps: 10, weight_kg: 0 }] }]).has('e'), 'bodyweight sets count');
   assert.ok(!trainedDates([], [], [{ date: 'f', sets: [{ reps: 0 }] }]).size, 'an empty template row does not');
   const { readFileSync } = await import('node:fs');
-  for (const f of ['src/routes/+page.svelte', 'src/routes/+layout.svelte', 'src/routes/workouts/+page.svelte', 'src/lib/stores/body.ts']) {
+  for (const f of ['src/routes/+page.svelte', 'src/routes/+layout.svelte', 'src/routes/workouts/+page.svelte', 'src/lib/stores/body.ts', 'src/lib/stores/review.ts']) {
     assert.match(readFileSync(f, 'utf8'), /import \{[^}]*\btrainedDates\b[^}]*\} from '\$lib\/health\/exercise'/, `${f} asks the one definition`);
   }
   assert.match(readFileSync('src/routes/+layout.svelte', 'utf8'), /workoutLoggedToday: trainedDates\(/);
   assert.match(readFileSync('src/routes/+page.svelte', 'utf8'), /workoutDoneToday: trainedToday/);
+  // The weekly review and the Sunday check-in counted typed sets only (2026-10-30).
+  assert.match(readFileSync('src/lib/components/WeekCheckIn.svelte', 'utf8'), /const sessions = \[\.\.\.\$reviewInputs\.trained\]/);
 });
 
 check('a nudge whose time has passed today is not scheduled for the past', () => {
@@ -2793,12 +2795,12 @@ check('a clean deficit week reports fat loss and a positive win', () => {
     today: '2026-03-15', weights, intake,
     steps: [0, 1, 2].map((n) => ({ date: days(n), count: 9000 })),
     sleep: [0, 1, 2].map((n) => ({ date: days(n), sleep_hours: 7.6 })),
-    workouts: [], learnedTdee: 2500, proteinTargetG: 160, goalKg: 80,
+    workouts: [], trained: new Set(), learnedTdee: 2500, proteinTargetG: 160, goalKg: 80,
   });
   assert.ok(r.weightChangeKg < 0, 'should register weight loss');
   assert.ok(Math.abs(r.weightChangeKg + 0.7) < 0.15, `the trend's week, got ${r.weightChangeKg}`);
   const two = weeklyReview({ today: '2026-03-15', weights: [{ date: days(6), weight: 90.5 }, { date: days(0), weight: 89.8 }], intake,
-    steps: [], sleep: [], workouts: [], learnedTdee: null, proteinTargetG: 160, goalKg: 80 });
+    steps: [], sleep: [], workouts: [], trained: new Set(), learnedTdee: null, proteinTargetG: 160, goalKg: 80 });
   assert.equal(two.weightChangeKg, null, 'two mornings are water, not a week of change');
   assert.equal(r.intakeDays, 7);
   assert.ok(r.energyBalance < 0, 'intake below learned maintenance => deficit');
@@ -2809,7 +2811,7 @@ check('a clean deficit week reports fat loss and a positive win', () => {
 check('an empty week is honest and never throws', () => {
   const r = weeklyReview({
     today: '2026-03-15', weights: [], intake: [], steps: [], sleep: [],
-    workouts: [], learnedTdee: null, proteinTargetG: 160, goalKg: 80,
+    workouts: [], trained: new Set(), learnedTdee: null, proteinTargetG: 160, goalKg: 80,
   });
   assert.equal(r.weightChangeKg, null);
   assert.equal(r.intakeDays, 0);
@@ -2826,10 +2828,22 @@ check('low protein and a rising scale surface concrete adjustments', () => {
     today: '2026-03-15',
     weights: Array.from({ length: 12 }, (_, i) => ({ date: days(11 - i), weight: +(89 + 0.08 * i).toFixed(2) })),
     intake: [0, 1, 2, 3, 4].map((n) => ({ date: days(n), kcal: 2800, protein: 90 })),
-    steps: [], sleep: [], workouts: [], learnedTdee: 2500, proteinTargetG: 160, goalKg: 80,
+    steps: [], sleep: [], workouts: [], trained: new Set(), learnedTdee: 2500, proteinTargetG: 160, goalKg: 80,
   });
   assert.ok(r.adjustments.some((a) => /protein/i.test(a)), 'should flag low protein');
   assert.ok(r.adjustments.some((a) => /trend ticked up/i.test(a)), 'a rising trend above goal asks for one lever');
+});
+
+check('a gym week recorded only on the watch counts as training in the weekly review', () => {
+  // 2026-10-30, the owner: two gym sessions this week, his own workouts, on the
+  // watch as "Overall fitness", no sets typed in, and the review said
+  // "Only 0 logged lifting day(s)". Most people with a watch train this way.
+  const base = { today: '2026-10-30', weights: [], intake: [], steps: [], sleep: [], workouts: [], learnedTdee: null, proteinTargetG: 160, goalKg: 80 };
+  const two = weeklyReview({ ...base, trained: new Set(['2026-10-26', '2026-10-28', '2026-10-19']) });
+  assert.equal(two.sessions, 2, 'the week from Monday, last week left out');
+  assert.ok(!two.adjustments.some((x) => /training day/.test(x)), 'two days trained, no nudge to train');
+  const one = weeklyReview({ ...base, trained: new Set(['2026-10-28']) });
+  assert.ok(one.adjustments.includes('Only 1 training day this week. Resistance training is what tells your body to keep muscle while it burns fat.'));
 });
 
 // --- Gym-real next weight (no "18 after 17.5") ----------------------------
@@ -3904,7 +3918,7 @@ check('getting fitter: the heart and the lifts answer it, plainly, and only when
   const thin = fitness({ ...base, restingHr: hr.slice(-10), steps, trained });
   assert.equal(thin.state, 'not-enough');
   assert.deepEqual(thin.signs.map((s) => [s.key, s.good]), [['training', true], ['steps', true]]);
-  assert.equal(thin.signs[0].text, 'Training 3.5 days a week, up from 2.');
+  assert.equal(thin.signs[0].text, 'Trained 14 days in the last four weeks, up from 7.');
   assert.equal(thin.signs[1].text, '9,000 steps a day, up from 7,000.');
   // Lifts up with a steady heart: fitter. Lifts down while the heart falls: mixed.
   const lifts = { ...none, direction: 'up', avgPct: 6.2, comparableLifts: 3, liftsUp: 2, topMover: { name: 'Bench press', pct: 8.1 } };

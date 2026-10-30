@@ -171,7 +171,7 @@ export function checkInAdjustment(answers: CheckInAnswers, ctx: CheckInContext):
   } else if (answers.effort === 'easy' && answers.adherence !== 'struggled') {
     trainingNote = ctx.sessions >= 3
       ? 'You had more in the tank — add one set to your main lift, or 2.5 kg where the last set moved cleanly.'
-      : 'You had more in the tank, and only ' + ctx.sessions + ' session' + (ctx.sessions === 1 ? '' : 's') + ' logged. Another training day is the cheapest win available.';
+      : 'You had more in the tank, and only ' + ctx.sessions + ' training day' + (ctx.sessions === 1 ? '' : 's') + ' this week. Another training day is the cheapest win available.';
   }
 
   // ── Adherence ────────────────────────────────────────────────────────────

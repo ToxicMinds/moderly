@@ -16,6 +16,9 @@ export interface WeeklyReviewInput {
   steps: Array<{ date: string; count: number }>;
   sleep: Array<{ date: string; sleep_hours: number | null }>;
   workouts: StrengthLog[];
+  /** Every day trained, by the one definition (trainedDates): a session marked
+   *  done, 25 watch minutes, or typed sets. */
+  trained: Set<string>;
   learnedTdee: number | null;
   proteinTargetG: number;
   goalKg: number | null;
@@ -109,7 +112,9 @@ export function weeklyReview(input: WeeklyReviewInput): WeeklyReview {
 
   // — Training —
   const wkWorkouts = input.workouts.filter((w) => inWeek(w.date));
-  const sessionDates = new Set(wkWorkouts.filter((w) => (w.sets || []).some(isRealSet)).map((w) => w.date));
+  // Training days, the watch's included: a gym session recorded on a watch
+  // with no sets typed in is training all the same. Tonnage stays the typed sets'.
+  const sessionDates = new Set([...input.trained].filter(inWeek));
   const tonnageKg = Math.round(tonnage(wkWorkouts));
   const priorTonnage = Math.round(tonnage(input.workouts.filter((w) => inPrior(w.date))));
   const tonnageDeltaPct = priorTonnage > 0 ? Math.round(((tonnageKg - priorTonnage) / priorTonnage) * 100) : null;
@@ -142,8 +147,8 @@ export function weeklyReview(input: WeeklyReviewInput): WeeklyReview {
   if (tonnageDeltaPct != null && tonnageDeltaPct <= -10) {
     adjustments.push(`Training volume dropped ${Math.abs(tonnageDeltaPct)}%. In a deficit that risks muscle — aim to at least match last week's top sets.`);
   }
-  if (sessionDates.size < 2 && wkWorkouts.length >= 0) {
-    adjustments.push('Only ' + sessionDates.size + ' logged lifting day(s). Resistance training is what tells your body to keep muscle while it burns fat.');
+  if (sessionDates.size < 2) {
+    adjustments.push(`Only ${sessionDates.size} training day${sessionDates.size === 1 ? '' : 's'} this week. Resistance training is what tells your body to keep muscle while it burns fat.`);
   }
   if (avgSleep != null && avgSleep < 7) {
     adjustments.push(`Sleep averaged ${avgSleep} h. Short sleep spikes hunger and blunts recovery — protect a consistent lights-out time.`);
