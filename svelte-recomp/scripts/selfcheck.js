@@ -4460,6 +4460,20 @@ check('a day is stored on the device once: server-numbered rows are kept only as
   assert.equal((sync.match(/await dropStrays\(table, data\);/g) ?? []).length, 2, 'both full pulls drop rows the server doesn’t have');
 });
 
+check('Plus is asked about honestly before anything is sold', async () => {
+  // 2026-10-30, the owner: no paid hosting until someone would pay. The card
+  // asks with the price, past the first week, says Plus isn't on sale yet,
+  // and each answer is counted in our own database.
+  const { readFileSync } = await import('node:fs');
+  const door = readFileSync('src/lib/components/PlusDoor.svelte', 'utf8');
+  assert.match(door, /const ready = \$derived\(\$body\.weight\?\.trendKg != null\);/, 'past the first week: not in the way of the first mornings');
+  assert.match(door, /noteEvent\(yes \? 'plus_yes' : 'plus_no'\)/);
+  assert.match(door, /Plus isn’t on sale yet/);
+  assert.doesNotMatch(door, /checkout|buy now|card number|subscribe now/i, 'nothing that looks like a sale');
+  assert.match(readFileSync('src/routes/progress/+page.svelte', 'utf8'), /<PlusDoor \/>/);
+  assert.match(readFileSync('static/privacy.html', 'utf8'), /your answer if Slim Chance asks whether you'd pay for Plus/);
+});
+
 check('morning two reads the scale for a stranger, and one morning can\'t move their goal', async () => {
   // 2026-10-30: a new person's second morning read 0.6 kg up, and the headline
   // went from "12.4 kg to lose, about 35 weeks" to "13.0 kg, about 36 weeks",

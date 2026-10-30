@@ -15,6 +15,7 @@ Katch-McArdle: a body-fat % switches BMR to lean mass
 Kotlin modules follow their own Java target, not a hardcoded one
 Mifflin-St Jeor matches the published formula
 OFF products keep kJ-only energy and names in any language
+Plus is asked about honestly before anything is sold
 RPE prefers real heart rate over the activity-type guess
 Samsung is recognised — the gap that broke the old regex
 Today stays calm: one card for the day, no cards that said a little each
