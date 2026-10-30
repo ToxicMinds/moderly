@@ -44,6 +44,10 @@ export interface SituationInput {
   /** Is today a scheduled training day, and has a set been logged today? */
   isTrainingDay: boolean;
   workoutLoggedToday: boolean;
+  /** Their training reaches the app from a watch, through Health Connect, which
+   *  the app reads only while it's open: a reminder armed now can't know they
+   *  trained after. */
+  watchTrains?: boolean;
   /** Today's scheduled session, so its reminder comes at its own time and says
    *  what it is. Without it, the old 17:30 one. */
   session?: { label: string; time: string; sport: string | null; note?: string | null } | null;
@@ -109,7 +113,11 @@ export function situationalNudges(input: SituationInput): Nudge[] {
   // Scheduled training day, still untrained (a session marked done, sets, or
   // the watch all count). It replaced the old weekly alarms, which fired at a
   // fixed time whatever had happened.
-  if (isTrainingDay && !workoutLoggedToday) {
+  // ponytail: no session-time reminder for a watch wearer, whose workout may
+  // already be on the watch when it fires (2026-10-26 and 28: "still on?" after
+  // the gym). The morning briefing names the day's session. Bring it back once
+  // the phone checks Health Connect itself before posting (native).
+  if (isTrainingDay && !workoutLoggedToday && !input.watchTrains) {
     const s = input.session;
     const at = s ? sessionReminderAt(s) : T.trainDay;
     if (s && at != null && !(s.sport && input.sportDay === false)) {

@@ -1035,6 +1035,8 @@ check('the training reminder comes at the session\'s own time, and not once you 
   assert.equal(g.atMinutes, 16 * 60 + 45, 'the gym 45 minutes before it starts');
   assert.match(g.title, /Heavy Lower Body at 17:30/);
   assert.equal(at(gym, { workoutLoggedToday: true }).length, 0, 'trained already: silence');
+  assert.equal(at(gym, { watchTrains: true }).length, 0, 'a watch wearer may have trained since: no reminder that could be wrong');
+  assert.equal(at(sport, { watchTrains: true }).length, 0);
   assert.equal(at({ ...gym, time: '06:30' }).length, 0, 'an early session is the morning briefing\'s');
   assert.equal(at(sport, { sportDay: false }).length, 0, 'no games tonight, so no games reminder');
   const lift = /Lifting is the signal/;
@@ -1211,6 +1213,7 @@ check('one definition of "trained today", and the watch counts', async () => {
     assert.match(readFileSync(f, 'utf8'), /import \{[^}]*\btrainedDates\b[^}]*\} from '\$lib\/health\/exercise'/, `${f} asks the one definition`);
   }
   assert.match(readFileSync('src/routes/+layout.svelte', 'utf8'), /workoutLoggedToday: trainedDates\(/);
+  assert.match(readFileSync('src/routes/+layout.svelte', 'utf8'), /watchTrains: \(\(\$_nudgeActivity as any\[\]\) \|\| \[\]\)\.some\(\(a\) => a\.source === 'watch'/);
   assert.match(readFileSync('src/routes/+page.svelte', 'utf8'), /workoutDoneToday: trainedToday/);
   // The weekly review and the Sunday check-in counted typed sets only (2026-10-30).
   assert.match(readFileSync('src/lib/components/WeekCheckIn.svelte', 'utf8'), /const sessions = \[\.\.\.\$reviewInputs\.trained\]/);

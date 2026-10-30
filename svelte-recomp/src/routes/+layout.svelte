@@ -29,6 +29,7 @@
   import Onboarding from '$lib/components/Onboarding.svelte';
   import { liveProfile, liveProfileLoaded, liveAlarms, liveFoodLogs, liveWeights, liveWorkoutLogs, liveGoal, liveSchedule, liveSessionCompletions, liveActivitySessions } from '$lib/stores/live';
   import { trainedDates } from '$lib/health/exercise';
+  import { shiftYmd } from '$lib/date';
   import { scheduleNativeAlarms, scheduleNudges, isNativeApp, momentsSupport, armMoments, disarmMoments, type AlarmRow } from '$lib/nativeAlarms';
   import { moments, momentSetting, refreshForecast } from '$lib/stores/moments';
   import { saveMomentInputs, confirmWeight, answerWeight, nativeKg, type MomentContext } from '$lib/momentActions';
@@ -376,6 +377,7 @@
         ? { label: scheduledToday.label ?? 'Training', time: scheduledToday.time, sport: sportOf(scheduledToday), note: scheduledToday.note }
         : null,
       workoutLoggedToday: trainedDates($_nudgeCompletions as any[], ($_nudgeActivity as any[]) || [], $_nudgeWorkouts as any[]).has(today),
+      watchTrains: (($_nudgeActivity as any[]) || []).some((a) => a.source === 'watch' && a.date >= shiftYmd(-28)),
       plans: ($_profile as any)?.plans ?? null,
       dow,
       sportDay: !!sportOf(scheduledToday)
