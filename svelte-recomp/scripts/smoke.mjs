@@ -51,10 +51,10 @@ expect(www.status === 308 && www.location.startsWith('https://slimchance.app'), 
 // The first screen actually runs, at a phone's size: the HTML can be all there
 // while the app itself crashes on start (it happened on a local build,
 // 2026-10-30). Opening it starts no account.
+// SMOKE_CHROME on GitHub (the runner's own Chrome); otherwise this laptop's.
 const browsers = `${homedir()}/.cache/ms-playwright`;
-const chrome = readdirSync(browsers).filter((d) => /^chromium-\d+$/.test(d)).sort().at(-1);
-if (!chrome) throw new Error(`smoke: no Chromium in ${browsers}; run npx playwright install chromium`);
-const browser = await chromium.launch({ executablePath: `${browsers}/${chrome}/chrome-linux64/chrome` });
+const chrome = process.env.SMOKE_CHROME ?? `${browsers}/${readdirSync(browsers).filter((d) => /^chromium-\d+$/.test(d)).sort().at(-1)}/chrome-linux64/chrome`;
+const browser = await chromium.launch({ executablePath: chrome });
 try {
   const page = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   const crashes = [];

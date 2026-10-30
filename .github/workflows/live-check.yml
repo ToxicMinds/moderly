@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   live:
-    # ubuntu-latest is 26.04, which playwright-core 1.55 can't install Chromium on.
+    # The image's own Google Chrome (SMOKE_CHROME): nothing to download.
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     defaults:
@@ -24,6 +24,7 @@ jobs:
     env:
       # Public: it is in every page the app serves.
       PUBLIC_SUPABASE_URL: https://jerbhsasccvjelkkphgu.supabase.co
+      SMOKE_CHROME: /usr/bin/google-chrome
     steps:
       - uses: actions/checkout@v4
         with:
@@ -34,5 +35,4 @@ jobs:
           cache: npm
           cache-dependency-path: svelte-recomp/package-lock.json
       - run: npm ci
-      - run: npx playwright-core install chromium
       - run: node scripts/smoke.mjs
