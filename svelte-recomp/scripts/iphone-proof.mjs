@@ -7,7 +7,7 @@
 import { webkit, devices } from 'playwright';
 import { mkdirSync } from 'node:fs';
 
-const SITE = 'https://moderly.vercel.app';
+const SITE = 'https://slimchance.vercel.app';
 const out = (process.argv[2] ?? 'proof').replace(/\/$/, '');
 mkdirSync(out, { recursive: true });
 

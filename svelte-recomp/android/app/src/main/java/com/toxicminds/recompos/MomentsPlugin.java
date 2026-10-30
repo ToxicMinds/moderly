@@ -106,7 +106,7 @@ public class MomentsPlugin extends Plugin {
     public void show(PluginCall call) {
         java.util.List<String> buttons = MomentReceiver.show(getContext(), call.getString("date", ""), call.getString("key", ""));
         if (buttons == null) {
-            call.reject("Not shown: notifications are off for Moderly, or there is nothing to show yet.");
+            call.reject("Not shown: notifications are off for Slim Chance, or there is nothing to show yet.");
             return;
         }
         JSArray titles = new JSArray();

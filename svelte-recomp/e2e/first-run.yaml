@@ -8,7 +8,7 @@ appId: com.toxicminds.recompos
 - launchApp:
     clearState: true
 - extendedWaitUntil:
-    visible: "A trend, not today's number."
+    visible: "The odds, every morning."
     timeout: 90000
 - takeScreenshot: proof/flow-1-door
 # On a small screen the box and the button sit below the fold, as for a person.
@@ -16,7 +16,7 @@ appId: com.toxicminds.recompos
     element:
       text: "Start now"
     direction: DOWN
-- tapOn: "I agree that Moderly.*"
+- tapOn: "I agree that Slim Chance.*"
 - tapOn: "Start now"
 - extendedWaitUntil:
     visible: "Where you are.*"

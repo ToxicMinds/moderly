@@ -263,7 +263,7 @@ public class MomentReceiver extends BroadcastReceiver {
                 // thrown later while booking the alarm.
                 String date = LocalDate.parse(m.getString("date")).toString(), key = m.getString("key");
                 out.add(new MomentClock.Moment(date, key, m.getInt("after"), m.getInt("until"),
-                    m.optString("title", "Moderly"), m.optString("body", ""),
+                    m.optString("title", "Slim Chance"), m.optString("body", ""),
                     date.equals(p.getString("shown:" + key, ""))));
             } catch (Exception ignored) {
                 // A moment that can't be read is no moment.
@@ -339,7 +339,7 @@ public class MomentReceiver extends BroadcastReceiver {
         Intent open = ctx.getPackageManager().getLaunchIntentForPackage(ctx.getPackageName());
         NotificationCompat.Builder n = new NotificationCompat.Builder(ctx, channel)
             .setSmallIcon(R.drawable.ic_stat_moderly)
-            .setColor(0xFFC9A54E) // brass: the mark and the buttons, like every Moderly notification
+            .setColor(0xFFC9A54E) // brass: the mark and the buttons, like every notification the app posts
             .setContentTitle(m.title)
             .setContentText(nl > 0 ? body.substring(0, nl) : body)
             .setStyle(new NotificationCompat.BigTextStyle().bigText(body))

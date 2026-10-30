@@ -1,6 +1,6 @@
 {
   "appId": "com.toxicminds.recompos",
-  "appName": "Moderly",
+  "appName": "Slim Chance",
   "webDir": "build",
   "server": {
     "url": "https://svelte-recomp.vercel.app",

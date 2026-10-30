@@ -1,6 +1,6 @@
-name: Build Moderly APK
+name: Build Slim Chance APK
 
-# Builds the native Moderly Android app: a thin Capacitor shell that loads the
+# Builds the native Slim Chance Android app: a thin Capacitor shell that loads the
 # live web app from Vercel (so UI/logic updates arrive over the air with no
 # reinstall) and adds native plugins (Health Connect, the moments). Reinstall
 # only when NATIVE bits change; everyday updates come straight from Vercel.
@@ -201,9 +201,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: recompos-app-latest
-          name: Moderly (Android app)
+          name: Slim Chance (Android app)
           body: |
-            Moderly for Android. It loads the live app from moderly's website,
+            Slim Chance for Android. It loads the live app from its website,
             so updates arrive by themselves; reinstall only when this release
             changes, and the app offers that itself.
 
