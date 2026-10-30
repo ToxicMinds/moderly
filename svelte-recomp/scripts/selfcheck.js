@@ -1407,7 +1407,10 @@ check('every notification wears the Slim Chance mark: the coin, in brass', async
   assert.ok(existsSync('android/app/src/main/res/drawable/ic_stat_moderly.xml'));
   const rx = readFileSync('android/app/src/main/java/com/toxicminds/recompos/MomentReceiver.java', 'utf8');
   assert.match(rx, /setSmallIcon\(R\.drawable\.ic_stat_moderly\)\s*\.setColor\(0xFFC9A54E\)/);
-  for (const f of ['capacitor.config.json', 'android/app/src/main/assets/capacitor.config.json']) {
+  // The synced copy exists only after `cap sync` (git ignores it, so a clean
+  // checkout has none); where it exists, it must match.
+  const synced = 'android/app/src/main/assets/capacitor.config.json';
+  for (const f of ['capacitor.config.json', ...(existsSync(synced) ? [synced] : [])]) {
     const ln = JSON.parse(readFileSync(f, 'utf8')).plugins?.LocalNotifications;
     assert.deepEqual(ln, { smallIcon: 'ic_stat_moderly', iconColor: '#C9A54E' }, f);
   }
