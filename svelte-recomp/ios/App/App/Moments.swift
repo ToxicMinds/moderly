@@ -149,5 +149,6 @@ public class MomentsPlugin: CAPPlugin, CAPBridgedPlugin {
 class ViewController: CAPBridgeViewController {
     override open func capacitorDidLoad() {
         bridge?.registerPluginInstance(MomentsPlugin())
+        bridge?.registerPluginInstance(AppleHealthPlugin())
     }
 }

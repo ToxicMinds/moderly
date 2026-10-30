@@ -4369,6 +4369,29 @@ check('a smart scale’s weigh-ins come in one a day, never our own, never asked
   assert.ok(!READ_TYPES.includes('Weight'), 'not in the main prompt, which older apps also run');
 });
 
+check('the iPhone app reads Apple Health weigh-ins by the same one-a-day rules', async () => {
+  const { scaleDays } = await import('../src/lib/health/scaleWeights.ts');
+  // Health.swift's shape: an ISO time with fractions, kilograms, the source's bundle id.
+  const days = scaleDays([
+    { time: '2026-10-29T05:41:13.120Z', weight: { value: 92.35, unit: 'kilogram' }, metadata: { dataOrigin: 'com.withings.wiScaleNG' } },
+    { time: '2026-10-29T18:02:00.000Z', weight: { value: 93.1, unit: 'kilogram' }, metadata: { dataOrigin: 'com.apple.Health' } },
+  ], 'com.toxicminds.recompos');
+  assert.deepEqual(days.map((d) => [d.date, d.kg, d.origin]), [['2026-10-29', 92.35, 'com.withings.wiScaleNG']]);
+  const { readFileSync } = await import('node:fs');
+  const swift = readFileSync('ios/App/App/Health.swift', 'utf8');
+  assert.match(swift, /"unit": "kilogram"/);
+  assert.match(swift, /"dataOrigin": s\.sourceRevision\.source\.bundleIdentifier/);
+  assert.match(swift, /requestAuthorization\(toShare: nil, read: \[type\]\)/, 'it reads, never writes');
+  assert.match(swift, /CAPPluginMethod\(name: "weights"/);
+  assert.match(readFileSync('ios/App/App/Moments.swift', 'utf8'), /registerPluginInstance\(AppleHealthPlugin\(\)\)/);
+  assert.match(readFileSync('src/lib/health/healthConnect.ts', 'utf8'), /registerPlugin<any>\('AppleHealth'\)\.weights\(/);
+  assert.match(readFileSync('ios/App/App/Info.plist', 'utf8'), /NSHealthShareUsageDescription/);
+  assert.match(readFileSync('ios/App/App/App.entitlements', 'utf8'), /com\.apple\.developer\.healthkit<\/key>\s*<true\/>/);
+  const pbx = readFileSync('ios/App/App.xcodeproj/project.pbxproj', 'utf8');
+  assert.equal((pbx.match(/CODE_SIGN_ENTITLEMENTS = App\/App\.entitlements;/g) ?? []).length, 2, 'debug and release');
+  assert.match(pbx, /\/\* Health\.swift in Sources \*\/,/);
+});
+
 // --- Importing weigh-ins from another app ------------------------------------
 
 check('a weight history comes in from any app, one morning a day, in kg', async () => {

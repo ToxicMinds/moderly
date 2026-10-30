@@ -22,6 +22,8 @@
 	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>NSHealthShareUsageDescription</key>
+	<string>To read the weigh-ins your scale or another app saved in Apple Health, so your trend can start on day one. They are kept with your other weigh-ins, never used for advertising.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Roughly where you are, to about a kilometre, for the weather in your morning briefing. Only the weather service sees it, and it is never saved.</string>
 	<key>LSRequiresIPhoneOS</key>

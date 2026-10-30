@@ -16,7 +16,7 @@ import { supabase } from '$lib/db/client';
 import { upsertRecords } from '$lib/stores/sync';
 import { buildActivitySessions } from './exercise';
 import { sleepNights } from './sleep';
-import { isAndroidApp } from '$lib/platform';
+import { hasPlugin, isAndroidApp, isIOSApp } from '$lib/platform';
 import { type RecordType, READ_TYPES, READ_PERMISSION, WRITE_TYPES, canWrite, readTypesKey } from './permissions';
 import { pickOriginByDay, countOrigins, percentile, changedDays, sameSessions } from './dedupe';
 import { preferredSource } from './watches';
@@ -528,7 +528,13 @@ export async function syncHealthConnect(
 ): Promise<HealthConnectState> {
   const native = await getNative();
   healthConnect.update((s) => ({ ...s, native: !!native }));
-  if (!native) return getState();
+  if (!native) {
+    // The iPhone app reads its weigh-ins from Apple Health instead.
+    if (isIOSApp()) await syncAppleHealthWeights(uid).catch((e: any) => {
+      notify('Apple Health', `Could not read your weigh-ins: ${e?.message || e}`, { level: 'warn' });
+    });
+    return getState();
+  }
   if (running) return getState();
   running = true;
   healthConnect.update((s) => ({ ...s, syncing: true, lastError: null }));
@@ -660,8 +666,8 @@ export async function syncHealthConnect(
 }
 
 const WEIGHT_PERM = READ_PERMISSION.Weight;
-/** The app's own package: it writes typed weigh-ins back to Health Connect,
- *  and must never read them in again. */
+/** The app's own package (the iPhone app's bundle id too): it writes typed
+ *  weigh-ins back to Health Connect, and must never read them in again. */
 const OWN_PACKAGE = 'com.toxicminds.recompos';
 /** The first native build that declares READ_WEIGHT. Older apps load this same
  *  web code, and must never request a permission their manifest lacks. */
@@ -684,13 +690,35 @@ async function syncScaleWeights(HealthConnect: any, uid: string): Promise<number
   let first = true;
   try { first = !localStorage.getItem('hc-weight-history'); } catch { /* storage disabled */ }
   const records = await readAll(HealthConnect, 'Weight', startOfDaysAgo(first ? 365 : FULL_DAYS).toISOString(), new Date().toISOString());
+  const n = await saveScaleRecords(uid, records);
+  try { localStorage.setItem('hc-weight-history', new Date().toISOString()); } catch { /* storage disabled */ }
+  return n;
+}
+
+/**
+ * Weigh-ins from Apple Health, in the iPhone app (ios/App/App/Health.swift): a
+ * year the first time, then the last two weeks on each sync. Its records come
+ * shaped like Health Connect's, so the same rules keep the same days.
+ */
+async function syncAppleHealthWeights(uid: string): Promise<number> {
+  if (!hasPlugin('AppleHealth')) return 0;
+  const { registerPlugin } = await import('@capacitor/core');
+  let first = true;
+  try { first = !localStorage.getItem('ah-weight-history'); } catch { /* storage disabled */ }
+  const { records } = await registerPlugin<any>('AppleHealth').weights({ since: startOfDaysAgo(first ? 365 : FULL_DAYS).toISOString() });
+  const n = await saveScaleRecords(uid, records);
+  try { localStorage.setItem('ah-weight-history', new Date().toISOString()); } catch { /* storage disabled */ }
+  return n;
+}
+
+/** A phone's weigh-in records, one a day (scaleDays), saved where this app has
+ *  none: a year at most, in one request, saved whole or not at all. */
+async function saveScaleRecords(uid: string, records: any[]): Promise<number> {
   const have = new Set((await db.table('weights').where('user_id').equals(uid).toArray()).map((w: any) => w.date));
   const fresh = scaleDays(records, OWN_PACKAGE).filter((d) => !have.has(d.date));
-  // A year at most: one request, saved whole or not at all.
   await upsertRecords('weights', fresh.map((d) => ({
     user_id: uid, date: d.date, weight: d.kg, created_at: d.at, source: `health:${d.origin}`,
   })));
-  try { localStorage.setItem('hc-weight-history', new Date().toISOString()); } catch { /* storage disabled */ }
   return fresh.length;
 }
 
