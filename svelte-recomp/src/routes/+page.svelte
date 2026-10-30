@@ -97,17 +97,6 @@
     finally { periodSaving = false; }
   }
 
-  // iPhone, in Safari rather than from the Home Screen: there's no store
-  // listing and no install prompt, so say how, once. Only to a saved account:
-  // the Home Screen app keeps its own storage, so a trial opened there starts
-  // empty, and it signs in with the email.
-  const IOS_KEY = 'recompos.iosHint';
-  let iosHint = $state(false);
-  try {
-    const standalone = (navigator as any).standalone === true || matchMedia('(display-mode: standalone)').matches;
-    iosHint = /iPhone|iPad/.test(navigator.userAgent) && !standalone && !localStorage.getItem(IOS_KEY);
-  } catch { /* storage disabled */ }
-
   // The morning reminder this browser couldn't take at setup, offered once
   // as a daily event in the person's own calendar.
   let calendarTime = $state<string | null>(null);
@@ -116,10 +105,6 @@
     if (added) noteEvent('reminder_calendar');
     calendarTime = null;
     try { localStorage.removeItem(CALENDAR_KEY); } catch { /* storage disabled */ }
-  }
-  function hideIosHint() {
-    iosHint = false;
-    try { localStorage.setItem(IOS_KEY, '1'); } catch { /* storage disabled */ }
   }
 
   let editingGoal = $state(false);
@@ -359,12 +344,6 @@
   </div>
 {/if}
 
-{#if iosHint && !$isTrial}
-  <div class="card sv">
-    <p class="sv-t"><b>On iPhone:</b> tap Share, then Add to Home Screen, and sign in there once. Slim Chance opens like an app, full screen, one tap from your home screen.</p>
-    <div class="sv-row"><button class="sv-later" onclick={hideIosHint}>Got it</button></div>
-  </div>
-{/if}
 
 {#if askToSave}
   <div class="card sv">

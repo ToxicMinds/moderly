@@ -12,10 +12,10 @@ The name is the joke; the odds are real. A coin landing on its edge is the textb
 chance (it's the mark), and every morning the app tells you yours: the odds in ten that
 your weight is really coming off. It was called Moderly until 30 October 2026.
 
-**Use it:** [slimchance.app](https://slimchance.app) in any browser (add it to
-your home screen), or the Android app from
-[Releases](https://github.com/slimchanceapp/slimchance/releases/tag/recompos-app-latest),
-installed by hand for now. No account needed to start. **How it works:**
+**Get it:** Slim Chance is an iPhone and Android app, on its way to the App Store
+and Google Play. Until then, open [slimchance.app](https://slimchance.app) to start,
+or install the Android app from
+[Releases](https://github.com/slimchanceapp/slimchance/releases/tag/recompos-app-latest). No account needed to start. **How it works:**
 [slimchance.app/about](https://slimchance.app/about/).
 
 <p>

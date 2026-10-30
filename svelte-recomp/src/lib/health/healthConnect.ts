@@ -7,7 +7,7 @@
  * `biometrics` tables. That makes the Daily Readiness card and step stats
  * light up with real watch data using the exact same data path as manual entry.
  *
- * In a normal browser (the PWA / desktop) everything here no-ops, so the web
+ * In a browser (phone or desktop) everything here no-ops, so the web
  * build is completely unaffected.
  */
 import { writable } from 'svelte/store';

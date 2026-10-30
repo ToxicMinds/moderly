@@ -206,7 +206,7 @@
       // block a site. Onboarding asks, when they choose the morning reminder.
       if (typeof Notification !== 'undefined' && Notification.permission === 'granted') subscribeWebPush(u.id);
       // Native Android shell only: pull OnePlus Watch data from Health Connect
-      // into the app. No-ops in the browser/PWA.
+      // into the app. No-ops in a browser.
       syncHealthConnect(u.id);
     } else if (!u && syncStarted) {
       syncStarted = false;
@@ -426,7 +426,7 @@
   // Register the service worker for real (it previously existed on disk but
   // was never registered anywhere, so offline caching + push never actually
   // worked). The SW activates aggressively (skipWaiting + claim, see
-  // service-worker.ts) specifically so that closing and reopening the PWA
+  // service-worker.ts) specifically so that closing and reopening the app
   // always picks up whatever is currently deployed -- a fresh app open
   // always fetches fresh HTML referencing the current build, so there's no
   // stale-chunk risk on a normal close/reopen.

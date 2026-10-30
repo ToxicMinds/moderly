@@ -9,7 +9,7 @@
 // on/off buzz. The native @capacitor/haptics plugin gives real, OS-grade
 // feedback — light/medium/heavy impacts and success/warning/error notification
 // patterns — the same taps you feel elsewhere on the phone. On the plain web
-// (no Capacitor) we fall back to navigator.vibrate so the PWA still buzzes.
+// (no Capacitor) we fall back to navigator.vibrate so a browser still buzzes.
 //
 // Design rules that keep it premium instead of annoying:
 //   1. A tiny, DISTINCT vocabulary that mirrors the verdict language — a light
@@ -31,7 +31,7 @@ export type Haptic =
   | 'celebrate'; // triple crescendo — a PR, a new low
 
 // Web-fallback patterns in milliseconds (single number = one buzz; array =
-// buzz/pause/…). Only used when there's no native plugin (a browser PWA). Kept
+// buzz/pause/…). Only used when there's no native plugin (a browser). Kept
 // short so they read as texture, not as a phone ringing.
 export const PATTERNS: Record<Haptic, number | number[]> = {
   tap: 8,

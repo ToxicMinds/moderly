@@ -3868,6 +3868,16 @@ check('an iPhone home-screen app fills the screen: the status bar’s strip is m
   assert.ok(!/id="sync-dot"/.test(layout), 'one status dot in the top bar, not two');
 });
 
+check('no published file names the AI assistant that helped build the app', async () => {
+  // The owner's rule (2026-10-30): never mentioned in the code, the pages or git.
+  // The words are assembled so this check doesn't match itself.
+  const { execFileSync } = await import('node:child_process');
+  const words = ['clau' + 'de', 'anthro' + 'pic'].join('|');
+  let hits = '';
+  try { hits = execFileSync('git', ['grep', '-ilE', words, '--', '.', ':!*.png', ':!*.webp', ':!*.woff2'], { cwd: '..', encoding: 'utf8' }); } catch { /* exit 1: none */ }
+  assert.equal(hits.trim(), '', `named in: ${hits.trim()}`);
+});
+
 check('the boot screen and the tab loader spin the same coin, still for anyone who asked for less motion', async () => {
   const { readFileSync } = await import('node:fs');
   const drawing = (src) => src.match(/<svg class="cspin"[^>]*>([\s\S]*?)<\/svg>/)[1];

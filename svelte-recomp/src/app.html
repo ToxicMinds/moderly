@@ -38,6 +38,9 @@
         if (s >= 1 && s <= 1.4)
           document.documentElement.style.setProperty('--ui-scale', String(s));
       } catch (e) {}
+      /* The apps come from the App Store and Google Play: Chrome must not
+         offer to install a copy of the website instead. */
+      window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); });
     </script>
     <style>
       /* The coin, spinning on its edge: on screen from the first paint until
