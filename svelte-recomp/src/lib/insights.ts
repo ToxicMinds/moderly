@@ -88,6 +88,9 @@ export interface WeightVerdict {
   /** Where the fitted line says you are at the last weigh-in — the number to
    *  show instead of one morning's reading. null until there is a line. */
   trendKg: number | null;
+  /** Before there's a trend: the average of the mornings in the window, the
+   *  steadiest guess at where someone is (one morning is noise). */
+  meanKg?: number | null;
   /** The most recent reading, any age. */
   latestKg: number | null;
 }
@@ -177,6 +180,7 @@ export function weightVerdict(points: WeighIn[], asOfMs?: number): WeightVerdict
       spanDays: n > 1 ? fitWeightLine(points, now)?.spanDays ?? 0 : 0,
       weighInsNeeded: Math.max(1, MIN_WEIGHINS - n), daysUntilAnswer: Math.max(1, MIN_WEIGHINS - n),
       trendKg: null, latestKg,
+      meanKg: n ? +(inWindow(points, now, WINDOW_DAYS).reduce((s, p) => s + p.w, 0) / n).toFixed(1) : null,
     };
   }
 

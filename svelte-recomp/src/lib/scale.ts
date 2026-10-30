@@ -16,7 +16,11 @@ const daysBetween = (a: string, b: string) => Math.round((Date.parse(`${b}T12:00
 
 /** Mornings weighed this week (Monday..today) and the mornings so far. */
 export function morningsThisWeek(weights: Array<{ date: string }>, today: string): { weighed: number; days: number } {
-  const start = mondayOf(new Date(`${today}T12:00:00`));
+  const monday = mondayOf(new Date(`${today}T12:00:00`));
+  // A week someone started part-way through counts from their first morning:
+  // "2/5" on day two read as three missed mornings they were never here for.
+  const first = weights.reduce((m, w) => (w.date < m ? w.date : m), today);
+  const start = first > monday ? first : monday;
   const weighed = new Set(weights.filter((w) => w.date >= start && w.date <= today).map((w) => w.date)).size;
   return { weighed, days: daysBetween(start, today) + 1 };
 }

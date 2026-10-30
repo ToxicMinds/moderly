@@ -5,6 +5,7 @@ import { derived, type Readable } from 'svelte/store';
 import { liveProfile, liveWeights, liveFoodLogs, liveWorkoutLogs, liveSchedule } from './live';
 import { dayOnePlan, type DayOnePlan } from '$lib/dayOne';
 import { cleanPlans } from '$lib/plans';
+import { body } from './body';
 
 const _profile = liveProfile();
 const _weights = liveWeights();
@@ -13,18 +14,14 @@ const _workoutLogs = liveWorkoutLogs();
 const _schedule = liveSchedule();
 
 export const dayOne: Readable<DayOnePlan | null> = derived(
-  [_profile, _weights, _foodLogs, _workoutLogs, _schedule],
-  ([$profile, $weights, $foodLogs, $workoutLogs, $schedule]) => {
+  [_profile, _weights, _foodLogs, _workoutLogs, _schedule, body],
+  ([$profile, $weights, $foodLogs, $workoutLogs, $schedule, $body]) => {
     const weights = ($weights as any[]) ?? [];
-    // liveWeights is unsorted; the LATEST weigh-in is what the projection runs off.
-    let currentWeightKg: number | null = null;
-    let latest = '';
-    for (const w of weights) {
-      if (w?.weight != null && w.date > latest) { latest = w.date; currentWeightKg = w.weight; }
-    }
     return dayOnePlan({
       profile: $profile as any,
-      currentWeightKg,
+      // The one current weight (stores/body.ts): before a trend, the average
+      // of the mornings so far, so morning two's water can't move the goal.
+      currentWeightKg: $body.currentKg,
       weighInCount: weights.length,
       foodLogCount: (($foodLogs as any[]) ?? []).length,
       workoutLogCount: (($workoutLogs as any[]) ?? []).length,

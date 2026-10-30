@@ -74,9 +74,16 @@ export function explainUp(i: UpInput): UpExplained | null {
     if (before >= 5) reasons.push(`${lastTrained === yesterday ? 'Yesterday' : weekday(lastTrained)} was your first training in ${before >= 14 ? 'two weeks' : `${before + 1} days`}. Muscles hold extra water for a few days after new work, so the scale rises while the fat doesn't.`);
   }
   if (!reasons.length) {
-    reasons.push(i.scatterKg != null && over != null && over <= i.scatterKg * 2
-      ? `That's inside your usual day-to-day swing of about ±${dwt(i.scatterKg)}.`
-      : 'Nothing in your log explains it. Salt, a late meal, a short night or a slower gut all move the scale and leave no trace in a log.');
+    // The first mornings: no swing of their own to compare with, and often no
+    // log yet. Morning two is where the app first shows what it's for.
+    const logged = [...i.intake].some(([d, v]) => d >= shift(i.today, -14) && v.kcal > 0);
+    reasons.push(i.trendKg == null
+      ? 'Normal in the first days: most mornings move up to a kilo either way, from water, salt and what’s still being digested. That’s why Slim Chance waits for a week of mornings before it calls a trend.'
+      : i.scatterKg != null && over != null && over <= i.scatterKg * 2
+        ? `That's inside your usual day-to-day swing of about ±${dwt(i.scatterKg)}.`
+        : logged
+          ? 'Nothing in your log explains it. Salt, a late meal, a short night or a slower gut all move the scale and leave no trace in a log.'
+          : 'Salt, a late meal, a short night or a slower gut all move the scale for a day or two.');
   }
 
   let trend = '';

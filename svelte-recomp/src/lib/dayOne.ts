@@ -101,7 +101,7 @@ export function dayOnePlan(input: DayOneInput): DayOnePlan | null {
   const steps: FirstStep[] = [
     {
       key: 'weigh', label: 'Weigh in on three mornings', href: '/',
-      hint: 'Same time, before food or drink. One morning is noise; three start the trend.',
+      hint: 'Same time, before food or drink. One morning is noise; a week of them makes the trend.',
       done: input.weighInCount >= 3,
     },
     {

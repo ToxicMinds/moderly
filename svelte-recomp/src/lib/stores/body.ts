@@ -99,7 +99,9 @@ export const body: Readable<Body> = derived(
     const goalKg = ($goal as number | null) ?? null;
 
     const weight = weightVerdict(weights, Date.parse(`${today}T12:00:00`));
-    const currentKg = weight?.trendKg ?? weight?.latestKg ?? (p?.start_kg != null ? +p.start_kg : null);
+    // Before seven mornings make a trend, their average: the budget, "kg to
+    // lose" and the goal date must not swing with one morning's water.
+    const currentKg = weight?.trendKg ?? weight?.meanKg ?? weight?.latestKg ?? (p?.start_kg != null ? +p.start_kg : null);
     const firstKg = weights.length ? weights[0].weight : null;
 
     const bf = (($tracks as any[]) ?? []).filter((t) => t.name === 'body_fat' && t.value > 0)

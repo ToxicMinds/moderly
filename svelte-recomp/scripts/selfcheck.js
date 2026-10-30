@@ -3635,6 +3635,8 @@ check('mornings count up through the week and never reset mid-week', () => {
   const w = [{ date: '2026-10-12' }, { date: '2026-10-14' }, { date: '2026-10-15' }, { date: '2026-10-11' }];
   assert.deepEqual(morningsThisWeek(w, '2026-10-17'), { weighed: 3, days: 6 });
   assert.deepEqual(morningsThisWeek(w, '2026-10-19'), { weighed: 0, days: 1 }, 'Monday starts fresh');
+  assert.deepEqual(morningsThisWeek([{ date: '2026-10-29' }, { date: '2026-10-30' }], '2026-10-30'), { weighed: 2, days: 2 }, 'a week started on Thursday counts from Thursday');
+  assert.deepEqual(morningsThisWeek([], '2026-10-30'), { weighed: 0, days: 1 }, 'no mornings yet: nothing missed');
 });
 
 check('stepping back on the scale after a gap is welcomed, not scored', () => {
@@ -4456,6 +4458,34 @@ check('a day is stored on the device once: server-numbered rows are kept only as
   assert.match(sync, /SERVER_IDS\.has\(table\) \? await write\.select\(\) : await write/, 'the server’s rows, with their ids, come back');
   assert.match(sync, /\.where\('\[user_id\+date\]'\)\.anyOf\(rowsBack\.map/, 'those days’ local rows are replaced, not added to');
   assert.equal((sync.match(/await dropStrays\(table, data\);/g) ?? []).length, 2, 'both full pulls drop rows the server doesn’t have');
+});
+
+check('morning two reads the scale for a stranger, and one morning can\'t move their goal', async () => {
+  // 2026-10-30: a new person's second morning read 0.6 kg up, and the headline
+  // went from "12.4 kg to lose, about 35 weeks" to "13.0 kg, about 36 weeks",
+  // the goal date a week later, and "Nothing in your log explains it" to
+  // someone with no log. Before seven mornings make a trend, the mornings'
+  // average is the current weight.
+  const { weightVerdict } = await import('../src/lib/insights.ts');
+  const { explainUp } = await import('../src/lib/scaleUp.ts');
+  const two = weightVerdict([{ date: '2026-10-29', weight: 92.4 }, { date: '2026-10-30', weight: 93.0 }], Date.parse('2026-10-30T12:00:00'));
+  assert.equal(two.state, 'not-enough');
+  assert.equal(two.trendKg, null);
+  assert.equal(two.meanKg, 92.7, 'the average of the mornings so far');
+  assert.equal(weightVerdict([{ date: '2026-10-30', weight: 92.4 }], Date.parse('2026-10-30T12:00:00')).meanKg, 92.4);
+  const { readFileSync } = await import('node:fs');
+  assert.match(readFileSync('src/lib/stores/body.ts', 'utf8'), /const currentKg = weight\?\.trendKg \?\? weight\?\.meanKg \?\? weight\?\.latestKg/);
+  assert.match(readFileSync('src/lib/stores/dayOne.ts', 'utf8'), /currentWeightKg: \$body\.currentKg,/, 'day one asks the one current weight');
+  assert.match(readFileSync('src/routes/+page.svelte', 'utf8'), /\{#if currentKg != null && \$body\.weight\?\.trendKg != null\}\{' · '\}trend /, '"trend" only once there is one');
+  const base = { today: '2026-10-30', kg: 93.0, prev: { date: '2026-10-29', kg: 92.4 }, trendKg: null, trendPrevKg: null,
+    scatterKg: 0, intake: new Map(), weekdayOffsets: null, trained: new Set() };
+  const x = explainUp(base);
+  assert.equal(x.title, 'Up 0.6 kg from yesterday');
+  assert.equal(x.reasons[0], 'Normal in the first days: most mornings move up to a kilo either way, from water, salt and what’s still being digested. That’s why Slim Chance waits for a week of mornings before it calls a trend.');
+  assert.equal(x.trend, '');
+  // With a trend but no log, it doesn't claim a log that doesn't exist.
+  const noLog = explainUp({ ...base, trendKg: 92.0, trendPrevKg: 92.0, scatterKg: 0.2, kg: 93.4, prev: { date: '2026-10-29', kg: 92.2 } });
+  assert.equal(noLog.reasons[0], 'Salt, a late meal, a short night or a slower gut all move the scale for a day or two.');
 });
 
 check('a high morning is explained from the person’s own data, and only from it', async () => {

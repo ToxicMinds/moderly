@@ -324,7 +324,7 @@
       {#if $scaleUp.trend}<div class="su-f">{$scaleUp.trend}</div>{/if}
     </section>
   {/if}
-  <div class="mw-done">Weighed <b>{wtNum(+todayWeighIn.weight)}</b> today{#if currentKg != null}{' · '}trend <b>{wtNum(currentKg)}</b> {changeWord()}{/if}{#if $line && !$line.misdrawn}{' · '}ceiling <b class="mw-line z-{$line.zone}">{wtNum($line.kg)}</b>{/if}</div>
+  <div class="mw-done">Weighed <b>{wtNum(+todayWeighIn.weight)}</b> today{#if currentKg != null && $body.weight?.trendKg != null}{' · '}trend <b>{wtNum(currentKg)}</b> {changeWord()}{:else if currentKg != null && ($body.weight?.n ?? 0) > 1}{' · '}average so far <b>{wtNum(currentKg)}</b> {changeWord()}{/if}{#if $line && !$line.misdrawn}{' · '}ceiling <b class="mw-line z-{$line.zone}">{wtNum($line.kg)}</b>{/if}</div>
 {:else}
   <div class="card mw">
     <div class="mw-top">

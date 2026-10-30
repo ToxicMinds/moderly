@@ -196,6 +196,7 @@ measured lean GAIN while fat falls is called recomp
 minutesOfDay reads the wall clock
 missing fields are named specifically
 mondayOf treats Sunday as the end of the week, not the start
+morning two reads the scale for a stranger, and one morning can't move their goal
 mornings count up through the week and never reset mid-week
 multiple records from the winning source still sum
 muscle volume calls high volume over the ceiling
