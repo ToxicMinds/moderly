@@ -29,8 +29,10 @@
   <!-- The hero is their own number from the first morning (it used to be
        "1 / 4 first-week steps", a count nobody could read as anything); the
        steps sit under it as a list. -->
+  <!-- The story leads with the mornings to the first odds, the reason to step
+       on the scale again tomorrow, then the long plan (2026-10-30). -->
   <PageHero title={greeting} {sub} pct={null}
-    value={p.kg != null ? wtNum(p.kg) : '—'} caption={p.caption || 'First week'} story={plan!.headline}
+    value={p.kg != null ? wtNum(p.kg) : '—'} caption={p.caption || 'First week'} story={`${p.story} ${plan!.headline}`}
     stats={[{ v: $body.target.target ?? plan!.targetKcal, l: 'kcal / day' }, { v: `${$body.proteinTargetG} g`, l: 'protein' }, { v: goalDateLabel(plan!.goalDate), l: `goal ${wtShortU(plan!.goalKg)}` }]}>
     {#snippet aside()}{@render streak()}{/snippet}
     <!-- Day one. These numbers come straight from onboarding, so a brand-new

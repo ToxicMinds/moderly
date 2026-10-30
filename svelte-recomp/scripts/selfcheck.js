@@ -4476,6 +4476,7 @@ check('morning two reads the scale for a stranger, and one morning can\'t move t
   const { readFileSync } = await import('node:fs');
   assert.match(readFileSync('src/lib/stores/body.ts', 'utf8'), /const currentKg = weight\?\.trendKg \?\? weight\?\.meanKg \?\? weight\?\.latestKg/);
   assert.match(readFileSync('src/lib/stores/dayOne.ts', 'utf8'), /currentWeightKg: \$body\.currentKg,/, 'day one asks the one current weight');
+  assert.match(readFileSync('src/lib/components/TodayPulse.svelte', 'utf8'), /story=\{`\$\{p\.story\} \$\{plan!\.headline\}`\}/, 'the first week leads with the mornings to the first odds');
   assert.match(readFileSync('src/routes/+page.svelte', 'utf8'), /\{#if currentKg != null && \$body\.weight\?\.trendKg != null\}\{' · '\}trend /, '"trend" only once there is one');
   const base = { today: '2026-10-30', kg: 93.0, prev: { date: '2026-10-29', kg: 92.4 }, trendKg: null, trendPrevKg: null,
     scatterKg: 0, intake: new Map(), weekdayOffsets: null, trained: new Set() };
