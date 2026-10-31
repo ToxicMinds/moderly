@@ -1,5 +1,6 @@
 <script lang="ts">
   import { userId } from '$lib/stores/user';
+  import CoachPlan from '$lib/components/CoachPlan.svelte';
   import { upsertRecord, syncStatus } from '$lib/stores/sync';
   import { liveFoodLogs, liveGoalReason, liveCustomRecipes } from '$lib/stores/live';
   import { goalSummary, goalDirection } from '$lib/coach';
@@ -414,6 +415,8 @@
     A few weeks of logging the way you do and weighing most mornings, and it comes from your own numbers instead.
   </div>
 {/if}
+
+<CoachPlan />
 
 <FoodLogger logs={$_foodLogs as any[]} today={todayStr} onLog={logFoods}
   proteinLeft={Math.max(0, proteinTargetG - todayTotals.protein)} />

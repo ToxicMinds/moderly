@@ -220,7 +220,7 @@ export function burnFloor(p: { weightKg: number; heightCm: number; age: number; 
 }
 
 /** Hard floors so a cut can never prescribe a dangerously low intake. */
-const CUT_FLOOR: Record<'male' | 'female', number> = { male: 1500, female: 1200 };
+export const CUT_FLOOR: Record<'male' | 'female', number> = { male: 1500, female: 1200 };
 
 /**
  * The most a learned cut asks below what the log usually says, per week. When

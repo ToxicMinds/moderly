@@ -10,6 +10,9 @@
 // the EU) only the owner's account (OWNER_USER_ID) may use it.
 //
 //   POST {"facts": {...}}  ->  {"reply": {...}, "provider": "...", "ms": n}
+//   POST {"mode": "plan", "facts": {...}}  ->  the same envelope, the reply a
+//     plan of foods and grams for the next days (src/lib/mealPlan.ts checks it
+//     and works out every number itself).
 
 import { ask, corsHeaders, extractJson, GEMINI_PAID, json } from '../_shared/llm.ts';
 import { gate } from '../_shared/auth.ts';
@@ -54,6 +57,56 @@ ${JSON.stringify(facts)}
 Reply with JSON only: {"send_evening":true|false,"evening_title":"...","evening_body":"...","noticed_title":"...","noticed_body":"...","notes":"..."}`;
 }
 
+const PLAN_SCHEMA = {
+  type: 'OBJECT',
+  properties: {
+    days: {
+      type: 'ARRAY',
+      items: {
+        type: 'OBJECT',
+        properties: {
+          date: { type: 'STRING' },
+          meals: {
+            type: 'ARRAY',
+            items: {
+              type: 'OBJECT',
+              properties: {
+                time: { type: 'STRING' },
+                items: { type: 'ARRAY', items: { type: 'OBJECT', properties: { food: { type: 'STRING' }, grams: { type: 'NUMBER' } }, required: ['food', 'grams'] } },
+              },
+              required: ['time', 'items'],
+            },
+          },
+        },
+        required: ['date', 'meals'],
+      },
+    },
+    note: { type: 'STRING' },
+  },
+  required: ['days', 'note'],
+};
+
+function planPrompt(facts: any): string {
+  return `You are the coach inside Slim Chance, an app for one person losing weight on their own. They asked you what to eat on the next days of their week. Plan each day in facts.days.
+Rules, always:
+- Use only foods from facts.foods, by their exact name, each with grams. Values there are per 100 g. The app adds up calories and protein itself.
+- Each day comes to between facts.floorKcal and facts.dayKcal calories; aim close to facts.dayKcal. Never go under facts.floorKcal: a hard day to pay back an earlier one is not allowed, however far over the week they are.
+- At least facts.proteinTargetG grams of protein each day.
+- Their rhythm is theirs: if facts.notes say when they eat (a fast until the afternoon, a late snack), plan the meals at those times. Never judge meal times or fasting.
+- Plain food anyone can buy at a supermarket and cook in a few minutes. Repeat foods across days when that's simpler. Two to four meals a day, each with a time as HH:MM.
+- facts.problem, when present, is why the app refused your last plan: fix that.
+- note: one or two plain, warm sentences for them, with no numbers in it. No medical advice; never shame.
+Facts (JSON):
+${JSON.stringify(facts)}
+Reply with JSON only: {"days":[{"date":"YYYY-MM-DD","meals":[{"time":"HH:MM","items":[{"food":"exact name from facts.foods","grams":0}]}]}],"note":"..."}`;
+}
+
+function parsePlan(text: string) {
+  const o = extractJson(text);
+  if (!o || !Array.isArray(o.days)) throw new Error('no plan in the answer');
+  return o;
+}
+
 /** The user behind the token. The gateway has already verified it (verify_jwt). */
 function subOf(req: Request): string | null {
   try {
@@ -85,10 +138,13 @@ Deno.serve(async (req: Request) => {
   if (!facts || typeof facts !== 'object' || JSON.stringify(facts).length > 20_000) return json({ error: 'Send the day\'s facts.' }, 400);
 
   const started = Date.now();
+  const planning = body?.mode === 'plan';
   try {
     const { value, provider } = await ask(
-      { prompt: prompt(facts), schema: SCHEMA, temperature: 0.6, timeoutMs: 25_000 },
-      parse,
+      planning
+        ? { prompt: planPrompt(facts), schema: PLAN_SCHEMA, temperature: 0.4, timeoutMs: 30_000 }
+        : { prompt: prompt(facts), schema: SCHEMA, temperature: 0.6, timeoutMs: 25_000 },
+      planning ? parsePlan : parse,
       { only: ['gemini'], deadlineMs: 40_000 },
     );
     return json({ reply: value, provider, ms: Date.now() - started });

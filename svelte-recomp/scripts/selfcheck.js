@@ -3983,6 +3983,42 @@ check('the GLP-1 companion keeps a record and never advises', async () => {
   assert.match(readFileSync('static/privacy.html', 'utf8'), /<strong>Medication<\/strong>, only if you use the GLP-1 companion/);
 });
 
+check('the coach plans the next days inside the floor, and the app does every sum', async () => {
+  // 2026-10-31, the owner: "I want this eating order to come from my AI coach".
+  // The AI picks foods and grams from the table; the app adds up every number
+  // and refuses a plan under the floor, over the day, short of protein, or
+  // with a food the table doesn't have. Never a hard day to pay one back.
+  const { planFoods, usualFoods, planDayKcal, checkPlan, PLAN_STAPLES } = await import('../src/lib/mealPlan.ts');
+  const { CUT_FLOOR } = await import('../src/lib/tdee.ts');
+  const usual = usualFoods([{ date: '2026-10-29', name: 'Tvaroh s whey', grams: 400, kcal: 400, protein_g: 70 }, { date: '2026-09-01', name: 'Old soup', grams: 300, kcal: 120, protein_g: 3 }], '2026-10-03');
+  const foods = planFoods(usual);
+  assert.equal(foods.length, PLAN_STAPLES.length + 1, 'every staple is in the food table, plus the usual food from the last four weeks');
+  assert.deepEqual(foods.at(-1), { name: 'Tvaroh s whey', kcal: 100, protein: 17.5 });
+  assert.equal(planDayKcal({ share: 1009, dayTarget: 2000, floorKcal: CUT_FLOOR.male }), 1500, '1,009 a day left: the plan sits at the floor, never under it');
+  assert.equal(planDayKcal({ share: 2600, dayTarget: 2000, floorKcal: 1500 }), 2000, 'budget left is room, not something to eat up');
+  const facts = { days: ['2026-10-31'], dayKcal: 1500, floorKcal: 1500, proteinTargetG: 173, foods };
+  const plan = (meals, note = 'Plain food, your hours.') => ({ days: [{ date: '2026-10-31', meals }], note });
+  const good = checkPlan(plan([
+    { time: '15:00', items: [{ food: 'Chicken breast, raw', grams: 500 }, { food: 'Olive oil', grams: 20 }, { food: 'Cucumber', grams: 300 }] },
+    { time: '19:00', items: [{ food: 'tuna in water, drained', grams: 120 }, { food: 'Egg', grams: 120 }, { food: 'Apple', grams: 360 }] },
+    { time: '21:30', items: [{ food: 'Whey protein powder', grams: 60 }] },
+  ]), facts);
+  assert.equal(good.ok, true, good.why);
+  assert.deepEqual([good.days[0].kcal, good.days[0].protein, good.days[0].meals.length], [1554, 209, 3], 'the app\'s own sums from the table');
+  assert.equal(good.days[0].meals[1].items[0].food, 'Tuna in water, drained', 'named as the table names it');
+  const refuse = (meals, re) => { const r = checkPlan(plan(meals), facts); assert.equal(r.ok, false); assert.match(r.why, re); };
+  refuse([{ time: '15:00', items: [{ food: 'Chicken breast, raw', grams: 300 }] }], /under the floor of 1500/);
+  refuse([{ time: '15:00', items: [{ food: 'Pizza', grams: 300 }] }], /isn't in the food table/);
+  refuse([{ time: '15:00', items: [{ food: 'Olive oil', grams: 150 }, { food: 'Apple', grams: 400 }] }], /short of 173/);
+  refuse([{ time: '15:00', items: [{ food: 'Chicken breast, raw', grams: 1000 }, { food: 'Olive oil', grams: 100 }] }], /over the day's 1500/);
+  assert.equal(checkPlan(plan(good.days[0].meals.map((m) => ({ time: m.time, items: m.items.map((x) => ({ food: x.food, grams: x.grams })) })), 'Eat 300 g of chicken'), facts).note, '', 'a number in the AI\'s words is dropped: every number shown is the app\'s');
+  const { readFileSync } = await import('node:fs');
+  const fn = readFileSync('../supabase/functions/coach/index.ts', 'utf8');
+  for (const rule of [/Use only foods from facts\.foods, by their exact name/, /Never go under facts\.floorKcal: a hard day to pay back an earlier one is not allowed/, /with no numbers in it/, /Never judge meal times or fasting/]) assert.match(fn, rule);
+  assert.match(readFileSync('src/lib/components/CoachPlan.svelte', 'utf8'), /\{#if \$coachOn && dayKcal && days\.length\}/, 'only for people who turned the coach on');
+  assert.match(readFileSync('static/privacy.html', 'utf8'), /When you ask it to plan your next days/);
+});
+
 check('personas read the same as last time, or the change was meant', async () => {
   // 2026-10-30, the owner: a running baseline. Made-up people, each from
   // something that broke for a real one, through the pure layers; what they

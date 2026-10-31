@@ -301,6 +301,7 @@ the coach brain is safe: nothing harmful gets through, whatever the AI was told 
 the coach brain sees only the app's own numbers, and nothing it writes goes out unchecked
 the coach never assumes the user is cutting
 the coach never judges protein by the clock: the log can’t say when food was eaten
+the coach plans the next days inside the floor, and the app does every sum
 the confirmation names real numbers, not "done"
 the day-one plan is wired into the hero, only before a trend and until its steps are done
 the declared brand wins over the heuristic
