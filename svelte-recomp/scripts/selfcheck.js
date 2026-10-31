@@ -5016,6 +5016,22 @@ check('the coach’s plan is kept, and its meals are ticked as they are logged',
   assert.match(readFileSync('src/lib/stores/coachPlan.ts', 'utf8'), /'recompos\.coachPlan'/, 'under the app’s own storage prefix');
 });
 
+check('the icon is one drawing everywhere: the S is an outline, and the iPhone icon is opaque', async () => {
+  // 2026-10-31: the coin turned on its edge read as an egg once small; the
+  // owner chose the face-on coin with an S. scripts/icons.mjs draws every size.
+  const { readFileSync } = await import('node:fs');
+  const gen = readFileSync('scripts/icons.mjs', 'utf8');
+  const svgIcon = readFileSync('static/icon.svg', 'utf8');
+  assert.doesNotMatch(svgIcon, /<text/, 'no font in an icon: the S is a path');
+  assert.ok(svgIcon.includes(gen.match(/const S = '([^']+)'/)[1]), 'the web icon carries the drawing’s S');
+  const drawable = readFileSync('android/app/src/main/res/drawable/ic_stat_moderly.xml', 'utf8');
+  assert.ok(drawable.includes(gen.match(/const S24 = '([^']+)'/)[1]), 'the notification icon carries the same S');
+  assert.doesNotMatch(drawable, /a7\.02,7\.83/, 'not the turned coin');
+  const colourType = (f) => readFileSync(f)[25];
+  assert.equal(colourType('ios/App/App/Assets.xcassets/AppIcon.appiconset/AppIcon-512@2x.png'), 2, 'RGB: the App Store refuses an icon with an alpha channel');
+  assert.equal(colourType('store/play-icon-512.png'), 2, 'the Play icon is opaque too');
+});
+
 // Nothing may be reported until the async checks have actually settled.
 await Promise.all(pending);
 

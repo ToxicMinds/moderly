@@ -318,6 +318,7 @@ the forecast reads Open-Meteo by day, and only daytime rain counts
 the goal date reads as a date a human would say
 the hero reads the trend, the distance to the next stop, and a pace that is never red
 the iPhone app reads Apple Health weigh-ins by the same one-a-day rules
+the icon is one drawing everywhere: the S is an outline, and the iPhone icon is opaque
 the letter from last month tells the month back, in the user’s words
 the line follows a held low down, a kilo above it, and never back up
 the line is judged on the trend, and a low that doesn’t hold a week can’t move it
