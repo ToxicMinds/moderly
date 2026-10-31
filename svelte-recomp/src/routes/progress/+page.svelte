@@ -5,7 +5,13 @@
   // logged sets, body-fat measurements, food. None of it needed new input; it just
   // had nowhere to be read together. See $lib/recomp.ts for the reasoning.
   import { liveWeights, liveWorkoutLogs, liveTracks, liveFoodLogs, liveGoal, liveActivitySessions } from '$lib/stores/live';
-  import { body, stall, fitness } from '$lib/stores/body';
+  import { body, stall, fitness, line } from '$lib/stores/body';
+  import { editing } from '$lib/commitments';
+  import { cleanPlans } from '$lib/plans';
+  import { upsertRecord } from '$lib/stores/sync';
+  import { userId } from '$lib/stores/user';
+  import Commitments from '$lib/components/Commitments.svelte';
+  import WeightInput from '$lib/components/WeightInput.svelte';
   import { strengthTrend } from '$lib/strength';
   import { recompVerdict, verdictTone, leanMass, fatMass, type BodyFatPoint } from '$lib/recomp';
   import { liveProfile } from '$lib/stores/live';
@@ -13,7 +19,7 @@
   import { shiftYmd } from '$lib/date';
   import { proteinByTrainingDay, watchAgreement } from '$lib/insights';
   import MiniChart from '$lib/components/MiniChart.svelte';
-  import { changeWord, dwt, dwtNum, toUnit, unitWord, weightUnit, wtNum, wtShort } from '$lib/units';
+  import { changeWord, dwt, dwtNum, toUnit, unitWord, weightUnit, wt, wtNum, wtShort, wtShortU } from '$lib/units';
   import WeeklyReview from '$lib/components/WeeklyReview.svelte';
   import BodyGoals from '$lib/components/BodyGoals.svelte';
   import ProgressPhotos from '$lib/components/ProgressPhotos.svelte';
@@ -32,10 +38,13 @@
   let showBodyGoals = $state(false);
   let showMore = $state(false);
   async function openBodyGoalsFromHash() {
-    if (typeof location === 'undefined' || location.hash !== '#body-goals') return;
-    showBodyGoals = true;
+    if (typeof location === 'undefined') return;
+    // #goal: the goal moment's "aim a little lower" lands on the goal, open.
+    if (location.hash === '#goal') { editingGoal = true; goalEditKg = null; }
+    else if (location.hash === '#body-goals') showBodyGoals = true;
+    else return;
     await tick();
-    document.getElementById('body-goals')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    document.getElementById(location.hash.slice(1))?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
   onMount(openBodyGoalsFromHash);
   afterNavigate(openBodyGoalsFromHash);
@@ -49,6 +58,19 @@
 
   const _profile = liveProfile();
   const goalKg = $derived($_goal ?? null);
+
+  // Goals and plans (from Today, 2026-10-31): the goal edits in place; the
+  // next stop, the ceiling and the plans open their editors (Commitments).
+  let editingGoal = $state(false);
+  let goalEditKg = $state<number | null>(null);
+  async function saveGoal() {
+    if (!$userId || goalEditKg == null) { editingGoal = false; return; }
+    try {
+      await upsertRecord('user_settings', { user_id: $userId, goal_kg: goalEditKg, updated_at: new Date().toISOString() });
+      editingGoal = false;
+    } catch (e) { console.error('Goal save failed:', e); }
+  }
+  const planCount = $derived(Object.keys(cleanPlans(($_profile as any)?.plans)).length);
 
   const weightPoints = $derived(
     ($_weights as any[]).map((w) => ({ date: w.date, weight: w.weight }))
@@ -462,6 +484,23 @@
   {/if}
 {/if}
 
+<!-- What you've committed to: the next stop below you, the goal past it, the
+     ceiling above you that you don't go back over, and what you'll do when the
+     hard moments come. Goals are about getting there, so they live here. -->
+<h2 class="sec-hd" id="goal" style="scroll-margin-top:12px">Goals and plans</h2>
+<div class="cm-row">
+  <button class="cm-chip" onclick={() => editing.set('next')}><span>Next stop</span><b class:cm-todo={!$body.next}>{$body.next ? `${wtShortU($body.next.kg)}${$body.next.reached ? ' ✓' : ''}` : 'Set'}</b></button>
+  {#if editingGoal}
+    <!-- svelte-ignore a11y_autofocus -->
+    <WeightInput class="cm-goal-in" bind:kg={goalEditKg} label="Goal weight" onenter={saveGoal} onblur={saveGoal} autofocus />
+  {:else}
+    <button class="cm-chip" onclick={() => { editingGoal = true; goalEditKg = goalKg; }}><span>Goal</span><b class:cm-todo={goalKg == null}>{goalKg != null ? wtShortU(goalKg) : 'Set'}</b></button>
+  {/if}
+  <button class="cm-chip" onclick={() => editing.set('line')}><span>Ceiling</span><b class:cm-todo={!$line || $line.misdrawn}>{$line && !$line.misdrawn ? wt($line.kg) : 'Set'}</b></button>
+  <button class="cm-chip" onclick={() => editing.set('plans')}><span>Plans</span><b class:cm-todo={!planCount}>{planCount || 'Make'}</b></button>
+</div>
+<Commitments />
+
 <div class="card" id="body-goals" style="margin-top:14px;scroll-margin-top:12px">
   <div class="flex jb ac" style="cursor:pointer" onclick={() => showBodyGoals = !showBodyGoals} role="button" tabindex="0" onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); showBodyGoals = !showBodyGoals; } }}>
     <div class="card-lbl" style="margin-bottom:0">Body &amp; Goals</div>
@@ -479,6 +518,15 @@
   .fit-signs li.good::before{content:'↑';color:var(--led-good)}
   .fit-signs li.bad::before{content:'↓';color:var(--led-warn)}
   .sec-hd{font-family:var(--font-display);font-size:1.375rem;font-weight:700;line-height:1.1;color:var(--text);margin:26px 2px 10px}
+  .cm-row{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:2px 0 14px}
+  .cm-chip{display:flex;flex-direction:column;align-items:flex-start;gap:3px;min-width:0;cursor:pointer;font-family:inherit;color:inherit;
+    background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-md);padding:9px 11px;text-align:left;
+    transition:transform .18s var(--ease),border-color .15s}
+  .cm-chip:active{transform:scale(.97)}
+  .cm-chip span{font-family:var(--font-label);font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+  .cm-chip b{font-family:var(--font-display);font-size:1.25rem;font-weight:700;line-height:1;color:var(--text);white-space:nowrap}
+  .cm-chip b.cm-todo{color:var(--muted);text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--border2)}
+  :global(.cm-goal-in){text-align:center;min-width:0}
   .trust-more{margin-top:8px}
   .trust-more summary{cursor:pointer;font-size:0.8125rem;font-weight:700;color:var(--amber);list-style:none}
   .trust-more summary::-webkit-details-marker{display:none}

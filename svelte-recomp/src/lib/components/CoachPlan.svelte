@@ -12,6 +12,7 @@
   import { CUT_FLOOR } from '$lib/tdee';
   import { shiftYmd } from '$lib/date';
   import { planFoods, usualFoods, planDayKcal, checkPlan, type CheckedPlan } from '$lib/mealPlan';
+  import { coachPlan } from '$lib/stores/coachPlan';
 
   const _logs = liveFoodLogs();
   const today = $derived($todayDate as string);
@@ -29,21 +30,28 @@
 
   let busy = $state(false);
   let err = $state('');
-  let plan = $state<CheckedPlan | null>(null);
+  // The plan is kept (stores/coachPlan), so Today can follow it and it's
+  // still here after a reload; days already past drop off.
+  const plan = $derived.by(() => {
+    const days = $coachPlan?.days.filter((d) => d.date >= today) ?? [];
+    return $coachPlan && days.length ? { ...$coachPlan, days } : null;
+  });
 
   async function ask() {
     if (!dayKcal) return;
-    busy = true; err = ''; plan = null;
+    busy = true; err = '';
+    let got: CheckedPlan | null = null;
     const foods = planFoods(usualFoods(($_logs as any[]) ?? [], shiftYmd(-28, noon(today))));
     const facts: Record<string, unknown> = { days, dayKcal, floorKcal: floor, proteinTargetG: $body.proteinTargetG, foods, notes: $coachNotes ?? '' };
-    for (let attempt = 0; attempt < 2 && !plan && !err; attempt++) {
+    for (let attempt = 0; attempt < 2 && !got && !err; attempt++) {
       const { data, error } = await supabase.functions.invoke('coach', { body: { mode: 'plan', facts }, timeout: 55_000 });
       if (error || data?.error) { err = data?.error ?? 'Your coach couldn’t be reached. Try again in a minute.'; break; }
       const checked = checkPlan(data?.reply, { days, dayKcal, floorKcal: floor, proteinTargetG: $body.proteinTargetG, foods });
-      if (checked.ok) plan = checked;
+      if (checked.ok) got = checked;
       else facts.problem = checked.why;
     }
-    if (!plan && !err) err = 'Your coach couldn’t fit a plan inside your floor and protein this time. Try again in a minute.';
+    if (got) coachPlan.set(got);
+    else if (!err) err = 'Your coach couldn’t fit a plan inside your floor and protein this time. Try again in a minute.';
     busy = false;
   }
 

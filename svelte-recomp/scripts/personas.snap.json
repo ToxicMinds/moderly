@@ -109,5 +109,18 @@
       "",
       "Keeping muscle: protein averaged 95 g a day over the last two weeks (their target 130 g); trained 3 days in the last four weeks, as in the four before."
     ]
+  },
+  "a newcomer on their seventh morning": {
+    "trend": {
+      "state": "answerable",
+      "trendKg": 87.1
+    },
+    "meaning": "Almost certainly coming off. Not so slim.",
+    "mornings": {
+      "weighed": 3,
+      "days": 3
+    },
+    "kind": null,
+    "lesson": "Your first odds"
   }
 }

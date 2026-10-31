@@ -72,6 +72,15 @@ export interface PlanMeal { time: string; kcal: number; protein: number; items: 
 export interface PlanDay { date: string; kcal: number; protein: number; meals: PlanMeal[] }
 export interface CheckedPlan { ok: boolean; why: string | null; days: PlanDay[]; note: string }
 
+/** Today's meals from the coach's plan, each ticked once all its foods are in
+ *  today's log (by name, as the plan was made from the log's own names). */
+export function todaysMeals(plan: CheckedPlan | null, today: string, logged: string[]): Array<PlanMeal & { done: boolean }> | null {
+  const day = plan?.days.find((d) => d.date === today);
+  if (!day) return null;
+  const have = new Set(logged.map((n) => n.trim().toLowerCase()));
+  return day.meals.map((m) => ({ ...m, done: m.items.every((x) => have.has(x.food.toLowerCase())) }));
+}
+
 /** Recompute the AI's plan from the table and accept it only inside the rules. */
 export function checkPlan(reply: PlanReply | null | undefined, f: { days: string[]; dayKcal: number; floorKcal: number; proteinTargetG: number; foods: PlanFood[] }): CheckedPlan {
   const fail = (why: string): CheckedPlan => ({ ok: false, why, days: [], note: '' });

@@ -9,6 +9,7 @@ BMR falls with age and rises with mass
 Back Rebuild looks after the neck as well as the lower back
 CI fails loudly rather than shipping an unsignable APK
 Epley e1RM levels different rep ranges
+Food, Train and Progress open on the same scoreboard hero; Today on the weigh-in
 Friday is the stronger signal: the weekend named, the plan, the reason, and the same line every week
 HRV below personal baseline lowers readiness
 Katch-McArdle: a body-fat % switches BMR to lean mass
@@ -17,6 +18,7 @@ Mifflin-St Jeor matches the published formula
 OFF products keep kJ-only energy and names in any language
 RPE prefers real heart rate over the activity-type guess
 Samsung is recognised — the gap that broke the old regex
+Today shows one next thing at a time, and today’s plan
 Today stays calm: one card for the day, no cards that said a little each
 Today’s Focus is one voice, and silent on a good day
 a Capacitor plugin proxy is never returned from an async function
@@ -45,6 +47,8 @@ a gym week recorded only on the watch counts as training in the weekly review
 a hand-logged badminton session depletes the same muscles as a watch one
 a held weight is stated as held, not as a zero
 a high morning is explained from the person’s own data, and only from it
+a kind word is earned by what people do, never by what the scale does
+a lesson comes on the day it is needed, once
 a lift trained in only one window is not comparable
 a log that leaves food out still steers: the target is in its own units
 a longer match costs more recovery than a short one
@@ -141,7 +145,6 @@ every notification wears the Slim Chance mark: the coin, in brass
 every program exercise but the walks comes with a video
 every quick-log activity is a real Health Connect exercise type
 every synced table names its conflict key in one map
-every tab opens on the same scoreboard hero
 every template produces a full, valid week
 every verdict carries evidence the user can check
 every video id is a well-formed YouTube id
@@ -303,12 +306,13 @@ the coach brain sees only the app's own numbers, and nothing it writes goes out 
 the coach never assumes the user is cutting
 the coach never judges protein by the clock: the log can’t say when food was eaten
 the coach plans the next days inside the floor, and the app does every sum
+the coach’s plan is kept, and its meals are ticked as they are logged
 the confirmation names real numbers, not "done"
-the day-one plan is wired into the hero, only before a trend and until its steps are done
 the declared brand wins over the heuristic
 the doctor report says what was recorded, and nothing the app concluded
 the evening hold on a weekday: a Stoic line first, then the evening plan and what’s left
 the export covers EVERY table the app syncs
+the first week shows one next step at a time, only before a trend
 the first-week checklist tracks what the user has actually done
 the forecast reads Open-Meteo by day, and only daytime rain counts
 the goal date reads as a date a human would say

@@ -16,6 +16,8 @@ import { trainedDates } from '../src/lib/health/exercise.ts';
 import { strengthTrend } from '../src/lib/strength.ts';
 import { morningsThisWeek } from '../src/lib/scale.ts';
 import { SITES, nextDose, sitesByRest, reportText } from '../src/lib/meds.ts';
+import { kindWord } from '../src/lib/kind.ts';
+import { lessonFor } from '../src/lib/lessons.ts';
 
 const TODAY = '2026-11-04'; // a Wednesday
 const asOf = Date.parse(`${TODAY}T12:00:00`);
@@ -72,6 +74,25 @@ function strangerMorningTwo() {
   };
 }
 
+/** 2026-10-31: what Today says on a newcomer's seventh morning, the moment
+ *  the first week is built for: the odds (or how many mornings to go), a kind
+ *  word only if earned, and the lesson of the day. */
+function newcomerDaySeven() {
+  seed = 3;
+  const weights = [];
+  for (let k = 6; k >= 0; k--) weights.push({ date: day(k), weight: +(88.0 - (6 - k) * 0.15 + wobble() * 0.8).toFixed(1) });
+  const w = weightVerdict(weights, asOf);
+  const p = pulse({ weight: w, pace: paceVsPlan(w, 0.5), firstKg: weights[0].weight, goalKg: 78, next: null, planKgPerWeek: 0.5 });
+  const mornings = morningsThisWeek(weights, TODAY);
+  return {
+    trend: { state: w.state, trendKg: w.trendKg },
+    meaning: p.odds?.text ?? (w.state === 'not-enough' ? p.story : null),
+    mornings,
+    kind: kindWord(weights.map((x) => x.date), TODAY, mornings),
+    lesson: lessonFor({ today: TODAY, firstWeighIn: weights[0].date, odds: p.odds != null, stalled: false, seen: new Set() })?.title ?? null,
+  };
+}
+
 /** The GLP-1 companion (2026-10-30): a weekly dose stepped up once, a few
  *  feelings, one blood test, and the report a doctor would read. */
 function glp1User() {
@@ -99,6 +120,7 @@ export function runPersonas() {
     'a watch-only gym-goer': watchGymGoer(),
     'a stranger on morning two': strangerMorningTwo(),
     'a GLP-1 user': glp1User(),
+    'a newcomer on their seventh morning': newcomerDaySeven(),
   };
 }
 

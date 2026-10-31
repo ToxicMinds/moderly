@@ -338,11 +338,13 @@ check('the goal date reads as a date a human would say', () => {
   assert.equal(goalDateLabel('2027-01-09'), '9 Jan 2027', 'a different year has to say so');
 });
 
-check('the day-one plan is wired into the hero, only before a trend and until its steps are done', async () => {
+check('the first week shows one next step at a time, only before a trend', async () => {
+  // Until 2026-10-31 the steps were a checklist in Today's hero; now the one
+  // slot shows the first one not done (the scale has the card above it).
   const { readFileSync } = await import('node:fs');
-  const src = readFileSync('src/lib/components/TodayPulse.svelte', 'utf8');
-  assert.match(src, /showPlan = \$derived\(plan != null && \$body\.weight\?\.trendKg == null && plan\.stepsDone < plan\.steps\.length\)/,
-    'a trend always wins, and four ticked steps are not a number worth leading with ("what does that 4 mean?")');
+  const src = readFileSync('src/routes/+page.svelte', 'utf8');
+  assert.match(src, /const step = \$derived\(plan != null && \$body\.weight\?\.trendKg == null \? plan\.steps\.find\(\(s\) => !s\.done && s\.key !== 'weigh'\) \?\? null : null\)/,
+    'a trend always wins, and only one step at a time');
 });
 
 // --- Logging food has to be cheap ------------------------------------------
@@ -1218,7 +1220,7 @@ check('one definition of "trained today", and the watch counts', async () => {
   }
   assert.match(readFileSync('src/routes/+layout.svelte', 'utf8'), /workoutLoggedToday: trainedDates\(/);
   assert.match(readFileSync('src/routes/+layout.svelte', 'utf8'), /watchTrains: \(\(\$_nudgeActivity as any\[\]\) \|\| \[\]\)\.some\(\(a\) => a\.source === 'watch'/);
-  assert.match(readFileSync('src/routes/+page.svelte', 'utf8'), /workoutDoneToday: trainedToday/);
+  assert.match(readFileSync('src/routes/+page.svelte', 'utf8'), /\{#if trainedToday\}/, 'Today ticks the session done by the one definition');
   // The weekly review and the Sunday check-in counted typed sets only (2026-10-30).
   assert.match(readFileSync('src/lib/components/WeekCheckIn.svelte', 'utf8'), /const sessions = \[\.\.\.\$reviewInputs\.trained\]/);
 });
@@ -3609,7 +3611,7 @@ check('a ceiling set below the trend is caught as a target, not shown as 8 kg ov
 
 check('the ceiling and the next stop are named for their direction everywhere the user reads', async () => {
   const { readFileSync } = await import('node:fs');
-  const ui = ['src/routes/+page.svelte', 'src/lib/components/Commitments.svelte', 'src/lib/components/CommitmentAlerts.svelte', 'src/lib/plans.ts']
+  const ui = ['src/routes/+page.svelte', 'src/routes/progress/+page.svelte', 'src/lib/components/Commitments.svelte', 'src/lib/components/CommitmentAlerts.svelte', 'src/lib/plans.ts']
     .map((f) => readFileSync(f, 'utf8')).join('\n');
   assert.doesNotMatch(ui, /Over your line|Draw my line|Your line<|>Line</, '"line" read as a finish line once — it is a ceiling');
   assert.match(ui, /Your ceiling/);
@@ -3743,10 +3745,13 @@ check('live stores never leak a subscription per call', async () => {
 
 console.log('\ndesign — one hero, one vocabulary, both themes');
 
-check('every tab opens on the same scoreboard hero', async () => {
+check('Food, Train and Progress open on the same scoreboard hero; Today on the weigh-in', async () => {
   const { readFileSync, existsSync } = await import('node:fs');
   assert.match(readFileSync('src/lib/components/PageHero.svelte', 'utf8'), /<Readout /);
-  assert.match(readFileSync('src/lib/components/TodayPulse.svelte', 'utf8'), /<PageHero /, 'Today is a PageHero too, not a copy of one');
+  for (const page of ['recipes', 'workouts', 'progress']) {
+    assert.match(readFileSync(`src/routes/${page}/+page.svelte`, 'utf8'), /<PageHero /, `${page} uses the PageHero, not a copy of one`);
+  }
+  assert.doesNotMatch(readFileSync('src/routes/+page.svelte', 'utf8'), /<PageHero /, 'Today says each number once: the scoreboard is on Progress (2026-10-31)');
   assert.ok(!existsSync('src/lib/components/PulseOrb.svelte'));
 });
 
@@ -4593,7 +4598,7 @@ check('morning two reads the scale for a stranger, and one morning can\'t move t
   const { readFileSync } = await import('node:fs');
   assert.match(readFileSync('src/lib/stores/body.ts', 'utf8'), /const currentKg = weight\?\.trendKg \?\? weight\?\.meanKg \?\? weight\?\.latestKg/);
   assert.match(readFileSync('src/lib/stores/dayOne.ts', 'utf8'), /currentWeightKg: \$body\.currentKg,/, 'day one asks the one current weight');
-  assert.match(readFileSync('src/lib/components/TodayPulse.svelte', 'utf8'), /story=\{`\$\{p\.story\} \$\{plan!\.headline\}`\}/, 'the first week leads with the mornings to the first odds');
+  assert.match(readFileSync('src/routes/+page.svelte', 'utf8'), /const meaning = \$derived\(p\.odds\?\.text \?\? \(\$body\.weight\?\.state === 'not-enough' \? p\.story : null\)\)/, 'the first week leads with the mornings to the first odds');
   assert.match(readFileSync('src/routes/+page.svelte', 'utf8'), /\{#if currentKg != null && \$body\.weight\?\.trendKg != null\}\{' · '\}trend /, '"trend" only once there is one');
   const base = { today: '2026-10-30', kg: 93.0, prev: { date: '2026-10-29', kg: 92.4 }, trendKg: null, trendPrevKg: null,
     scatterKg: 0, intake: new Map(), weekdayOffsets: null, trained: new Set() };
@@ -4941,6 +4946,74 @@ check('a day with nothing logged is neither room nor debt in the week’s budget
   assert.equal(wed.before, 1500 + 1645, 'Monday as logged, Tuesday at the target');
   assert.equal(wed.share, Math.round((1645 * 7 - 1500 - 1645) / 5));
   assert.equal(wed.logged, 1500, 'what was logged stays what was logged');
+});
+
+// --- Today, one question: what do I do today? (2026-10-31) -----------------
+
+check('a kind word is earned by what people do, never by what the scale does', async () => {
+  // The owner, 2026-10-31: "rewards (in the sense of a kind word or
+  // motivation) is not a bad thing". It's worked out from the mornings weighed
+  // only, so it can't know which way the number went, and most days it says
+  // nothing: words that come every time stop meaning anything.
+  const { kindWord } = await import('../src/lib/kind.ts');
+  const wk = (weighed, days) => ({ weighed, days });
+  assert.match(kindWord(['2026-11-04'], '2026-11-04', wk(1, 3)), /first morning/i, 'the first morning');
+  assert.equal(kindWord(['2026-11-03'], '2026-11-04', wk(1, 3)), null, 'nothing before today’s weigh-in');
+  assert.match(kindWord(['2026-10-28', '2026-11-04'], '2026-11-04', wk(1, 3)), /back/i, 'coming back after a gap gets the warmest word');
+  assert.equal(kindWord(['2026-11-01', '2026-11-04'], '2026-11-04', wk(2, 3)), null, 'two missed mornings are not a gap');
+  const five = ['2026-11-02', '2026-11-03', '2026-11-04', '2026-11-05', '2026-11-06'];
+  assert.match(kindWord(five, '2026-11-06', wk(5, 5)), /five mornings/i, 'the fifth morning of a week');
+  assert.equal(kindWord([...five, '2026-11-07'], '2026-11-07', wk(6, 6)), null, 'once a week, not every morning after');
+  const { readFileSync } = await import('node:fs');
+  // Code only: comments and the words it says may talk about the trend.
+  const code = readFileSync('src/lib/kind.ts', 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '').replace(/'[^'\n]*'/g, "''");
+  assert.doesNotMatch(code, /kg|weight|trend/i, 'it never sees the scale');
+});
+
+check('a lesson comes on the day it is needed, once', async () => {
+  const { lessonFor } = await import('../src/lib/lessons.ts');
+  const week = { today: '2026-11-04', firstWeighIn: '2026-10-28', odds: true, stalled: false, seen: new Set() };
+  assert.equal(lessonFor(week)?.id, 'first-odds', 'a week in, the first odds explained');
+  assert.equal(lessonFor({ ...week, seen: new Set(['first-odds']) }), null, 'once');
+  assert.equal(lessonFor({ ...week, firstWeighIn: '2026-08-01' }), null, 'not for someone who has had odds for months');
+  assert.equal(lessonFor({ ...week, odds: false }), null, 'not before there are odds');
+  const flat = { ...week, firstWeighIn: '2026-08-01', stalled: true };
+  assert.equal(lessonFor(flat)?.id, 'first-stall', 'the first stall');
+  assert.equal(lessonFor(flat)?.href, '/progress', 'explained where it is diagnosed');
+  assert.equal(lessonFor({ ...flat, seen: new Set(['first-stall']) }), null);
+  assert.doesNotMatch(JSON.stringify([lessonFor(week), lessonFor(flat)]), /log (more|every|everything)|more complete/i, 'never "log more"');
+});
+
+check('Today shows one next thing at a time, and today’s plan', async () => {
+  // The owner, 2026-10-31: "if you are planning my food then i want it on the
+  // today page". The design review: the hero, the greeting, the focus list,
+  // "Fitter?" and the goal chips leave; eight cards share one slot.
+  const { readFileSync, existsSync } = await import('node:fs');
+  const today = readFileSync('src/routes/+page.svelte', 'utf8');
+  for (const gone of ['<TodayPulse', '<DailyFocus', 'greeting', 'Fitter?', 'cm-chip']) assert.ok(!today.includes(gone), `${gone} is back on Today`);
+  assert.ok(!existsSync('src/lib/components/TodayPulse.svelte') && !existsSync('src/lib/components/DailyFocus.svelte'), 'no unused copies left behind');
+  const slot = today.match(/<div class="next">([\s\S]*?)<\/div>\s*<!-- \/next -->/)?.[1] ?? '';
+  for (const card of ['$scaleUp', 'calendarTime', '<WeekCheckIn', '<GoalMoment', '<MilestoneMoment', '<MonthLetter', 'askToSave', '<CommitmentAlerts', '<CoachNoticed', 'step', 'lesson']) {
+    assert.ok(slot.includes(card), `${card} waits its turn in the one slot`);
+  }
+  assert.match(today, /\.next > :global\(:not\(:first-child\)\)\{display:none\}/, 'only the first card in the slot shows');
+  assert.match(today, /todaysMeals\(\$coachPlan, today, /, 'today’s meals come from the coach’s plan');
+  const progress = readFileSync('src/routes/progress/+page.svelte', 'utf8');
+  for (const moved of ['cm-chip', '<Commitments />']) assert.ok(progress.includes(moved), `${moved} moved to Progress`);
+});
+
+check('the coach’s plan is kept, and its meals are ticked as they are logged', async () => {
+  const { todaysMeals } = await import('../src/lib/mealPlan.ts');
+  const item = (food, grams) => ({ food, grams, kcal: 0, protein: 0 });
+  const plan = { ok: true, why: null, note: '', days: [{ date: '2026-11-04', kcal: 1500, protein: 170, meals: [
+    { time: '15:00', kcal: 700, protein: 80, items: [item('Chicken breast', 250), item('Rice', 150)] },
+    { time: '21:00', kcal: 800, protein: 90, items: [item('Tvaroh', 500)] }] }] };
+  assert.deepEqual(todaysMeals(plan, '2026-11-04', ['chicken breast', ' Rice'])?.map((m) => m.done), [true, false], 'a meal is ticked once its foods are logged');
+  assert.equal(todaysMeals(plan, '2026-11-05', []), null, 'another day has no meals here');
+  assert.equal(todaysMeals(null, '2026-11-04', []), null);
+  const { readFileSync } = await import('node:fs');
+  assert.match(readFileSync('src/lib/components/CoachPlan.svelte', 'utf8'), /coachPlan\.set\(/, 'Food keeps the plan it made');
+  assert.match(readFileSync('src/lib/stores/coachPlan.ts', 'utf8'), /'recompos\.coachPlan'/, 'under the app’s own storage prefix');
 });
 
 // Nothing may be reported until the async checks have actually settled.
