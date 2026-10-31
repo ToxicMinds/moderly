@@ -4,6 +4,7 @@
 // compares; after a change that was meant: node scripts/personas.mjs --update,
 // and the snapshot's diff goes into the commit. A fixed day and a seeded
 // wobble keep every run the same.
+import './clock.mjs';
 import { writeFileSync } from 'node:fs';
 import { weightVerdict, paceVsPlan } from '../src/lib/insights.ts';
 import { pulse } from '../src/lib/pulse.ts';

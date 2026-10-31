@@ -12,6 +12,7 @@
 // (22.18+), so no build step, no test runner and no transform is needed to
 // exercise pure logic. Requires Node 22.18 or newer.
 
+import './clock.mjs';
 import assert from 'node:assert/strict';
 
 let failures = 0;
@@ -5030,6 +5031,11 @@ check('the icon is one drawing everywhere: the S is an outline, and the iPhone i
   const colourType = (f) => readFileSync(f)[25];
   assert.equal(colourType('ios/App/App/Assets.xcassets/AppIcon.appiconset/AppIcon-512@2x.png'), 2, 'RGB: the App Store refuses an icon with an alpha channel');
   assert.equal(colourType('store/play-icon-512.png'), 2, 'the Play icon is opaque too');
+});
+
+check('the suite runs on one clock, so GitHub and the laptop agree', () => {
+  // 2026-10-31: Verify failed on GitHub for a day while it passed here.
+  assert.equal(Intl.DateTimeFormat().resolvedOptions().timeZone, 'Europe/Bratislava');
 });
 
 // Nothing may be reported until the async checks have actually settled.
