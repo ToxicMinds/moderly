@@ -14,7 +14,8 @@ export interface WeekBudget {
   budget: number;
   /** Logged Monday..today. */
   logged: number;
-  /** Logged Monday..yesterday — what today's share is worked out from. */
+  /** Monday..yesterday as eaten: what was logged, and the target for a day
+   *  with nothing logged. What today's share is worked out from. */
   before: number;
   /** Days left including today. */
   daysLeft: number;
@@ -26,13 +27,17 @@ export function weekBudget(target: number | null, intake: Map<string, { kcal: nu
   if (target == null || target <= 0) return null;
   const at = new Date(`${today}T12:00:00`);
   const start = mondayOf(at);
-  let logged = 0, before = 0;
+  let logged = 0, before = 0, daysLogged = 0;
   for (const [d, v] of intake) {
     if (d < start || d > today) continue;
     logged += v.kcal;
-    if (d < today) before += v.kcal;
+    if (d < today) { before += v.kcal; daysLogged++; }
   }
   const daysLeft = 7 - ((at.getDay() + 6) % 7);
+  // A day with nothing logged is unknown, not a day without food: it counts
+  // at the target, neither room nor debt. Counted as zero, a week of weigh-ins
+  // and no food log read "0 of 5,719 kcal" on a Saturday (2026-10-31).
+  before += target * (7 - daysLeft - daysLogged);
   const budget = target * 7;
   return { start, budget, logged: Math.round(logged), before: Math.round(before), daysLeft, share: Math.round((budget - before) / daysLeft) };
 }

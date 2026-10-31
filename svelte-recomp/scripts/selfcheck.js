@@ -3445,7 +3445,8 @@ check('the week is the budget: today’s share is what’s left, spread evenly',
   const { weekBudget } = await import('../src/lib/week.ts');
   const intake = new Map([['2026-10-12', { kcal: 1800 }], ['2026-10-16', { kcal: 3000 }], ['2026-10-17', { kcal: 900 }], ['2026-10-11', { kcal: 9999 }]]);
   const sat = weekBudget(1800, intake, '2026-10-17');
-  assert.deepEqual(sat, { start: '2026-10-12', budget: 12600, logged: 5700, before: 4800, daysLeft: 2, share: 3900 },
+  // Tuesday to Thursday logged nothing, so they count at the target (2026-10-31).
+  assert.deepEqual(sat, { start: '2026-10-12', budget: 12600, logged: 5700, before: 10200, daysLeft: 2, share: 1200 },
     'last Sunday is last week; Saturday splits what’s left with Sunday');
   assert.equal(weekBudget(1800, intake, '2026-10-12').daysLeft, 7, 'Monday has the whole week');
   assert.equal(weekBudget(1800, intake, '2026-10-18').daysLeft, 1, 'Sunday belongs to the week just ending');
@@ -4928,6 +4929,18 @@ check('a night the watch split in two is one night, and a nap stays a nap', asyn
 
   const { readFileSync } = await import('node:fs');
   assert.match(readFileSync('src/lib/health/healthConnect.ts', 'utf8'), /const nights = sleepNights\(sleeps,/, 'the sync counts nights, not sessions');
+});
+
+check('a day with nothing logged is neither room nor debt in the week’s budget', async () => {
+  // 2026-10-31: a stranger who started on a Saturday, and one who weighed in
+  // all week but logged no food, read "0 of 5,758 kcal": each day without a
+  // log counted as a day they ate nothing, and its room piled onto the weekend.
+  const { weekBudget } = await import('../src/lib/week.ts');
+  assert.equal(weekBudget(1645, new Map(), '2026-10-31').share, 1645, 'no log all week: today is a day at the target');
+  const wed = weekBudget(1645, new Map([['2026-10-26', { kcal: 1500 }]]), '2026-10-28');
+  assert.equal(wed.before, 1500 + 1645, 'Monday as logged, Tuesday at the target');
+  assert.equal(wed.share, Math.round((1645 * 7 - 1500 - 1645) / 5));
+  assert.equal(wed.logged, 1500, 'what was logged stays what was logged');
 });
 
 // Nothing may be reported until the async checks have actually settled.

@@ -22,7 +22,8 @@
   // Today counts only while nothing is logged for it yet.
   const startAt = $derived((($body.intake.get(today)?.kcal ?? 0) > 0) ? 1 : 0);
   const days = $derived(week ? Array.from({ length: Math.max(0, week.daysLeft - startAt) }, (_, i) => shiftYmd(i + startAt, noon(today))) : []);
-  const left = $derived(week ? Math.round(week.budget - week.logged) : 0);
+  // What's left, with any day that has nothing logged counted at the target.
+  const left = $derived(week ? Math.round(week.budget - week.before - ($body.intake.get(today)?.kcal ?? 0)) : 0);
   const dayKcal = $derived(target && days.length ? planDayKcal({ share: left / days.length, dayTarget: target, floorKcal: floor }) : null);
   const overBy = $derived(dayKcal != null ? Math.max(0, Math.round(dayKcal * days.length - left)) : 0);
 

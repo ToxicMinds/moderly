@@ -32,6 +32,7 @@ a column that only appears in a later row still gets a header
 a comma or a quote in a food name cannot corrupt the CSV
 a daily digest says what broke, in totals, and only new errors raise the alarm
 a day is stored on the device once: server-numbered rows are kept only as the server returned them
+a day with nothing logged is neither room nor debt in the week’s budget
 a day’s share of the week is worked out in one place
 a declared brand that is absent falls back instead of returning nothing
 a deload snaps to a real, rackable weight (rounds, not up)
